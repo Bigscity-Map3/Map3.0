@@ -16,19 +16,17 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         self.data_feature=data_feature
 
         self.evaluate_tasks=self.config.get('evaluate_tasks',[])
+        self.all_result=[]
 
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
-        self.data_path = './raw_data/' + self.dataset + '/'
-        self.geo_file = config.get('geo_file', self.dataset)
-        self.output_dim = config.get('output_dim', 32)
-        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'\
-            .format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.result_path = './libcity/cache/{}/evaluate_cache/result_{}_{}.json'\
+            .format(self.exp_id, self.model, self.dataset)
 
 
 
-    def get_downstream_model(self,task,represetations):
+    def get_downstream_model(self,task):
         """
         according the config['evaluator'] to create the evaluator
 
@@ -40,7 +38,7 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         """
         try:
             return getattr(importlib.import_module('libcity.evaluator.downstream_tasks'),
-                        task)(self.config,self.data_feature,represetations)
+                        task)(self.config,self.data_feature)
         except AttributeError:
             raise AttributeError('evaluate task is not found')
 
@@ -49,10 +47,18 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         pass
 
     def evaluate(self,representations,dataloader):
-        pass
+        for task in self.evaluate_tasks:
+            model = self.get_downstream_model(task)
+            result = model.run(representations,dataloader)
+            result={task:result}
+            self.all_result.update(result)
+        
+        self._logger.info('result {}'.format(self.all_result))
+        self.save_result()
 
-    def save_result(self, save_path, filename=None):
-        pass
+    def save_result(self, filename=None):
+        json.dump(self.all_result,open(self.result_path,'w'))
+        self._logger.info('result save in {}'.format(self.result_path))
 
     def clear(self):
         pass
