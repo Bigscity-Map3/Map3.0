@@ -1,0 +1,57 @@
+2023-01-10 09:24:03,131 - INFO - Log directory: ./libcity/log
+2023-01-10 09:24:03,132 - INFO - Begin pipeline, task=traffic_state_pred, model_name=AGCRN, dataset_name=NYCBike, exp_id=88042
+2023-01-10 09:24:03,132 - INFO - {'task': 'traffic_state_pred', 'model': 'AGCRN', 'dataset': 'NYCBike', 'saved_model': True, 'train': True, 'seed': 0, 'dataset_class': 'TrafficStateGridDataset', 'executor': 'TrafficStateExecutor', 'evaluator': 'TrafficStateEvaluator', 'embed_dim': 10, 'rnn_units': 64, 'num_layers': 2, 'cheb_order': 2, 'bidir_adj_mx': True, 'scaler': 'standard', 'load_external': False, 'normal_external': False, 'ext_scaler': 'none', 'add_time_in_day': False, 'add_day_in_week': False, 'max_epoch': 1, 'learner': 'adam', 'learning_rate': 0.003, 'lr_decay': False, 'clip_grad_norm': False, 'use_early_stop': True, 'patience': 50, 'batch_size': 32, 'cache_dataset': True, 'num_workers': 1, 'pad_with_last_sample': True, 'train_rate': 0.7, 'eval_rate': 0.1, 'input_window': 19, 'output_window': 1, 'use_row_column': True, 'gpu': True, 'gpu_id': 0, 'train_loss': 'none', 'epoch': 0, 'weight_decay': 0, 'lr_epsilon': 1e-08, 'lr_beta1': 0.9, 'lr_beta2': 0.999, 'lr_alpha': 0.99, 'lr_momentum': 0, 'lr_scheduler': 'multisteplr', 'lr_decay_ratio': 0.1, 'steps': [5, 20, 40, 70], 'step_size': 10, 'lr_T_max': 30, 'lr_eta_min': 0, 'lr_patience': 10, 'lr_threshold': 0.0001, 'max_grad_norm': 1.0, 'log_level': 'INFO', 'log_every': 1, 'load_best_epoch': True, 'hyper_tune': False, 'metrics': ['MAE', 'MAPE', 'MSE', 'RMSE', 'masked_MAE', 'masked_MAPE', 'masked_MSE', 'masked_RMSE', 'R2', 'EVAR'], 'evaluator_mode': 'single', 'save_mode': ['csv'], 'geo': {'including_types': ['Polygon'], 'Polygon': {'row_id': 'num', 'column_id': 'num'}}, 'grid': {'including_types': ['state'], 'state': {'row_id': 16, 'column_id': 8, 'new_flow': 'num', 'end_flow': 'num'}}, 'data_col': ['new_flow', 'end_flow'], 'data_files': ['NYCBIKE20140409'], 'geo_file': 'NYCBIKE20140409', 'output_dim': 2, 'time_intervals': 3600, 'init_weight_inf_or_zero': 'inf', 'set_weight_link_or_dist': 'dist', 'calculate_weight_adj': False, 'weight_adj_epsilon': 0.1, 'device': device(type='cuda', index=0), 'exp_id': 88042}
+2023-01-10 09:24:03,142 - INFO - Loaded file NYCBIKE20140409.geo, num_grids=128, grid_size=(16, 8)
+2023-01-10 09:24:03,143 - INFO - Generate grid rel file, shape=(128, 128)
+2023-01-10 09:24:03,143 - INFO - Loading ./libcity/cache/dataset_cache/grid_based_NYCBike_19_1_0.7_0.1_standard_32_False_False_False_True_True.npz
+2023-01-10 09:24:03,579 - INFO - train	x: (3061, 19, 16, 8, 2), y: (3061, 1, 16, 8, 2)
+2023-01-10 09:24:03,580 - INFO - eval	x: (437, 19, 16, 8, 2), y: (437, 1, 16, 8, 2)
+2023-01-10 09:24:03,580 - INFO - test	x: (875, 19, 16, 8, 2), y: (875, 1, 16, 8, 2)
+2023-01-10 09:24:03,664 - INFO - StandardScaler mean: 9.23899494542977, std: 18.095629608758927
+2023-01-10 09:24:03,665 - INFO - NoneScaler
+2023-01-10 09:24:08,795 - INFO - AGCRN(
+  (encoder): AVWDCRNN(
+    (dcrnn_cells): ModuleList(
+      (0): AGCRNCell(
+        (gate): AVWGCN()
+        (update): AVWGCN()
+      )
+      (1): AGCRNCell(
+        (gate): AVWGCN()
+        (update): AVWGCN()
+      )
+    )
+  )
+  (end_conv): Conv2d(1, 2, kernel_size=(1, 64), stride=(1, 1))
+)
+2023-01-10 09:24:08,797 - INFO - node_embeddings	torch.Size([128, 10])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.0.gate.weights_pool	torch.Size([10, 2, 66, 128])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.0.gate.bias_pool	torch.Size([10, 128])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.0.update.weights_pool	torch.Size([10, 2, 66, 64])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.0.update.bias_pool	torch.Size([10, 64])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.1.gate.weights_pool	torch.Size([10, 2, 128, 128])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.1.gate.bias_pool	torch.Size([10, 128])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.1.update.weights_pool	torch.Size([10, 2, 128, 64])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - encoder.dcrnn_cells.1.update.bias_pool	torch.Size([10, 64])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - end_conv.weight	torch.Size([2, 1, 1, 64])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - end_conv.bias	torch.Size([2])	cuda:0	True
+2023-01-10 09:24:08,797 - INFO - Total parameter numbers: 750210
+2023-01-10 09:24:08,797 - INFO - You select `adam` optimizer.
+2023-01-10 09:24:08,798 - WARNING - Received none train loss func and will use the loss func defined in the model.
+2023-01-10 09:24:08,798 - INFO - Start training ...
+2023-01-10 09:24:08,798 - INFO - num_batches:96
+2023-01-10 09:24:26,128 - INFO - epoch complete!
+2023-01-10 09:24:26,129 - INFO - 17.329426765441895
+2023-01-10 09:24:26,129 - INFO - evaluating now!
+2023-01-10 09:24:27,308 - INFO - Epoch [0/1] train_loss: 8.5458, val_loss: 5.9833, lr: 0.003000, 18.51s
+2023-01-10 09:24:27,325 - INFO - Saved model at 0
+2023-01-10 09:24:27,325 - INFO - Val loss decrease from inf to 5.9833, saving to ./libcity/cache/88042/model_cache/AGCRN_NYCBike_epoch0.tar
+2023-01-10 09:24:27,325 - INFO - Trained totally 1 epochs, average train time is 17.329s, average eval time is 1.179s
+2023-01-10 09:24:27,369 - INFO - Loaded model at 0
+2023-01-10 09:24:27,369 - INFO - Saved model at ./libcity/cache/88042/model_cache/AGCRN_NYCBike.m
+2023-01-10 09:24:27,384 - INFO - Start evaluating ...
+2023-01-10 09:24:29,728 - INFO - Note that you select the single mode to evaluate!
+2023-01-10 09:24:29,737 - INFO - Evaluate result is saved at ./libcity/cache/88042/evaluate_cache/2023_01_10_09_24_29_AGCRN_NYCBike.csv
+2023-01-10 09:24:29,754 - INFO - 
+        MAE  MAPE         MSE       RMSE  masked_MAE  masked_MAPE  masked_MSE  masked_RMSE        R2      EVAR
+1  6.726438   inf  100.384758  10.019219     6.02138     0.589446  115.622826    10.752806  0.740774  0.753119

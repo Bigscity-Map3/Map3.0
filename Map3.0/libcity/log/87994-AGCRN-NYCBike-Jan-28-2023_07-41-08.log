@@ -1,0 +1,159 @@
+2023-01-28 07:41:08,220 - INFO - Log directory: ./libcity/log
+2023-01-28 07:41:08,221 - INFO - Begin pipeline, task=traffic_state_pred, model_name=AGCRN, dataset_name=NYCBike, exp_id=87994
+2023-01-28 07:41:08,221 - INFO - {'task': 'traffic_state_pred', 'model': 'AGCRN', 'dataset': 'NYCBike', 'saved_model': True, 'train': True, 'seed': 0, 'dataset_class': 'TrafficStateGridDataset', 'executor': 'TrafficStateExecutor', 'evaluator': 'TrafficStateEvaluator', 'embed_dim': 10, 'rnn_units': 64, 'num_layers': 2, 'cheb_order': 2, 'bidir_adj_mx': True, 'scaler': 'standard', 'load_external': False, 'normal_external': False, 'ext_scaler': 'none', 'add_time_in_day': False, 'add_day_in_week': False, 'max_epoch': 20, 'learner': 'adam', 'learning_rate': 0.003, 'lr_decay': False, 'clip_grad_norm': False, 'use_early_stop': True, 'patience': 50, 'batch_size': 32, 'cache_dataset': True, 'num_workers': 1, 'pad_with_last_sample': True, 'train_rate': 0.7, 'eval_rate': 0.1, 'input_window': 19, 'output_window': 1, 'use_row_column': True, 'gpu': True, 'gpu_id': 0, 'train_loss': 'none', 'epoch': 0, 'weight_decay': 0, 'lr_epsilon': 1e-08, 'lr_beta1': 0.9, 'lr_beta2': 0.999, 'lr_alpha': 0.99, 'lr_momentum': 0, 'lr_scheduler': 'multisteplr', 'lr_decay_ratio': 0.1, 'steps': [5, 20, 40, 70], 'step_size': 10, 'lr_T_max': 30, 'lr_eta_min': 0, 'lr_patience': 10, 'lr_threshold': 0.0001, 'max_grad_norm': 1.0, 'log_level': 'INFO', 'log_every': 1, 'load_best_epoch': True, 'hyper_tune': False, 'metrics': ['MAE', 'MAPE', 'MSE', 'RMSE', 'masked_MAE', 'masked_MAPE', 'masked_MSE', 'masked_RMSE', 'R2', 'EVAR'], 'evaluator_mode': 'single', 'save_mode': ['csv'], 'geo': {'including_types': ['Polygon'], 'Polygon': {'row_id': 'num', 'column_id': 'num'}}, 'grid': {'including_types': ['state'], 'state': {'row_id': 16, 'column_id': 8, 'new_flow': 'num', 'end_flow': 'num'}}, 'data_col': ['new_flow', 'end_flow'], 'data_files': ['NYCBIKE20140409'], 'geo_file': 'NYCBIKE20140409', 'output_dim': 2, 'time_intervals': 3600, 'init_weight_inf_or_zero': 'inf', 'set_weight_link_or_dist': 'dist', 'calculate_weight_adj': False, 'weight_adj_epsilon': 0.1, 'device': device(type='cuda', index=0), 'exp_id': 87994}
+2023-01-28 07:41:08,230 - INFO - Loaded file NYCBIKE20140409.geo, num_grids=128, grid_size=(16, 8)
+2023-01-28 07:41:08,231 - INFO - Generate grid rel file, shape=(128, 128)
+2023-01-28 07:41:08,231 - INFO - Loading ./libcity/cache/dataset_cache/grid_based_NYCBike_19_1_0.7_0.1_standard_32_False_False_False_True_True.npz
+2023-01-28 07:41:08,651 - INFO - train	x: (3061, 19, 16, 8, 2), y: (3061, 1, 16, 8, 2)
+2023-01-28 07:41:08,652 - INFO - eval	x: (437, 19, 16, 8, 2), y: (437, 1, 16, 8, 2)
+2023-01-28 07:41:08,652 - INFO - test	x: (875, 19, 16, 8, 2), y: (875, 1, 16, 8, 2)
+2023-01-28 07:41:08,735 - INFO - StandardScaler mean: 9.23899494542977, std: 18.095629608758927
+2023-01-28 07:41:08,735 - INFO - NoneScaler
+2023-01-28 07:41:13,633 - INFO - AGCRN(
+  (encoder): AVWDCRNN(
+    (dcrnn_cells): ModuleList(
+      (0): AGCRNCell(
+        (gate): AVWGCN()
+        (update): AVWGCN()
+      )
+      (1): AGCRNCell(
+        (gate): AVWGCN()
+        (update): AVWGCN()
+      )
+    )
+  )
+  (end_conv): Conv2d(1, 2, kernel_size=(1, 64), stride=(1, 1))
+)
+2023-01-28 07:41:13,633 - INFO - node_embeddings	torch.Size([128, 10])	cuda:0	True
+2023-01-28 07:41:13,633 - INFO - encoder.dcrnn_cells.0.gate.weights_pool	torch.Size([10, 2, 66, 128])	cuda:0	True
+2023-01-28 07:41:13,633 - INFO - encoder.dcrnn_cells.0.gate.bias_pool	torch.Size([10, 128])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - encoder.dcrnn_cells.0.update.weights_pool	torch.Size([10, 2, 66, 64])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - encoder.dcrnn_cells.0.update.bias_pool	torch.Size([10, 64])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - encoder.dcrnn_cells.1.gate.weights_pool	torch.Size([10, 2, 128, 128])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - encoder.dcrnn_cells.1.gate.bias_pool	torch.Size([10, 128])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - encoder.dcrnn_cells.1.update.weights_pool	torch.Size([10, 2, 128, 64])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - encoder.dcrnn_cells.1.update.bias_pool	torch.Size([10, 64])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - end_conv.weight	torch.Size([2, 1, 1, 64])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - end_conv.bias	torch.Size([2])	cuda:0	True
+2023-01-28 07:41:13,634 - INFO - Total parameter numbers: 750210
+2023-01-28 07:41:13,634 - INFO - You select `adam` optimizer.
+2023-01-28 07:41:13,634 - WARNING - Received none train loss func and will use the loss func defined in the model.
+2023-01-28 07:41:13,634 - INFO - Start training ...
+2023-01-28 07:41:13,634 - INFO - num_batches:96
+2023-01-28 07:41:31,465 - INFO - epoch complete!
+2023-01-28 07:41:31,467 - INFO - 17.830114126205444
+2023-01-28 07:41:31,467 - INFO - evaluating now!
+2023-01-28 07:41:32,708 - INFO - Epoch [0/20] train_loss: 10.3182, val_loss: 7.8173, lr: 0.003000, 19.07s
+2023-01-28 07:41:32,725 - INFO - Saved model at 0
+2023-01-28 07:41:32,725 - INFO - Val loss decrease from inf to 7.8173, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch0.tar
+2023-01-28 07:41:50,649 - INFO - epoch complete!
+2023-01-28 07:41:50,649 - INFO - 17.922992944717407
+2023-01-28 07:41:50,649 - INFO - evaluating now!
+2023-01-28 07:41:51,911 - INFO - Epoch [1/20] train_loss: 7.2791, val_loss: 7.0690, lr: 0.003000, 19.19s
+2023-01-28 07:41:51,927 - INFO - Saved model at 1
+2023-01-28 07:41:51,927 - INFO - Val loss decrease from 7.8173 to 7.0690, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch1.tar
+2023-01-28 07:42:09,684 - INFO - epoch complete!
+2023-01-28 07:42:09,684 - INFO - 17.75642681121826
+2023-01-28 07:42:09,685 - INFO - evaluating now!
+2023-01-28 07:42:10,925 - INFO - Epoch [2/20] train_loss: 6.6079, val_loss: 6.4682, lr: 0.003000, 19.00s
+2023-01-28 07:42:10,941 - INFO - Saved model at 2
+2023-01-28 07:42:10,942 - INFO - Val loss decrease from 7.0690 to 6.4682, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch2.tar
+2023-01-28 07:42:28,743 - INFO - epoch complete!
+2023-01-28 07:42:28,744 - INFO - 17.801340579986572
+2023-01-28 07:42:28,744 - INFO - evaluating now!
+2023-01-28 07:42:29,999 - INFO - Epoch [3/20] train_loss: 6.1738, val_loss: 5.9863, lr: 0.003000, 19.06s
+2023-01-28 07:42:30,016 - INFO - Saved model at 3
+2023-01-28 07:42:30,017 - INFO - Val loss decrease from 6.4682 to 5.9863, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch3.tar
+2023-01-28 07:42:47,641 - INFO - epoch complete!
+2023-01-28 07:42:47,642 - INFO - 17.623886585235596
+2023-01-28 07:42:47,642 - INFO - evaluating now!
+2023-01-28 07:42:48,904 - INFO - Epoch [4/20] train_loss: 5.8349, val_loss: 5.7585, lr: 0.003000, 18.89s
+2023-01-28 07:42:48,923 - INFO - Saved model at 4
+2023-01-28 07:42:48,923 - INFO - Val loss decrease from 5.9863 to 5.7585, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch4.tar
+2023-01-28 07:43:06,595 - INFO - epoch complete!
+2023-01-28 07:43:06,596 - INFO - 17.67087483406067
+2023-01-28 07:43:06,596 - INFO - evaluating now!
+2023-01-28 07:43:07,862 - INFO - Epoch [5/20] train_loss: 5.6902, val_loss: 5.6208, lr: 0.003000, 18.94s
+2023-01-28 07:43:07,878 - INFO - Saved model at 5
+2023-01-28 07:43:07,879 - INFO - Val loss decrease from 5.7585 to 5.6208, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch5.tar
+2023-01-28 07:43:25,545 - INFO - epoch complete!
+2023-01-28 07:43:25,546 - INFO - 17.666027069091797
+2023-01-28 07:43:25,547 - INFO - evaluating now!
+2023-01-28 07:43:26,790 - INFO - Epoch [6/20] train_loss: 5.5110, val_loss: 5.4851, lr: 0.003000, 18.91s
+2023-01-28 07:43:26,807 - INFO - Saved model at 6
+2023-01-28 07:43:26,807 - INFO - Val loss decrease from 5.6208 to 5.4851, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch6.tar
+2023-01-28 07:43:44,252 - INFO - epoch complete!
+2023-01-28 07:43:44,253 - INFO - 17.444875955581665
+2023-01-28 07:43:44,253 - INFO - evaluating now!
+2023-01-28 07:43:45,485 - INFO - Epoch [7/20] train_loss: 5.3815, val_loss: 5.6568, lr: 0.003000, 18.68s
+2023-01-28 07:44:03,112 - INFO - epoch complete!
+2023-01-28 07:44:03,114 - INFO - 17.625784873962402
+2023-01-28 07:44:03,114 - INFO - evaluating now!
+2023-01-28 07:44:04,354 - INFO - Epoch [8/20] train_loss: 5.3524, val_loss: 5.4692, lr: 0.003000, 18.87s
+2023-01-28 07:44:04,370 - INFO - Saved model at 8
+2023-01-28 07:44:04,371 - INFO - Val loss decrease from 5.4851 to 5.4692, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch8.tar
+2023-01-28 07:44:22,122 - INFO - epoch complete!
+2023-01-28 07:44:22,123 - INFO - 17.75108242034912
+2023-01-28 07:44:22,123 - INFO - evaluating now!
+2023-01-28 07:44:23,358 - INFO - Epoch [9/20] train_loss: 5.2722, val_loss: 5.4285, lr: 0.003000, 18.99s
+2023-01-28 07:44:23,374 - INFO - Saved model at 9
+2023-01-28 07:44:23,374 - INFO - Val loss decrease from 5.4692 to 5.4285, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch9.tar
+2023-01-28 07:44:41,009 - INFO - epoch complete!
+2023-01-28 07:44:41,010 - INFO - 17.634822845458984
+2023-01-28 07:44:41,010 - INFO - evaluating now!
+2023-01-28 07:44:42,252 - INFO - Epoch [10/20] train_loss: 5.2152, val_loss: 5.4112, lr: 0.003000, 18.88s
+2023-01-28 07:44:42,268 - INFO - Saved model at 10
+2023-01-28 07:44:42,268 - INFO - Val loss decrease from 5.4285 to 5.4112, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch10.tar
+2023-01-28 07:44:59,979 - INFO - epoch complete!
+2023-01-28 07:44:59,980 - INFO - 17.710829734802246
+2023-01-28 07:44:59,980 - INFO - evaluating now!
+2023-01-28 07:45:01,269 - INFO - Epoch [11/20] train_loss: 5.1951, val_loss: 5.3056, lr: 0.003000, 19.00s
+2023-01-28 07:45:01,288 - INFO - Saved model at 11
+2023-01-28 07:45:01,288 - INFO - Val loss decrease from 5.4112 to 5.3056, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch11.tar
+2023-01-28 07:45:19,064 - INFO - epoch complete!
+2023-01-28 07:45:19,065 - INFO - 17.77530598640442
+2023-01-28 07:45:19,065 - INFO - evaluating now!
+2023-01-28 07:45:20,316 - INFO - Epoch [12/20] train_loss: 5.1366, val_loss: 5.3415, lr: 0.003000, 19.03s
+2023-01-28 07:45:37,954 - INFO - epoch complete!
+2023-01-28 07:45:37,955 - INFO - 17.63695740699768
+2023-01-28 07:45:37,956 - INFO - evaluating now!
+2023-01-28 07:45:39,193 - INFO - Epoch [13/20] train_loss: 5.1028, val_loss: 5.2846, lr: 0.003000, 18.88s
+2023-01-28 07:45:39,210 - INFO - Saved model at 13
+2023-01-28 07:45:39,210 - INFO - Val loss decrease from 5.3056 to 5.2846, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch13.tar
+2023-01-28 07:45:56,872 - INFO - epoch complete!
+2023-01-28 07:45:56,873 - INFO - 17.661430835723877
+2023-01-28 07:45:56,873 - INFO - evaluating now!
+2023-01-28 07:45:58,123 - INFO - Epoch [14/20] train_loss: 5.1036, val_loss: 5.3958, lr: 0.003000, 18.91s
+2023-01-28 07:46:15,864 - INFO - epoch complete!
+2023-01-28 07:46:15,865 - INFO - 17.739394664764404
+2023-01-28 07:46:15,865 - INFO - evaluating now!
+2023-01-28 07:46:17,128 - INFO - Epoch [15/20] train_loss: 5.0231, val_loss: 5.2953, lr: 0.003000, 19.00s
+2023-01-28 07:46:35,051 - INFO - epoch complete!
+2023-01-28 07:46:35,052 - INFO - 17.921522617340088
+2023-01-28 07:46:35,052 - INFO - evaluating now!
+2023-01-28 07:46:36,309 - INFO - Epoch [16/20] train_loss: 4.9881, val_loss: 5.2718, lr: 0.003000, 19.18s
+2023-01-28 07:46:36,325 - INFO - Saved model at 16
+2023-01-28 07:46:36,325 - INFO - Val loss decrease from 5.2846 to 5.2718, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch16.tar
+2023-01-28 07:46:53,915 - INFO - epoch complete!
+2023-01-28 07:46:53,915 - INFO - 17.589099407196045
+2023-01-28 07:46:53,915 - INFO - evaluating now!
+2023-01-28 07:46:55,163 - INFO - Epoch [17/20] train_loss: 4.9958, val_loss: 5.2729, lr: 0.003000, 18.84s
+2023-01-28 07:47:12,698 - INFO - epoch complete!
+2023-01-28 07:47:12,699 - INFO - 17.534863233566284
+2023-01-28 07:47:12,699 - INFO - evaluating now!
+2023-01-28 07:47:13,985 - INFO - Epoch [18/20] train_loss: 4.9844, val_loss: 5.2371, lr: 0.003000, 18.82s
+2023-01-28 07:47:14,001 - INFO - Saved model at 18
+2023-01-28 07:47:14,001 - INFO - Val loss decrease from 5.2718 to 5.2371, saving to ./libcity/cache/87994/model_cache/AGCRN_NYCBike_epoch18.tar
+2023-01-28 07:47:31,645 - INFO - epoch complete!
+2023-01-28 07:47:31,646 - INFO - 17.64255452156067
+2023-01-28 07:47:31,646 - INFO - evaluating now!
+2023-01-28 07:47:32,876 - INFO - Epoch [19/20] train_loss: 4.9623, val_loss: 5.2897, lr: 0.003000, 18.87s
+2023-01-28 07:47:32,877 - INFO - Trained totally 20 epochs, average train time is 17.697s, average eval time is 1.251s
+2023-01-28 07:47:32,927 - INFO - Loaded model at 18
+2023-01-28 07:47:32,927 - INFO - Saved model at ./libcity/cache/87994/model_cache/AGCRN_NYCBike.m
+2023-01-28 07:47:32,942 - INFO - Start evaluating ...
+2023-01-28 07:47:36,093 - INFO - Note that you select the single mode to evaluate!
+2023-01-28 07:47:36,097 - INFO - Evaluate result is saved at ./libcity/cache/87994/evaluate_cache/2023_01_28_07_47_36_AGCRN_NYCBike.csv
+2023-01-28 07:47:36,110 - INFO - 
+        MAE  MAPE         MSE       RMSE  masked_MAE  masked_MAPE  masked_MSE  masked_RMSE        R2      EVAR
+1  5.268072   inf  348.204315  18.660234    5.268072     1.146129   45.891018     6.774291  0.100824  0.338882

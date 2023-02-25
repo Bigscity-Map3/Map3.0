@@ -1,0 +1,534 @@
+2023-01-28 02:11:03,704 - INFO - Log directory: ./libcity/log
+2023-01-28 02:11:03,704 - INFO - Begin pipeline, task=traffic_state_pred, model_name=STGCN, dataset_name=NYCBike, exp_id=12625
+2023-01-28 02:11:03,704 - INFO - {'task': 'traffic_state_pred', 'model': 'STGCN', 'dataset': 'NYCBike', 'saved_model': True, 'train': True, 'seed': 0, 'dataset_class': 'TrafficStateGridDataset', 'executor': 'TrafficStateExecutor', 'evaluator': 'TrafficStateEvaluator', 'Ks': 3, 'Kt': 3, 'blocks': [[1, 32, 64], [64, 32, 128]], 'dropout': 0, 'graph_conv_type': 'chebconv', 'stgcn_train_mode': 'full', 'bidir_adj_mx': True, 'scaler': 'standard', 'load_external': False, 'normal_external': False, 'ext_scaler': 'none', 'add_time_in_day': False, 'add_day_in_week': False, 'max_epoch': 100, 'learner': 'rmsprop', 'learning_rate': 0.001, 'lr_decay': True, 'lr_scheduler': 'steplr', 'lr_decay_ratio': 0.7, 'step_size': 5, 'clip_grad_norm': False, 'use_early_stop': False, 'batch_size': 32, 'cache_dataset': True, 'num_workers': 1, 'pad_with_last_sample': True, 'train_rate': 0.7, 'eval_rate': 0.1, 'input_window': 19, 'output_window': 1, 'use_row_column': True, 'gpu': True, 'gpu_id': 0, 'train_loss': 'none', 'epoch': 0, 'weight_decay': 0, 'lr_epsilon': 1e-08, 'lr_beta1': 0.9, 'lr_beta2': 0.999, 'lr_alpha': 0.99, 'lr_momentum': 0, 'steps': [5, 20, 40, 70], 'lr_T_max': 30, 'lr_eta_min': 0, 'lr_patience': 10, 'lr_threshold': 0.0001, 'max_grad_norm': 1.0, 'patience': 50, 'log_level': 'INFO', 'log_every': 1, 'load_best_epoch': True, 'hyper_tune': False, 'metrics': ['MAE', 'MAPE', 'MSE', 'RMSE', 'masked_MAE', 'masked_MAPE', 'masked_MSE', 'masked_RMSE', 'R2', 'EVAR'], 'evaluator_mode': 'single', 'save_mode': ['csv'], 'geo': {'including_types': ['Polygon'], 'Polygon': {'row_id': 'num', 'column_id': 'num'}}, 'grid': {'including_types': ['state'], 'state': {'row_id': 16, 'column_id': 8, 'new_flow': 'num', 'end_flow': 'num'}}, 'data_col': ['new_flow', 'end_flow'], 'data_files': ['NYCBIKE20140409'], 'geo_file': 'NYCBIKE20140409', 'output_dim': 2, 'time_intervals': 3600, 'init_weight_inf_or_zero': 'inf', 'set_weight_link_or_dist': 'dist', 'calculate_weight_adj': False, 'weight_adj_epsilon': 0.1, 'device': device(type='cuda', index=0), 'exp_id': 12625}
+2023-01-28 02:11:03,713 - INFO - Loaded file NYCBIKE20140409.geo, num_grids=128, grid_size=(16, 8)
+2023-01-28 02:11:03,714 - INFO - Generate grid rel file, shape=(128, 128)
+2023-01-28 02:11:03,714 - INFO - Loading ./libcity/cache/dataset_cache/grid_based_NYCBike_19_1_0.7_0.1_standard_32_False_False_False_True_True.npz
+2023-01-28 02:11:04,142 - INFO - train	x: (3061, 19, 16, 8, 2), y: (3061, 1, 16, 8, 2)
+2023-01-28 02:11:04,142 - INFO - eval	x: (437, 19, 16, 8, 2), y: (437, 1, 16, 8, 2)
+2023-01-28 02:11:04,142 - INFO - test	x: (875, 19, 16, 8, 2), y: (875, 1, 16, 8, 2)
+2023-01-28 02:11:04,224 - INFO - StandardScaler mean: 9.23899494542977, std: 18.095629608758927
+2023-01-28 02:11:04,225 - INFO - NoneScaler
+2023-01-28 02:11:04,505 - INFO - You select full mode to train STGCN model.
+2023-01-28 02:11:04,668 - INFO - Chebyshev_polynomial_Lk shape: (3, 128, 128)
+2023-01-28 02:11:09,410 - INFO - STGCN(
+  (st_conv1): STConvBlock(
+    (tconv1): TemporalConvLayer(
+      (align): Align()
+      (conv): Conv2d(2, 64, kernel_size=(3, 1), stride=(1, 1))
+    )
+    (sconv): SpatioConvLayer(
+      (align): Align()
+    )
+    (tconv2): TemporalConvLayer(
+      (align): Align()
+      (conv): Conv2d(32, 64, kernel_size=(3, 1), stride=(1, 1))
+    )
+    (ln): LayerNorm((128, 64), eps=1e-05, elementwise_affine=True)
+    (dropout): Dropout(p=0, inplace=False)
+  )
+  (st_conv2): STConvBlock(
+    (tconv1): TemporalConvLayer(
+      (align): Align(
+        (conv1x1): Conv2d(64, 32, kernel_size=(1, 1), stride=(1, 1))
+      )
+      (conv): Conv2d(64, 64, kernel_size=(3, 1), stride=(1, 1))
+    )
+    (sconv): SpatioConvLayer(
+      (align): Align()
+    )
+    (tconv2): TemporalConvLayer(
+      (align): Align()
+      (conv): Conv2d(32, 128, kernel_size=(3, 1), stride=(1, 1))
+    )
+    (ln): LayerNorm((128, 128), eps=1e-05, elementwise_affine=True)
+    (dropout): Dropout(p=0, inplace=False)
+  )
+  (output): OutputLayer(
+    (tconv1): TemporalConvLayer(
+      (align): Align()
+      (conv): Conv2d(128, 256, kernel_size=(11, 1), stride=(1, 1))
+    )
+    (ln): LayerNorm((128, 128), eps=1e-05, elementwise_affine=True)
+    (tconv2): TemporalConvLayer(
+      (align): Align()
+      (conv): Conv2d(128, 128, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (fc): FullyConvLayer(
+      (conv): Conv2d(128, 2, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+)
+2023-01-28 02:11:09,411 - INFO - st_conv1.tconv1.conv.weight	torch.Size([64, 2, 3, 1])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.tconv1.conv.bias	torch.Size([64])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.sconv.theta	torch.Size([32, 32, 3])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.sconv.b	torch.Size([1, 32, 1, 1])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.tconv2.conv.weight	torch.Size([64, 32, 3, 1])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.tconv2.conv.bias	torch.Size([64])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.ln.weight	torch.Size([128, 64])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv1.ln.bias	torch.Size([128, 64])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.tconv1.align.conv1x1.weight	torch.Size([32, 64, 1, 1])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.tconv1.align.conv1x1.bias	torch.Size([32])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.tconv1.conv.weight	torch.Size([64, 64, 3, 1])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.tconv1.conv.bias	torch.Size([64])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.sconv.theta	torch.Size([32, 32, 3])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.sconv.b	torch.Size([1, 32, 1, 1])	cuda:0	True
+2023-01-28 02:11:09,411 - INFO - st_conv2.tconv2.conv.weight	torch.Size([128, 32, 3, 1])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - st_conv2.tconv2.conv.bias	torch.Size([128])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - st_conv2.ln.weight	torch.Size([128, 128])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - st_conv2.ln.bias	torch.Size([128, 128])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.tconv1.conv.weight	torch.Size([256, 128, 11, 1])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.tconv1.conv.bias	torch.Size([256])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.ln.weight	torch.Size([128, 128])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.ln.bias	torch.Size([128, 128])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.tconv2.conv.weight	torch.Size([128, 128, 1, 1])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.tconv2.conv.bias	torch.Size([128])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.fc.conv.weight	torch.Size([2, 128, 1, 1])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - output.fc.conv.bias	torch.Size([2])	cuda:0	True
+2023-01-28 02:11:09,412 - INFO - Total parameter numbers: 499106
+2023-01-28 02:11:09,412 - INFO - You select `rmsprop` optimizer.
+2023-01-28 02:11:09,413 - INFO - You select `steplr` lr_scheduler.
+2023-01-28 02:11:09,413 - WARNING - Received none train loss func and will use the loss func defined in the model.
+2023-01-28 02:11:09,413 - INFO - Start training ...
+2023-01-28 02:11:09,413 - INFO - num_batches:96
+2023-01-28 02:11:11,662 - INFO - epoch complete!
+2023-01-28 02:11:11,663 - INFO - 2.2484846115112305
+2023-01-28 02:11:11,663 - INFO - evaluating now!
+2023-01-28 02:11:11,956 - INFO - Epoch [0/100] train_loss: 108.1278, val_loss: 79.4161, lr: 0.001000, 2.54s
+2023-01-28 02:11:11,971 - INFO - Saved model at 0
+2023-01-28 02:11:11,971 - INFO - Val loss decrease from inf to 79.4161, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch0.tar
+2023-01-28 02:11:14,061 - INFO - epoch complete!
+2023-01-28 02:11:14,062 - INFO - 2.0897064208984375
+2023-01-28 02:11:14,062 - INFO - evaluating now!
+2023-01-28 02:11:14,340 - INFO - Epoch [1/100] train_loss: 46.2241, val_loss: 39.9271, lr: 0.001000, 2.37s
+2023-01-28 02:11:14,352 - INFO - Saved model at 1
+2023-01-28 02:11:14,352 - INFO - Val loss decrease from 79.4161 to 39.9271, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch1.tar
+2023-01-28 02:11:16,384 - INFO - epoch complete!
+2023-01-28 02:11:16,385 - INFO - 2.031989574432373
+2023-01-28 02:11:16,385 - INFO - evaluating now!
+2023-01-28 02:11:16,671 - INFO - Epoch [2/100] train_loss: 37.4075, val_loss: 38.5432, lr: 0.001000, 2.32s
+2023-01-28 02:11:16,685 - INFO - Saved model at 2
+2023-01-28 02:11:16,685 - INFO - Val loss decrease from 39.9271 to 38.5432, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch2.tar
+2023-01-28 02:11:18,651 - INFO - epoch complete!
+2023-01-28 02:11:18,652 - INFO - 1.965766191482544
+2023-01-28 02:11:18,652 - INFO - evaluating now!
+2023-01-28 02:11:18,924 - INFO - Epoch [3/100] train_loss: 32.9346, val_loss: 45.1493, lr: 0.001000, 2.24s
+2023-01-28 02:11:20,837 - INFO - epoch complete!
+2023-01-28 02:11:20,838 - INFO - 1.911712884902954
+2023-01-28 02:11:20,838 - INFO - evaluating now!
+2023-01-28 02:11:21,118 - INFO - Epoch [4/100] train_loss: 31.7900, val_loss: 39.4218, lr: 0.000700, 2.19s
+2023-01-28 02:11:23,122 - INFO - epoch complete!
+2023-01-28 02:11:23,122 - INFO - 2.002657890319824
+2023-01-28 02:11:23,123 - INFO - evaluating now!
+2023-01-28 02:11:23,399 - INFO - Epoch [5/100] train_loss: 26.4550, val_loss: 28.4986, lr: 0.000700, 2.28s
+2023-01-28 02:11:23,411 - INFO - Saved model at 5
+2023-01-28 02:11:23,411 - INFO - Val loss decrease from 38.5432 to 28.4986, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch5.tar
+2023-01-28 02:11:25,338 - INFO - epoch complete!
+2023-01-28 02:11:25,338 - INFO - 1.925935983657837
+2023-01-28 02:11:25,338 - INFO - evaluating now!
+2023-01-28 02:11:25,616 - INFO - Epoch [6/100] train_loss: 25.8077, val_loss: 27.0766, lr: 0.000700, 2.20s
+2023-01-28 02:11:25,630 - INFO - Saved model at 6
+2023-01-28 02:11:25,630 - INFO - Val loss decrease from 28.4986 to 27.0766, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch6.tar
+2023-01-28 02:11:27,613 - INFO - epoch complete!
+2023-01-28 02:11:27,613 - INFO - 1.9818506240844727
+2023-01-28 02:11:27,613 - INFO - evaluating now!
+2023-01-28 02:11:27,879 - INFO - Epoch [7/100] train_loss: 25.3762, val_loss: 26.3757, lr: 0.000700, 2.25s
+2023-01-28 02:11:27,891 - INFO - Saved model at 7
+2023-01-28 02:11:27,891 - INFO - Val loss decrease from 27.0766 to 26.3757, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch7.tar
+2023-01-28 02:11:29,842 - INFO - epoch complete!
+2023-01-28 02:11:29,842 - INFO - 1.9498369693756104
+2023-01-28 02:11:29,842 - INFO - evaluating now!
+2023-01-28 02:11:30,115 - INFO - Epoch [8/100] train_loss: 24.4479, val_loss: 26.5159, lr: 0.000700, 2.22s
+2023-01-28 02:11:32,111 - INFO - epoch complete!
+2023-01-28 02:11:32,112 - INFO - 1.9947841167449951
+2023-01-28 02:11:32,112 - INFO - evaluating now!
+2023-01-28 02:11:32,395 - INFO - Epoch [9/100] train_loss: 23.5038, val_loss: 27.4873, lr: 0.000490, 2.28s
+2023-01-28 02:11:34,318 - INFO - epoch complete!
+2023-01-28 02:11:34,319 - INFO - 1.9222886562347412
+2023-01-28 02:11:34,319 - INFO - evaluating now!
+2023-01-28 02:11:34,587 - INFO - Epoch [10/100] train_loss: 21.7189, val_loss: 26.3127, lr: 0.000490, 2.19s
+2023-01-28 02:11:34,598 - INFO - Saved model at 10
+2023-01-28 02:11:34,599 - INFO - Val loss decrease from 26.3757 to 26.3127, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch10.tar
+2023-01-28 02:11:36,534 - INFO - epoch complete!
+2023-01-28 02:11:36,534 - INFO - 1.9350144863128662
+2023-01-28 02:11:36,534 - INFO - evaluating now!
+2023-01-28 02:11:36,804 - INFO - Epoch [11/100] train_loss: 21.4492, val_loss: 25.0563, lr: 0.000490, 2.21s
+2023-01-28 02:11:36,818 - INFO - Saved model at 11
+2023-01-28 02:11:36,818 - INFO - Val loss decrease from 26.3127 to 25.0563, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch11.tar
+2023-01-28 02:11:38,770 - INFO - epoch complete!
+2023-01-28 02:11:38,770 - INFO - 1.9506583213806152
+2023-01-28 02:11:38,770 - INFO - evaluating now!
+2023-01-28 02:11:39,042 - INFO - Epoch [12/100] train_loss: 21.1366, val_loss: 24.1233, lr: 0.000490, 2.22s
+2023-01-28 02:11:39,056 - INFO - Saved model at 12
+2023-01-28 02:11:39,056 - INFO - Val loss decrease from 25.0563 to 24.1233, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch12.tar
+2023-01-28 02:11:41,006 - INFO - epoch complete!
+2023-01-28 02:11:41,007 - INFO - 1.9503045082092285
+2023-01-28 02:11:41,007 - INFO - evaluating now!
+2023-01-28 02:11:41,269 - INFO - Epoch [13/100] train_loss: 21.1466, val_loss: 25.9815, lr: 0.000490, 2.21s
+2023-01-28 02:11:43,223 - INFO - epoch complete!
+2023-01-28 02:11:43,223 - INFO - 1.952810525894165
+2023-01-28 02:11:43,224 - INFO - evaluating now!
+2023-01-28 02:11:43,497 - INFO - Epoch [14/100] train_loss: 20.3241, val_loss: 25.7221, lr: 0.000343, 2.23s
+2023-01-28 02:11:45,516 - INFO - epoch complete!
+2023-01-28 02:11:45,517 - INFO - 2.018306255340576
+2023-01-28 02:11:45,517 - INFO - evaluating now!
+2023-01-28 02:11:45,810 - INFO - Epoch [15/100] train_loss: 19.2248, val_loss: 23.2615, lr: 0.000343, 2.31s
+2023-01-28 02:11:45,823 - INFO - Saved model at 15
+2023-01-28 02:11:45,824 - INFO - Val loss decrease from 24.1233 to 23.2615, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch15.tar
+2023-01-28 02:11:47,822 - INFO - epoch complete!
+2023-01-28 02:11:47,823 - INFO - 1.997208833694458
+2023-01-28 02:11:47,824 - INFO - evaluating now!
+2023-01-28 02:11:48,134 - INFO - Epoch [16/100] train_loss: 19.0598, val_loss: 23.5952, lr: 0.000343, 2.31s
+2023-01-28 02:11:50,131 - INFO - epoch complete!
+2023-01-28 02:11:50,132 - INFO - 1.996377944946289
+2023-01-28 02:11:50,132 - INFO - evaluating now!
+2023-01-28 02:11:50,414 - INFO - Epoch [17/100] train_loss: 18.9887, val_loss: 23.6069, lr: 0.000343, 2.28s
+2023-01-28 02:11:52,465 - INFO - epoch complete!
+2023-01-28 02:11:52,466 - INFO - 2.050217628479004
+2023-01-28 02:11:52,466 - INFO - evaluating now!
+2023-01-28 02:11:52,734 - INFO - Epoch [18/100] train_loss: 18.7001, val_loss: 24.3585, lr: 0.000343, 2.32s
+2023-01-28 02:11:54,698 - INFO - epoch complete!
+2023-01-28 02:11:54,699 - INFO - 1.9638736248016357
+2023-01-28 02:11:54,699 - INFO - evaluating now!
+2023-01-28 02:11:54,971 - INFO - Epoch [19/100] train_loss: 18.5446, val_loss: 23.2653, lr: 0.000240, 2.24s
+2023-01-28 02:11:57,030 - INFO - epoch complete!
+2023-01-28 02:11:57,030 - INFO - 2.0575499534606934
+2023-01-28 02:11:57,030 - INFO - evaluating now!
+2023-01-28 02:11:57,309 - INFO - Epoch [20/100] train_loss: 17.8293, val_loss: 23.2056, lr: 0.000240, 2.34s
+2023-01-28 02:11:57,321 - INFO - Saved model at 20
+2023-01-28 02:11:57,321 - INFO - Val loss decrease from 23.2615 to 23.2056, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch20.tar
+2023-01-28 02:11:59,377 - INFO - epoch complete!
+2023-01-28 02:11:59,378 - INFO - 2.0557701587677
+2023-01-28 02:11:59,378 - INFO - evaluating now!
+2023-01-28 02:11:59,655 - INFO - Epoch [21/100] train_loss: 17.4935, val_loss: 23.1461, lr: 0.000240, 2.33s
+2023-01-28 02:11:59,666 - INFO - Saved model at 21
+2023-01-28 02:11:59,666 - INFO - Val loss decrease from 23.2056 to 23.1461, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch21.tar
+2023-01-28 02:12:01,652 - INFO - epoch complete!
+2023-01-28 02:12:01,653 - INFO - 1.9854216575622559
+2023-01-28 02:12:01,653 - INFO - evaluating now!
+2023-01-28 02:12:01,976 - INFO - Epoch [22/100] train_loss: 17.4656, val_loss: 22.8429, lr: 0.000240, 2.31s
+2023-01-28 02:12:01,989 - INFO - Saved model at 22
+2023-01-28 02:12:01,990 - INFO - Val loss decrease from 23.1461 to 22.8429, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch22.tar
+2023-01-28 02:12:04,081 - INFO - epoch complete!
+2023-01-28 02:12:04,082 - INFO - 2.0907094478607178
+2023-01-28 02:12:04,082 - INFO - evaluating now!
+2023-01-28 02:12:04,371 - INFO - Epoch [23/100] train_loss: 17.3574, val_loss: 24.1036, lr: 0.000240, 2.38s
+2023-01-28 02:12:06,432 - INFO - epoch complete!
+2023-01-28 02:12:06,432 - INFO - 2.0592856407165527
+2023-01-28 02:12:06,432 - INFO - evaluating now!
+2023-01-28 02:12:06,726 - INFO - Epoch [24/100] train_loss: 17.0993, val_loss: 22.9033, lr: 0.000168, 2.35s
+2023-01-28 02:12:08,698 - INFO - epoch complete!
+2023-01-28 02:12:08,699 - INFO - 1.9708383083343506
+2023-01-28 02:12:08,700 - INFO - evaluating now!
+2023-01-28 02:12:08,985 - INFO - Epoch [25/100] train_loss: 16.6102, val_loss: 22.6527, lr: 0.000168, 2.26s
+2023-01-28 02:12:08,999 - INFO - Saved model at 25
+2023-01-28 02:12:08,999 - INFO - Val loss decrease from 22.8429 to 22.6527, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch25.tar
+2023-01-28 02:12:11,033 - INFO - epoch complete!
+2023-01-28 02:12:11,033 - INFO - 2.0331363677978516
+2023-01-28 02:12:11,033 - INFO - evaluating now!
+2023-01-28 02:12:11,329 - INFO - Epoch [26/100] train_loss: 16.5201, val_loss: 22.6325, lr: 0.000168, 2.33s
+2023-01-28 02:12:11,343 - INFO - Saved model at 26
+2023-01-28 02:12:11,343 - INFO - Val loss decrease from 22.6527 to 22.6325, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch26.tar
+2023-01-28 02:12:13,340 - INFO - epoch complete!
+2023-01-28 02:12:13,340 - INFO - 1.9965214729309082
+2023-01-28 02:12:13,340 - INFO - evaluating now!
+2023-01-28 02:12:13,619 - INFO - Epoch [27/100] train_loss: 16.4143, val_loss: 22.4273, lr: 0.000168, 2.28s
+2023-01-28 02:12:13,631 - INFO - Saved model at 27
+2023-01-28 02:12:13,631 - INFO - Val loss decrease from 22.6325 to 22.4273, saving to ./libcity/cache/12625/model_cache/STGCN_NYCBike_epoch27.tar
+2023-01-28 02:12:15,622 - INFO - epoch complete!
+2023-01-28 02:12:15,623 - INFO - 1.9910907745361328
+2023-01-28 02:12:15,623 - INFO - evaluating now!
+2023-01-28 02:12:15,910 - INFO - Epoch [28/100] train_loss: 16.3586, val_loss: 22.4744, lr: 0.000168, 2.28s
+2023-01-28 02:12:17,897 - INFO - epoch complete!
+2023-01-28 02:12:17,897 - INFO - 1.9861016273498535
+2023-01-28 02:12:17,897 - INFO - evaluating now!
+2023-01-28 02:12:18,169 - INFO - Epoch [29/100] train_loss: 16.1521, val_loss: 22.7795, lr: 0.000118, 2.26s
+2023-01-28 02:12:20,175 - INFO - epoch complete!
+2023-01-28 02:12:20,175 - INFO - 2.0048482418060303
+2023-01-28 02:12:20,176 - INFO - evaluating now!
+2023-01-28 02:12:20,459 - INFO - Epoch [30/100] train_loss: 15.8771, val_loss: 22.9041, lr: 0.000118, 2.29s
+2023-01-28 02:12:22,527 - INFO - epoch complete!
+2023-01-28 02:12:22,527 - INFO - 2.0667529106140137
+2023-01-28 02:12:22,527 - INFO - evaluating now!
+2023-01-28 02:12:22,826 - INFO - Epoch [31/100] train_loss: 15.8286, val_loss: 22.5239, lr: 0.000118, 2.37s
+2023-01-28 02:12:24,798 - INFO - epoch complete!
+2023-01-28 02:12:24,798 - INFO - 1.9710254669189453
+2023-01-28 02:12:24,798 - INFO - evaluating now!
+2023-01-28 02:12:25,079 - INFO - Epoch [32/100] train_loss: 15.6961, val_loss: 22.6526, lr: 0.000118, 2.25s
+2023-01-28 02:12:27,070 - INFO - epoch complete!
+2023-01-28 02:12:27,070 - INFO - 1.989173173904419
+2023-01-28 02:12:27,070 - INFO - evaluating now!
+2023-01-28 02:12:27,354 - INFO - Epoch [33/100] train_loss: 15.6691, val_loss: 22.7547, lr: 0.000118, 2.27s
+2023-01-28 02:12:29,394 - INFO - epoch complete!
+2023-01-28 02:12:29,394 - INFO - 2.038609027862549
+2023-01-28 02:12:29,394 - INFO - evaluating now!
+2023-01-28 02:12:29,664 - INFO - Epoch [34/100] train_loss: 15.5753, val_loss: 22.5582, lr: 0.000082, 2.31s
+2023-01-28 02:12:31,673 - INFO - epoch complete!
+2023-01-28 02:12:31,673 - INFO - 2.0074379444122314
+2023-01-28 02:12:31,673 - INFO - evaluating now!
+2023-01-28 02:12:31,936 - INFO - Epoch [35/100] train_loss: 15.3097, val_loss: 22.5492, lr: 0.000082, 2.27s
+2023-01-28 02:12:33,932 - INFO - epoch complete!
+2023-01-28 02:12:33,933 - INFO - 1.9959757328033447
+2023-01-28 02:12:33,933 - INFO - evaluating now!
+2023-01-28 02:12:34,220 - INFO - Epoch [36/100] train_loss: 15.3012, val_loss: 22.5847, lr: 0.000082, 2.28s
+2023-01-28 02:12:36,202 - INFO - epoch complete!
+2023-01-28 02:12:36,202 - INFO - 1.9810540676116943
+2023-01-28 02:12:36,203 - INFO - evaluating now!
+2023-01-28 02:12:36,482 - INFO - Epoch [37/100] train_loss: 15.2101, val_loss: 22.4631, lr: 0.000082, 2.26s
+2023-01-28 02:12:38,422 - INFO - epoch complete!
+2023-01-28 02:12:38,423 - INFO - 1.939972162246704
+2023-01-28 02:12:38,423 - INFO - evaluating now!
+2023-01-28 02:12:38,699 - INFO - Epoch [38/100] train_loss: 15.1278, val_loss: 22.6327, lr: 0.000082, 2.22s
+2023-01-28 02:12:40,656 - INFO - epoch complete!
+2023-01-28 02:12:40,657 - INFO - 1.9557690620422363
+2023-01-28 02:12:40,657 - INFO - evaluating now!
+2023-01-28 02:12:40,938 - INFO - Epoch [39/100] train_loss: 15.0905, val_loss: 22.5188, lr: 0.000058, 2.24s
+2023-01-28 02:12:43,199 - INFO - epoch complete!
+2023-01-28 02:12:43,200 - INFO - 2.260446786880493
+2023-01-28 02:12:43,200 - INFO - evaluating now!
+2023-01-28 02:12:43,499 - INFO - Epoch [40/100] train_loss: 14.9318, val_loss: 22.4997, lr: 0.000058, 2.56s
+2023-01-28 02:12:45,529 - INFO - epoch complete!
+2023-01-28 02:12:45,529 - INFO - 2.0281927585601807
+2023-01-28 02:12:45,530 - INFO - evaluating now!
+2023-01-28 02:12:45,814 - INFO - Epoch [41/100] train_loss: 14.9134, val_loss: 22.5600, lr: 0.000058, 2.31s
+2023-01-28 02:12:47,830 - INFO - epoch complete!
+2023-01-28 02:12:47,830 - INFO - 2.014988660812378
+2023-01-28 02:12:47,830 - INFO - evaluating now!
+2023-01-28 02:12:48,116 - INFO - Epoch [42/100] train_loss: 14.8322, val_loss: 22.5614, lr: 0.000058, 2.30s
+2023-01-28 02:12:50,080 - INFO - epoch complete!
+2023-01-28 02:12:50,081 - INFO - 1.962559700012207
+2023-01-28 02:12:50,081 - INFO - evaluating now!
+2023-01-28 02:12:50,356 - INFO - Epoch [43/100] train_loss: 14.8335, val_loss: 22.6102, lr: 0.000058, 2.24s
+2023-01-28 02:12:52,314 - INFO - epoch complete!
+2023-01-28 02:12:52,314 - INFO - 1.9570891857147217
+2023-01-28 02:12:52,314 - INFO - evaluating now!
+2023-01-28 02:12:52,595 - INFO - Epoch [44/100] train_loss: 14.7344, val_loss: 22.5952, lr: 0.000040, 2.24s
+2023-01-28 02:12:54,663 - INFO - epoch complete!
+2023-01-28 02:12:54,663 - INFO - 2.067201852798462
+2023-01-28 02:12:54,663 - INFO - evaluating now!
+2023-01-28 02:12:54,955 - INFO - Epoch [45/100] train_loss: 14.6535, val_loss: 22.5275, lr: 0.000040, 2.36s
+2023-01-28 02:12:57,009 - INFO - epoch complete!
+2023-01-28 02:12:57,010 - INFO - 2.052860975265503
+2023-01-28 02:12:57,010 - INFO - evaluating now!
+2023-01-28 02:12:57,292 - INFO - Epoch [46/100] train_loss: 14.6161, val_loss: 22.6473, lr: 0.000040, 2.34s
+2023-01-28 02:12:59,268 - INFO - epoch complete!
+2023-01-28 02:12:59,268 - INFO - 1.9749553203582764
+2023-01-28 02:12:59,268 - INFO - evaluating now!
+2023-01-28 02:12:59,552 - INFO - Epoch [47/100] train_loss: 14.5855, val_loss: 22.6548, lr: 0.000040, 2.26s
+2023-01-28 02:13:01,588 - INFO - epoch complete!
+2023-01-28 02:13:01,588 - INFO - 2.034451961517334
+2023-01-28 02:13:01,589 - INFO - evaluating now!
+2023-01-28 02:13:01,862 - INFO - Epoch [48/100] train_loss: 14.5534, val_loss: 22.6220, lr: 0.000040, 2.31s
+2023-01-28 02:13:03,886 - INFO - epoch complete!
+2023-01-28 02:13:03,887 - INFO - 2.023029088973999
+2023-01-28 02:13:03,887 - INFO - evaluating now!
+2023-01-28 02:13:04,160 - INFO - Epoch [49/100] train_loss: 14.5301, val_loss: 22.6963, lr: 0.000028, 2.30s
+2023-01-28 02:13:06,123 - INFO - epoch complete!
+2023-01-28 02:13:06,124 - INFO - 1.9617774486541748
+2023-01-28 02:13:06,124 - INFO - evaluating now!
+2023-01-28 02:13:06,399 - INFO - Epoch [50/100] train_loss: 14.4630, val_loss: 22.6351, lr: 0.000028, 2.24s
+2023-01-28 02:13:08,415 - INFO - epoch complete!
+2023-01-28 02:13:08,416 - INFO - 2.0150420665740967
+2023-01-28 02:13:08,416 - INFO - evaluating now!
+2023-01-28 02:13:08,713 - INFO - Epoch [51/100] train_loss: 14.4386, val_loss: 22.6419, lr: 0.000028, 2.31s
+2023-01-28 02:13:10,707 - INFO - epoch complete!
+2023-01-28 02:13:10,708 - INFO - 1.993553876876831
+2023-01-28 02:13:10,708 - INFO - evaluating now!
+2023-01-28 02:13:10,985 - INFO - Epoch [52/100] train_loss: 14.4125, val_loss: 22.6143, lr: 0.000028, 2.27s
+2023-01-28 02:13:12,967 - INFO - epoch complete!
+2023-01-28 02:13:12,968 - INFO - 1.98115873336792
+2023-01-28 02:13:12,968 - INFO - evaluating now!
+2023-01-28 02:13:13,253 - INFO - Epoch [53/100] train_loss: 14.3793, val_loss: 22.6425, lr: 0.000028, 2.27s
+2023-01-28 02:13:15,244 - INFO - epoch complete!
+2023-01-28 02:13:15,244 - INFO - 1.9895710945129395
+2023-01-28 02:13:15,244 - INFO - evaluating now!
+2023-01-28 02:13:15,521 - INFO - Epoch [54/100] train_loss: 14.3712, val_loss: 22.6301, lr: 0.000020, 2.27s
+2023-01-28 02:13:17,458 - INFO - epoch complete!
+2023-01-28 02:13:17,458 - INFO - 1.934999942779541
+2023-01-28 02:13:17,458 - INFO - evaluating now!
+2023-01-28 02:13:17,729 - INFO - Epoch [55/100] train_loss: 14.2965, val_loss: 22.6651, lr: 0.000020, 2.21s
+2023-01-28 02:13:19,696 - INFO - epoch complete!
+2023-01-28 02:13:19,697 - INFO - 1.9666802883148193
+2023-01-28 02:13:19,697 - INFO - evaluating now!
+2023-01-28 02:13:19,971 - INFO - Epoch [56/100] train_loss: 14.3019, val_loss: 22.6479, lr: 0.000020, 2.24s
+2023-01-28 02:13:21,969 - INFO - epoch complete!
+2023-01-28 02:13:21,969 - INFO - 1.9974565505981445
+2023-01-28 02:13:21,969 - INFO - evaluating now!
+2023-01-28 02:13:22,241 - INFO - Epoch [57/100] train_loss: 14.2743, val_loss: 22.7487, lr: 0.000020, 2.27s
+2023-01-28 02:13:24,237 - INFO - epoch complete!
+2023-01-28 02:13:24,237 - INFO - 1.9946651458740234
+2023-01-28 02:13:24,237 - INFO - evaluating now!
+2023-01-28 02:13:24,524 - INFO - Epoch [58/100] train_loss: 14.2642, val_loss: 22.7942, lr: 0.000020, 2.28s
+2023-01-28 02:13:26,436 - INFO - epoch complete!
+2023-01-28 02:13:26,437 - INFO - 1.9109721183776855
+2023-01-28 02:13:26,437 - INFO - evaluating now!
+2023-01-28 02:13:26,723 - INFO - Epoch [59/100] train_loss: 14.2547, val_loss: 22.6632, lr: 0.000014, 2.20s
+2023-01-28 02:13:28,596 - INFO - epoch complete!
+2023-01-28 02:13:28,597 - INFO - 1.8716232776641846
+2023-01-28 02:13:28,597 - INFO - evaluating now!
+2023-01-28 02:13:28,856 - INFO - Epoch [60/100] train_loss: 14.2092, val_loss: 22.6727, lr: 0.000014, 2.13s
+2023-01-28 02:13:30,783 - INFO - epoch complete!
+2023-01-28 02:13:30,784 - INFO - 1.9265124797821045
+2023-01-28 02:13:30,784 - INFO - evaluating now!
+2023-01-28 02:13:31,061 - INFO - Epoch [61/100] train_loss: 14.1978, val_loss: 22.6617, lr: 0.000014, 2.20s
+2023-01-28 02:13:32,978 - INFO - epoch complete!
+2023-01-28 02:13:32,979 - INFO - 1.9157006740570068
+2023-01-28 02:13:32,979 - INFO - evaluating now!
+2023-01-28 02:13:33,253 - INFO - Epoch [62/100] train_loss: 14.1927, val_loss: 22.6623, lr: 0.000014, 2.19s
+2023-01-28 02:13:35,189 - INFO - epoch complete!
+2023-01-28 02:13:35,189 - INFO - 1.9349710941314697
+2023-01-28 02:13:35,189 - INFO - evaluating now!
+2023-01-28 02:13:35,468 - INFO - Epoch [63/100] train_loss: 14.1798, val_loss: 22.6759, lr: 0.000014, 2.21s
+2023-01-28 02:13:37,448 - INFO - epoch complete!
+2023-01-28 02:13:37,448 - INFO - 1.978895902633667
+2023-01-28 02:13:37,448 - INFO - evaluating now!
+2023-01-28 02:13:37,730 - INFO - Epoch [64/100] train_loss: 14.1680, val_loss: 22.7725, lr: 0.000010, 2.26s
+2023-01-28 02:13:39,671 - INFO - epoch complete!
+2023-01-28 02:13:39,671 - INFO - 1.939875602722168
+2023-01-28 02:13:39,671 - INFO - evaluating now!
+2023-01-28 02:13:39,956 - INFO - Epoch [65/100] train_loss: 14.1400, val_loss: 22.7202, lr: 0.000010, 2.23s
+2023-01-28 02:13:41,875 - INFO - epoch complete!
+2023-01-28 02:13:41,875 - INFO - 1.9179270267486572
+2023-01-28 02:13:41,876 - INFO - evaluating now!
+2023-01-28 02:13:42,157 - INFO - Epoch [66/100] train_loss: 14.1262, val_loss: 22.7374, lr: 0.000010, 2.20s
+2023-01-28 02:13:44,095 - INFO - epoch complete!
+2023-01-28 02:13:44,095 - INFO - 1.936239242553711
+2023-01-28 02:13:44,095 - INFO - evaluating now!
+2023-01-28 02:13:44,363 - INFO - Epoch [67/100] train_loss: 14.1222, val_loss: 22.7043, lr: 0.000010, 2.20s
+2023-01-28 02:13:46,322 - INFO - epoch complete!
+2023-01-28 02:13:46,322 - INFO - 1.9579534530639648
+2023-01-28 02:13:46,323 - INFO - evaluating now!
+2023-01-28 02:13:46,606 - INFO - Epoch [68/100] train_loss: 14.1172, val_loss: 22.7056, lr: 0.000010, 2.24s
+2023-01-28 02:13:48,631 - INFO - epoch complete!
+2023-01-28 02:13:48,632 - INFO - 2.0241751670837402
+2023-01-28 02:13:48,632 - INFO - evaluating now!
+2023-01-28 02:13:48,928 - INFO - Epoch [69/100] train_loss: 14.1057, val_loss: 22.7194, lr: 0.000007, 2.32s
+2023-01-28 02:13:50,970 - INFO - epoch complete!
+2023-01-28 02:13:50,971 - INFO - 2.0412752628326416
+2023-01-28 02:13:50,971 - INFO - evaluating now!
+2023-01-28 02:13:51,234 - INFO - Epoch [70/100] train_loss: 14.0874, val_loss: 22.7237, lr: 0.000007, 2.31s
+2023-01-28 02:13:53,220 - INFO - epoch complete!
+2023-01-28 02:13:53,220 - INFO - 1.9843988418579102
+2023-01-28 02:13:53,220 - INFO - evaluating now!
+2023-01-28 02:13:53,496 - INFO - Epoch [71/100] train_loss: 14.0798, val_loss: 22.7355, lr: 0.000007, 2.26s
+2023-01-28 02:13:55,441 - INFO - epoch complete!
+2023-01-28 02:13:55,441 - INFO - 1.9429707527160645
+2023-01-28 02:13:55,442 - INFO - evaluating now!
+2023-01-28 02:13:55,722 - INFO - Epoch [72/100] train_loss: 14.0773, val_loss: 22.7249, lr: 0.000007, 2.22s
+2023-01-28 02:13:57,722 - INFO - epoch complete!
+2023-01-28 02:13:57,723 - INFO - 1.999898910522461
+2023-01-28 02:13:57,723 - INFO - evaluating now!
+2023-01-28 02:13:58,010 - INFO - Epoch [73/100] train_loss: 14.0706, val_loss: 22.7251, lr: 0.000007, 2.29s
+2023-01-28 02:14:00,028 - INFO - epoch complete!
+2023-01-28 02:14:00,029 - INFO - 2.017425298690796
+2023-01-28 02:14:00,029 - INFO - evaluating now!
+2023-01-28 02:14:00,331 - INFO - Epoch [74/100] train_loss: 14.0698, val_loss: 22.7286, lr: 0.000005, 2.32s
+2023-01-28 02:14:02,333 - INFO - epoch complete!
+2023-01-28 02:14:02,333 - INFO - 2.0008106231689453
+2023-01-28 02:14:02,333 - INFO - evaluating now!
+2023-01-28 02:14:02,614 - INFO - Epoch [75/100] train_loss: 14.0525, val_loss: 22.7318, lr: 0.000005, 2.28s
+2023-01-28 02:14:04,645 - INFO - epoch complete!
+2023-01-28 02:14:04,646 - INFO - 2.0301153659820557
+2023-01-28 02:14:04,646 - INFO - evaluating now!
+2023-01-28 02:14:04,916 - INFO - Epoch [76/100] train_loss: 14.0497, val_loss: 22.7341, lr: 0.000005, 2.30s
+2023-01-28 02:14:06,869 - INFO - epoch complete!
+2023-01-28 02:14:06,870 - INFO - 1.952911138534546
+2023-01-28 02:14:06,870 - INFO - evaluating now!
+2023-01-28 02:14:07,181 - INFO - Epoch [77/100] train_loss: 14.0443, val_loss: 22.7343, lr: 0.000005, 2.27s
+2023-01-28 02:14:09,305 - INFO - epoch complete!
+2023-01-28 02:14:09,305 - INFO - 2.1217942237854004
+2023-01-28 02:14:09,305 - INFO - evaluating now!
+2023-01-28 02:14:09,585 - INFO - Epoch [78/100] train_loss: 14.0412, val_loss: 22.7333, lr: 0.000005, 2.40s
+2023-01-28 02:14:11,596 - INFO - epoch complete!
+2023-01-28 02:14:11,597 - INFO - 2.0096471309661865
+2023-01-28 02:14:11,597 - INFO - evaluating now!
+2023-01-28 02:14:11,902 - INFO - Epoch [79/100] train_loss: 14.0363, val_loss: 22.7330, lr: 0.000003, 2.32s
+2023-01-28 02:14:13,859 - INFO - epoch complete!
+2023-01-28 02:14:13,860 - INFO - 1.956068515777588
+2023-01-28 02:14:13,860 - INFO - evaluating now!
+2023-01-28 02:14:14,158 - INFO - Epoch [80/100] train_loss: 14.0268, val_loss: 22.7386, lr: 0.000003, 2.25s
+2023-01-28 02:14:16,213 - INFO - epoch complete!
+2023-01-28 02:14:16,214 - INFO - 2.054236888885498
+2023-01-28 02:14:16,214 - INFO - evaluating now!
+2023-01-28 02:14:16,511 - INFO - Epoch [81/100] train_loss: 14.0252, val_loss: 22.7330, lr: 0.000003, 2.35s
+2023-01-28 02:14:18,538 - INFO - epoch complete!
+2023-01-28 02:14:18,538 - INFO - 2.0261824131011963
+2023-01-28 02:14:18,539 - INFO - evaluating now!
+2023-01-28 02:14:18,820 - INFO - Epoch [82/100] train_loss: 14.0209, val_loss: 22.7428, lr: 0.000003, 2.31s
+2023-01-28 02:14:20,897 - INFO - epoch complete!
+2023-01-28 02:14:20,898 - INFO - 2.0767617225646973
+2023-01-28 02:14:20,898 - INFO - evaluating now!
+2023-01-28 02:14:21,181 - INFO - Epoch [83/100] train_loss: 14.0181, val_loss: 22.7407, lr: 0.000003, 2.36s
+2023-01-28 02:14:23,221 - INFO - epoch complete!
+2023-01-28 02:14:23,222 - INFO - 2.038757801055908
+2023-01-28 02:14:23,222 - INFO - evaluating now!
+2023-01-28 02:14:23,503 - INFO - Epoch [84/100] train_loss: 14.0161, val_loss: 22.7403, lr: 0.000002, 2.32s
+2023-01-28 02:14:25,573 - INFO - epoch complete!
+2023-01-28 02:14:25,573 - INFO - 2.0684351921081543
+2023-01-28 02:14:25,574 - INFO - evaluating now!
+2023-01-28 02:14:25,858 - INFO - Epoch [85/100] train_loss: 14.0088, val_loss: 22.7490, lr: 0.000002, 2.35s
+2023-01-28 02:14:27,966 - INFO - epoch complete!
+2023-01-28 02:14:27,967 - INFO - 2.106498956680298
+2023-01-28 02:14:27,967 - INFO - evaluating now!
+2023-01-28 02:14:28,251 - INFO - Epoch [86/100] train_loss: 14.0068, val_loss: 22.7495, lr: 0.000002, 2.39s
+2023-01-28 02:14:30,253 - INFO - epoch complete!
+2023-01-28 02:14:30,253 - INFO - 2.000689744949341
+2023-01-28 02:14:30,253 - INFO - evaluating now!
+2023-01-28 02:14:30,539 - INFO - Epoch [87/100] train_loss: 14.0044, val_loss: 22.7490, lr: 0.000002, 2.29s
+2023-01-28 02:14:32,545 - INFO - epoch complete!
+2023-01-28 02:14:32,546 - INFO - 2.004850387573242
+2023-01-28 02:14:32,546 - INFO - evaluating now!
+2023-01-28 02:14:32,842 - INFO - Epoch [88/100] train_loss: 14.0022, val_loss: 22.7496, lr: 0.000002, 2.30s
+2023-01-28 02:14:34,810 - INFO - epoch complete!
+2023-01-28 02:14:34,811 - INFO - 1.967604160308838
+2023-01-28 02:14:34,811 - INFO - evaluating now!
+2023-01-28 02:14:35,087 - INFO - Epoch [89/100] train_loss: 14.0016, val_loss: 22.7510, lr: 0.000002, 2.24s
+2023-01-28 02:14:37,117 - INFO - epoch complete!
+2023-01-28 02:14:37,117 - INFO - 2.0295543670654297
+2023-01-28 02:14:37,118 - INFO - evaluating now!
+2023-01-28 02:14:37,385 - INFO - Epoch [90/100] train_loss: 13.9964, val_loss: 22.7515, lr: 0.000002, 2.30s
+2023-01-28 02:14:39,374 - INFO - epoch complete!
+2023-01-28 02:14:39,374 - INFO - 1.988055944442749
+2023-01-28 02:14:39,374 - INFO - evaluating now!
+2023-01-28 02:14:39,653 - INFO - Epoch [91/100] train_loss: 13.9942, val_loss: 22.7524, lr: 0.000002, 2.27s
+2023-01-28 02:14:41,552 - INFO - epoch complete!
+2023-01-28 02:14:41,553 - INFO - 1.8968095779418945
+2023-01-28 02:14:41,553 - INFO - evaluating now!
+2023-01-28 02:14:41,833 - INFO - Epoch [92/100] train_loss: 13.9930, val_loss: 22.7515, lr: 0.000002, 2.18s
+2023-01-28 02:14:43,820 - INFO - epoch complete!
+2023-01-28 02:14:43,820 - INFO - 1.9856688976287842
+2023-01-28 02:14:43,821 - INFO - evaluating now!
+2023-01-28 02:14:44,110 - INFO - Epoch [93/100] train_loss: 13.9916, val_loss: 22.7534, lr: 0.000002, 2.28s
+2023-01-28 02:14:46,203 - INFO - epoch complete!
+2023-01-28 02:14:46,203 - INFO - 2.0921967029571533
+2023-01-28 02:14:46,204 - INFO - evaluating now!
+2023-01-28 02:14:46,504 - INFO - Epoch [94/100] train_loss: 13.9905, val_loss: 22.7527, lr: 0.000001, 2.39s
+2023-01-28 02:14:48,528 - INFO - epoch complete!
+2023-01-28 02:14:48,529 - INFO - 2.023198366165161
+2023-01-28 02:14:48,529 - INFO - evaluating now!
+2023-01-28 02:14:48,827 - INFO - Epoch [95/100] train_loss: 13.9871, val_loss: 22.7539, lr: 0.000001, 2.32s
+2023-01-28 02:14:50,825 - INFO - epoch complete!
+2023-01-28 02:14:50,826 - INFO - 1.9971184730529785
+2023-01-28 02:14:50,826 - INFO - evaluating now!
+2023-01-28 02:14:51,112 - INFO - Epoch [96/100] train_loss: 13.9855, val_loss: 22.7512, lr: 0.000001, 2.28s
+2023-01-28 02:14:53,058 - INFO - epoch complete!
+2023-01-28 02:14:53,058 - INFO - 1.9445569515228271
+2023-01-28 02:14:53,058 - INFO - evaluating now!
+2023-01-28 02:14:53,353 - INFO - Epoch [97/100] train_loss: 13.9853, val_loss: 22.7550, lr: 0.000001, 2.24s
+2023-01-28 02:14:55,373 - INFO - epoch complete!
+2023-01-28 02:14:55,374 - INFO - 2.0192220211029053
+2023-01-28 02:14:55,374 - INFO - evaluating now!
+2023-01-28 02:14:55,664 - INFO - Epoch [98/100] train_loss: 13.9839, val_loss: 22.7560, lr: 0.000001, 2.31s
+2023-01-28 02:14:57,683 - INFO - epoch complete!
+2023-01-28 02:14:57,683 - INFO - 2.017007350921631
+2023-01-28 02:14:57,684 - INFO - evaluating now!
+2023-01-28 02:14:57,969 - INFO - Epoch [99/100] train_loss: 13.9834, val_loss: 22.7577, lr: 0.000001, 2.30s
+2023-01-28 02:14:57,970 - INFO - Trained totally 100 epochs, average train time is 1.999s, average eval time is 0.282s
+2023-01-28 02:14:58,017 - INFO - Loaded model at 27
+2023-01-28 02:14:58,017 - INFO - Saved model at ./libcity/cache/12625/model_cache/STGCN_NYCBike.m
+2023-01-28 02:14:58,028 - INFO - Start evaluating ...
+2023-01-28 02:14:59,187 - INFO - Note that you select the single mode to evaluate!
+2023-01-28 02:14:59,192 - INFO - Evaluate result is saved at ./libcity/cache/12625/evaluate_cache/2023_01_28_02_14_59_STGCN_NYCBike.csv
+2023-01-28 02:14:59,203 - INFO - 
+        MAE  MAPE        MSE      RMSE  masked_MAE  masked_MAPE  masked_MSE  masked_RMSE       R2      EVAR
+1  5.444848   inf  21.201717  4.604532    5.444848     0.437112   39.762295     6.305735  0.94525  0.945251
