@@ -77,6 +77,12 @@ def get_model(config, data_feature):
                            config['model'])(config, data_feature)
         except AttributeError:
             raise AttributeError('model is not found')
+    elif config['task'] == 'region_representation':
+        try:
+            return getattr(importlib.import_module('libcity.model.region_representation'),
+                           config['model'])(config, data_feature)
+        except AttributeError:
+            raise AttributeError('model is not found')
     elif config['task'] == 'eta':
         try:
             return getattr(importlib.import_module('libcity.model.eta'),
@@ -87,7 +93,7 @@ def get_model(config, data_feature):
         raise AttributeError('task is not found')
 
 
-def get_evaluator(config):
+def get_evaluator(config,data_feature):
     """
     according the config['evaluator'] to create the evaluator
 
@@ -99,7 +105,7 @@ def get_evaluator(config):
     """
     try:
         return getattr(importlib.import_module('libcity.evaluator'),
-                       config['evaluator'])(config)
+                       config['evaluator'])(config,data_feature)
     except AttributeError:
         raise AttributeError('evaluator is not found')
 

@@ -20,7 +20,7 @@ from libcity.data.dataset.dataset_subclass.cstn_dataset import CSTNDataset
 from libcity.data.dataset.dataset_subclass.geosan_dataset import GeoSANDataset
 from libcity.data.dataset.dataset_subclass.gsnet_dataset import GSNetDataset
 from libcity.data.dataset.dataset_subclass.line_dataset import LINEDataset
-
+from libcity.data.dataset.dataset_subclass.node2vec_dataset import Node2VecDataset
 __all__ = [
     "ACFMDataset",
     "TGCLSTMDataset",
@@ -43,5 +43,6 @@ __all__ = [
     "CSTNDataset",
     "GeoSANDataset",
     "GSNetDataset",
-    "LINEDataset",
+    "Node2VecDataset",
+    "LINEDataset"
 ]

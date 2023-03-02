@@ -17,6 +17,8 @@ class Node2VecDataset(TrafficRepresentationDataset):
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
         super().__init__(config)
+        self.construct_graph()
+        self.construct_od_matrix()
 
     def get_data(self):
         return None,None,None
@@ -28,15 +30,22 @@ class Node2VecDataset(TrafficRepresentationDataset):
         :return:adj_mx
         """
         assert self.representation_object == "region"
-        self.adj_mx = np.zeros((self.num_nodes,self.num_nodes), dtype=np.float32)
+        self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = list(self.road2region['origin_id' == traj[0]]['destination_id'])[0]
-            destination_region = origin_region = list(self.road2region['origin_id' == traj[-1]]['destination_id'])[0]
+            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
             self.adj_mx[origin_region][destination_region] += 1
         return self.adj_mx
 
 
-
+    def construct_od_matrix(self):
+        assert self.representation_object == "region"
+        self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        for traj in self.traj_road:
+            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            self.od_label[origin_region][destination_region] += 1
+        return self.od_label
     def get_data_feature(self):
         """
         返回一个 dict，包含数据集的相关特征
@@ -45,4 +54,5 @@ class Node2VecDataset(TrafficRepresentationDataset):
             dict: 包含数据集的相关特征的字典
         """
         return {"adj_mx": self.adj_mx, "num_nodes": self.num_nodes,
-                "geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo}
+                "geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
+                "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}

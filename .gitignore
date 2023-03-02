@@ -1,2 +1,6 @@
 *.pyc
 *.log
+raw_data/
+libcity/log/
+libcity/cache/
+

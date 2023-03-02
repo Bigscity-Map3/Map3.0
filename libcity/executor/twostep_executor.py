@@ -18,7 +18,7 @@ class TwoStepExecutor(AbstractExecutor):
         """
         use model to test data
         """
-        self.evaluator.evaluate(representation=self.model.get_representation(),dataloader=test_dataloader)
+        self.evaluator.evaluate()
         test_result = self.evaluator.save_result(self.evaluate_res_dir)
         return test_result
 
@@ -26,11 +26,11 @@ class TwoStepExecutor(AbstractExecutor):
         """
         use data to train model with config
         """
-        self.model.run(train_dataloader,eval_dataloader)
+        self.model.run()
 
 
     def load_model(self, cache_name):
-        self.model.load_model(cache_name)
+        pass
 
     def save_model(self, cache_name):
-        self.model.save_model(cache_name)
+        pass

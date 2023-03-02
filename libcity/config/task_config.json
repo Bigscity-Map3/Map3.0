@@ -421,5 +421,18 @@
             "executor": "GensimExecutor",
             "evaluator": "RoadRepresentationEvaluator"
         }
+    },
+    "region_representation": {
+        "allowed_model": [
+            "Node2Vec"
+        ],
+        "allowed_dataset": [
+            "bj_dataset"
+        ],
+         "Node2Vec": {
+            "dataset_class": "Node2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        }
     }
 }

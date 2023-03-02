@@ -96,56 +96,58 @@ class TrafficRepresentationDataset(AbstractDataset):
             raise ValueError('Not found .dyna file!')
 
 
-        def _load_geo(self):
-            """
-            加载.geo文件，格式[geo_id, type, coordinates, function,traffic_type]
-            """
-            geofile = pd.read_csv(self.data_path+self.geo_file+'.geo')
-            self.geo_ids = list(geofile['geo_id'])
-            self.region_ids = list(geofile[geofile['traffic_type'] == 'region']['geo_id'])
-            self.num_regions = len(self.region_ids)
-            self.road_ids = list(geofile[geofile['traffic_type'] == 'road']['geo_id'])
-            self.num_roads = len(self.road_ids)
-            self.poi_ids = list(geofile[geofile['traffic_type'] == 'poi']['geo_id'])
-            self.num_pois = len(self.poi_ids)
-            if self.representation_object == "region":
-                self.num_nodes = self.num_regions
-                self.function = list(geofile[geofile['traffic_type'] == 'region']['function'])
-            elif self.representation_object == "road":
-                self.num_nodes = self.num_roads
-                self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
-            else:
-                self.num_nodes = self.num_pois
-                self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
-            for index, idx in enumerate(self.geo_ids):
-                self.geo_to_ind[idx] = index
-                self.ind_to_geo[index] = idx
-            self._logger.info("Loaded file " + self.geo_file + '.geo' + ',num_regions='+str(self.num_regions) +',num_roads='+str(self.num_roads)+',num_pois'+str(self.num_pois)+', num_nodes=' + self.num_nodes)
+    def _load_geo(self):
+        """
+        加载.geo文件，格式[geo_id, type, coordinates, function,traffic_type]
+        """
+        geofile = pd.read_csv(self.data_path+self.geo_file+'.geo')
+        self.geo_ids = list(geofile['geo_id'])
+        self.region_ids = list(geofile[geofile['traffic_type'] == 'region']['geo_id'])
+        self.num_regions = len(self.region_ids)
+        self.road_ids = list(geofile[geofile['traffic_type'] == 'road']['geo_id'])
+        self.num_roads = len(self.road_ids)
+        self.poi_ids = list(geofile[geofile['traffic_type'] == 'poi']['geo_id'])
+        self.num_pois = len(self.poi_ids)
+        if self.representation_object == "region":
+            self.num_nodes = self.num_regions
+            self.function = list(geofile[geofile['traffic_type'] == 'region']['function'])
+        elif self.representation_object == "road":
+            self.num_nodes = self.num_roads
+            self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
+        else:
+            self.num_nodes = self.num_pois
+            self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
+        self.geo_to_ind = {}
+        self.ind_to_geo = {}
+        for index, idx in enumerate(self.geo_ids):
+            self.geo_to_ind[idx] = index
+            self.ind_to_geo[index] = idx
+        self._logger.info("Loaded file " + self.geo_file + '.geo' + ',num_regions='+str(self.num_regions) +',num_roads='+str(self.num_roads)+',num_pois='+str(self.num_pois)+', num_nodes=' + str(self.num_nodes))
 
-        def _load_rel(self):
-            """
-            加载各个实体的联系，格式['rel_id','type','origin_id','destination_id','rel_type']
-            后续可能会将两种实体之间的对应做成1-->n的映射
-            """
-            relfile = pd.read_csv(self.data_path + self.rel_file + '.rel')
-            self.road2region = relfile[relfile['rel_type'] == 'road2region']
-            self.region2road = relfile[relfile['rel_type'] == 'region2road']
-            self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
-            self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
-            self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
-            self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
+    def _load_rel(self):
+        """
+        加载各个实体的联系，格式['rel_id','type','origin_id','destination_id','rel_type']
+        后续可能会将两种实体之间的对应做成1-->n的映射
+        """
+        relfile = pd.read_csv(self.data_path + self.rel_file + '.rel')
+        self.road2region = relfile[relfile['rel_type'] == 'road2region']
+        self.region2road = relfile[relfile['rel_type'] == 'region2road']
+        self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
+        self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
+        self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
+        self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
 
-        def _load_dyna(self):
-            """
-            加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
-            目前将轨迹数据整理成若干[road0,road1...road]的集合
-            构造图在模型的dataset子类中实现
-            """
-            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-            traj_num = dynafile['total_traj_id'].max() + 1
-            for i in range(traj_num):
-                road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
-                self.traj_road.append(road_list)
+    def _load_dyna(self):
+        """
+        加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
+        目前将轨迹数据整理成若干[road0,road1...road]的集合
+        构造图在模型的dataset子类中实现
+        """
+        dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
+        traj_num = dynafile['total_traj_id'].max() + 1
+        for i in range(traj_num):
+            road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
+            self.traj_road.append(road_list)
 
 
 

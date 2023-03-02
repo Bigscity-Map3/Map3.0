@@ -1,4 +1,4 @@
-class AbstractTask(object):
+class AbstractModel(object):
 
     def __init__(self, config):
         raise NotImplementedError('evaluator not implemented')
