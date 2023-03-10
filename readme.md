@@ -1,3 +1,31 @@
+## 修改合并规范
+1. 创建新分支
+```
+git checkout master
+git pull
+git checkout -b [branchname] 
+```
+
+2. 在新分支上修改代码，并测试
+3. merge master上的更新，保证代码最新
+```
+git checkout master
+git pull
+git checkout [yourbranch]
+git merge master
+git push
+```
+4. 提出merge request，注明修改内容，并将测试之后的截图上传。
+5. 等评审通过merge request，在master上测试bug。
+6. 测试通过删除branch
+```
+git branch -d [yourbranch]
+```
+PS：最好一个模型一个分支，分支名用模型名；写代码过程中时常执行第3步，防止最后合并时冲突过多。
+
+
+------
+
 ![](https://bigscity-libcity-docs.readthedocs.io/en/latest/_images/logo.png)
 
 ------
