@@ -152,3 +152,11 @@ def timestamp2vec_origin(timestamps):
             v.append(1)  # weekday
         ret.append(v)
     return np.asarray(ret)
+
+def geojson2geometry(coordinates:str):
+    coordinates = coordinates.replace('[[ [','((')
+    coordinates = coordinates.replace('] ]]', '))')
+    coordinates = coordinates.replace('], [', '* ')
+    coordinates = coordinates.replace(',', ' ')
+    coordinates = coordinates.replace('*', ',')
+    return "POLYGON "+coordinates

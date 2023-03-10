@@ -1,12 +1,11 @@
 import os
 from logging import getLogger
-
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-
 from libcity.data.dataset import AbstractDataset
 from libcity.utils import ensure_dir
-
+from libcity.utils import geojson2geometry
 
 class TrafficRepresentationDataset(AbstractDataset):
     def __init__(self,config):
@@ -27,6 +26,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.representation_object = self.config.get('representation_object','region')#####
         self.input_window = self.config.get('input_window', 12)
         self.output_window = self.config.get('output_window', 12)
+        self.region_geometry = None
         self.parameters_str = \
             str(self.dataset) + '_' + str(self.input_window) + '_' + str(self.output_window) + '_' \
             + str(self.train_rate) + '_' + str(self.eval_rate) + '_' + str(self.scaler_type) + '_' \
@@ -74,6 +74,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_roads = 0
         self.num_pois = 0
         self.traj_road = []
+        self.traj_time = []
         self.road2region = None
         self.region2road = None
         self.poi2region = None
@@ -101,6 +102,8 @@ class TrafficRepresentationDataset(AbstractDataset):
         加载.geo文件，格式[geo_id, type, coordinates, function,traffic_type]
         """
         geofile = pd.read_csv(self.data_path+self.geo_file+'.geo')
+        l = [geojson2geometry(coordinate) for coordinate in geofile[geofile['traffic_type'] == 'region']['coordinates']]
+        self.region_geometry = gpd.GeoSeries.from_wkt(l)
         self.geo_ids = list(geofile['geo_id'])
         self.region_ids = list(geofile[geofile['traffic_type'] == 'region']['geo_id'])
         self.num_regions = len(self.region_ids)
@@ -140,14 +143,16 @@ class TrafficRepresentationDataset(AbstractDataset):
     def _load_dyna(self):
         """
         加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
-        目前将轨迹数据整理成若干[road0,road1...road]的集合
+        目前将轨迹数据整理成若干[road0,road1...road]的集合,以及[time0,time1.....,time]的集合
         构造图在模型的dataset子类中实现
         """
         dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
         traj_num = dynafile['total_traj_id'].max() + 1
         for i in range(traj_num):
             road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
+            time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
             self.traj_road.append(road_list)
+            self.traj_time.append(time_list)
 
 
 
