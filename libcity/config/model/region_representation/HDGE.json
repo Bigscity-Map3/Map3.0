@@ -1,0 +1,9 @@
+{
+  "output_dim": 128,
+  "is_directed": true,
+  "num_walks": 10,
+  "window_size": 10,
+  "num_workers": 10,
+  "max_epoch": 1000,
+  "representation_object":"region"
+}

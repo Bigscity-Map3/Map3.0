@@ -424,13 +424,18 @@
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec"
+            "Node2Vec","HDGE"
         ],
         "allowed_dataset": [
             "bj_dataset"
         ],
          "Node2Vec": {
             "dataset_class": "Node2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "HDGE": {
+            "dataset_class": "HDGEDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "RepresentationEvaluator"
         }
