@@ -1,9 +1,11 @@
 import json
+import os
 from logging import getLogger
 import random
 
 import numpy as np
 from gensim.models import Word2Vec
+from tqdm import tqdm
 
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
 
@@ -16,15 +18,16 @@ class HDGE(AbstractTraditionModel):
         self.flow_graph = data_feature.get("flow_graph")
         self.spatial_graph = data_feature.get("spatial_graph")
         self.time_slice = data_feature.get("time_slice")
+        self.C = data_feature.get("C")
         self.num_nodes = data_feature.get("num_nodes")
         self.geo_to_ind = data_feature.get('geo_to_ind', None)
         self.ind_to_geo = data_feature.get('ind_to_geo', None)
         self._logger = getLogger()
-
         self.output_dim = config.get('output_dim', 64)
         self.is_directed = config.get('is_directed', True)
         self.p = config.get('p', 2)
         self.q = config.get('q', 1)
+        self.dataset = config.get('dataset', '')
         self.num_walks = config.get('num_walks', 100)
         self.walk_length = self.time_slice+1
         self.window_size = config.get('window_size', 10)
@@ -33,7 +36,6 @@ class HDGE(AbstractTraditionModel):
         self.accept_tables = {}
         self.alias_tables = {}
         self.model = config.get('model', '')
-        self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
         self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
@@ -46,14 +48,15 @@ class HDGE(AbstractTraditionModel):
     def run(self,data=None):
         combine_matrix = self.combine_graph
         walks = self.simulate_walks(combine_matrix,self.num_walks,self.walk_length)
-        model = self.learn_embeddings(walks=walks, dimensions=self.output_dim,
+        model = self.learn_embeddings(walks = walks, dimensions=self.output_dim,
                                  window_size=self.window_size, workers=self.num_workers, iters=self.iter)
         model.wv.save_word2vec_format(self.txt_cache_file)
         model.save(self.model_cache_file)
         node_embedding = np.zeros(shape=(self.num_nodes, self.output_dim), dtype=np.float32)
         for node in range(self.num_nodes):
-            for t in range(self.time_slice):
-                node_embedding[node] = node_embedding[node]+model.wv[str(node)+"_"+str(t)]
+            for t in range(self.time_slice+1):
+                if model.wv.__contains__(str(node)+"_"+str(t)):
+                    node_embedding[node] = node_embedding[node]+model.wv[str(node)+"_"+str(t)]
             node_embedding[node] = node_embedding[node]/self.time_slice
         np.save(self.npy_cache_file, node_embedding)
 
@@ -64,7 +67,7 @@ class HDGE(AbstractTraditionModel):
         json.dump(self.geo_to_ind, open('./libcity/cache/{}/evaluate_cache/geo_to_ind_{}.json'.format(
             self.exp_id, self.dataset), 'w'))
 
-    def learn_embeddings(walks, dimensions, window_size, workers, iters, min_count=0, sg=1, hs=0):
+    def learn_embeddings(self,walks, dimensions, window_size, workers, iters, min_count=0, sg=1, hs=0):
         model = Word2Vec(
             walks, vector_size=dimensions, window=window_size, min_count=min_count, sg=sg, hs=hs,
             workers=workers, epochs=iters)
@@ -80,9 +83,8 @@ class HDGE(AbstractTraditionModel):
         for walk_iter in range(num_walks):
             self._logger.info(str(walk_iter + 1) + '/' + str(num_walks))
             random.shuffle(nodes)
-            for node in nodes:
+            for node in tqdm(nodes):
                 walks.append(self.random_walk(adj_mx=adj_mx, start_node=node))
-
         return walks
 
 
@@ -97,7 +99,7 @@ class HDGE(AbstractTraditionModel):
             cur_node_id = c=int(cur.split("_")[0])
             cur_t = len(walk)-1
         #alias_sample
-            if cur in self.accept_tables:
+            if cur in self.accept_tables and cur in self.alias_tables:
                 next_node_id = int(self.alias_sample(self.accept_tables[cur],self.alias_tables[cur]))
                 next_t = cur_t + 1
                 walk.append(str(next_node_id)+"_"+str(next_t))
@@ -107,11 +109,10 @@ class HDGE(AbstractTraditionModel):
                 next_node_id = int(self.alias_sample(accept,alias))
                 next_t = cur_t + 1
                 walk.append(str(next_node_id)+"_"+str(next_t))
+        return walk
 
     def create_alias_table(self,cur_node,norm_prob):
         """
-        :param norm_prob:
-        :return:采样出的节点号
         """
         length = len(norm_prob)
         accept,alias = np.zeros(length),np.zeros(length)
@@ -150,6 +151,8 @@ class HDGE(AbstractTraditionModel):
             return i
         else:
             return alias[i]
+
+
 
 
 

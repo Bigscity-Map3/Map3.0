@@ -121,7 +121,7 @@ class HDGEDataset(TrafficRepresentationDataset):
          dict: 包含数据集的相关特征的字典
      """
      return {"combine_graph":self.combine_graph,"flow_graph":self.flow_graph,"spatial_graph":self.spatial_graph,"time_slice":self.time_slice,
-             "num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
+             "C":self.C,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
                 "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
 
 
