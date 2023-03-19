@@ -21,6 +21,7 @@ from libcity.data.dataset.dataset_subclass.geosan_dataset import GeoSANDataset
 from libcity.data.dataset.dataset_subclass.gsnet_dataset import GSNetDataset
 from libcity.data.dataset.dataset_subclass.line_dataset import LINEDataset
 from libcity.data.dataset.dataset_subclass.node2vec_dataset import Node2VecDataset
+from libcity.data.dataset.dataset_subclass.hdge_dataset import HDGEDataset
 __all__ = [
     "ACFMDataset",
     "TGCLSTMDataset",
@@ -45,5 +46,5 @@ __all__ = [
     "GSNetDataset",
     "Node2VecDataset",
     "LINEDataset",
-    ""
+    "HDGEDataset"
 ]
