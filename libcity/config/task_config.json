@@ -434,5 +434,24 @@
             "executor": "TwoStepExecutor",
             "evaluator": "RepresentationEvaluator"
         }
+    },
+    "poi_representation": {
+        "allowed_model": [
+            "Word2Vec",
+            "POI2Vec"
+        ],
+        "allowed_dataset": [
+            "bj_dataset"
+        ],
+         "Word2Vec": {
+            "dataset_class": "Word2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "POI2Vec": {
+            "dataset_class": "POI2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        }
     }
 }
