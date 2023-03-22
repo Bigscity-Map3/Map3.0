@@ -102,6 +102,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         加载.geo文件，格式[geo_id, type, coordinates, function,traffic_type]
         """
         geofile = pd.read_csv(self.data_path+self.geo_file+'.geo')
+        self.geofile = geofile
         l = [geojson2geometry(coordinate) for coordinate in geofile[geofile['traffic_type'] == 'region']['coordinates']]
         self.region_geometry = gpd.GeoSeries.from_wkt(l)
         self.geo_ids = list(geofile['geo_id'])

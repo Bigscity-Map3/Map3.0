@@ -41,7 +41,7 @@ class HDGEDataset(TrafficRepresentationDataset):
     """
     if os.path.exists(self.flow_graph_path):
         self.flow_graph = np.load(self.flow_graph_path)
-        self._logger.info("finish consturcting flow graph")
+        self._logger.info("finish constructing flow graph")
         return
     time_each_slice = 24//self.time_slice
     flow_graph = np.zeros([self.time_slice,self.num_nodes,self.num_nodes])
