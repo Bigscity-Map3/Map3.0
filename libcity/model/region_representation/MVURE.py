@@ -9,3 +9,4 @@ from libcity.model.abstract_traffic_tradition_model import AbstractTraditionMode
 #[2020-IJCAI Multi-View Joint Graph Representation Learning for Urban Region Embedding]
 class MVURE(AbstractTraditionModel):
     def __int__(self,config,data_feature):
+        return
