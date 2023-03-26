@@ -424,7 +424,7 @@
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec","HDGE"
+            "Node2Vec", "HDGE", "ZEMob"
         ],
         "allowed_dataset": [
             "bj_dataset"
@@ -436,6 +436,11 @@
         },
         "HDGE": {
             "dataset_class": "HDGEDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "ZEMob": {
+            "dataset_class": "ZEMobDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "RepresentationEvaluator"
         }
