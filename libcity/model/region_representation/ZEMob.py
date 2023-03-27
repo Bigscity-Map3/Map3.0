@@ -39,7 +39,7 @@ class ZEMob(AbstractTraditionModel):
         self.mobility_event_list = list(range(self.mobility_event_num))
         # self.train_data = ZEMobDataSet(self.region_list)
         # self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True, num_workers=0)
-        self.model = ZEMobModel(self.region_num, self.mobility_event_num, self.output_dim, self.ppmi_matrix)
+        self.model = ZEMobModel(self.region_num, self.mobility_event_num, self.output_dim, self.ppmi_matrix, self.G_matrix)
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
 
     def run(self, data=None):
@@ -77,12 +77,13 @@ class ZEMob(AbstractTraditionModel):
         self._logger.info('Epoch: {} \tTraining Loss: {:.6f}'.format(epoch, train_loss))
 
 class ZEMobModel(nn.Module):
-    def __init__(self, zone_num, mobility_event_num, embedding_dim, ppmi_matrix):
+    def __init__(self, zone_num, mobility_event_num, embedding_dim, ppmi_matrix, G_matrix):
         super(ZEMobModel, self).__init__()
         self.zone_num = zone_num
         self.mobility_event_num = mobility_event_num
         self.embedding_dim = embedding_dim
-        self.ppmi_matrix = torch.tensor(ppmi_matrix)
+        self.ppmi_matrix = torch.from_numpy(ppmi_matrix)
+        self.G_matrix = torch.from_numpy(G_matrix)
 
         self.zone_embedding = nn.Embedding(self.zone_num, self.embedding_dim)
         self.event_embedding = nn.Embedding(self.mobility_event_num, self.embedding_dim)
@@ -98,9 +99,7 @@ class ZEMobModel(nn.Module):
         # batch_zone = self.zone_embedding(batch_zones)
         # batch_event = self.event_embedding(self.all_events)
         # return torch.sum(torch.pow(torch.sub(self.ppmi_matrix[batch_zones], torch.mm(batch_zone, batch_event.t())), 2))
-        return torch.sum(torch.pow(torch.sub(
-            self.ppmi_matrix, torch.mm(self.zone_embedding(self.all_zones), self.event_embedding(self.all_events).t())
-        ), 2)) / 2
+        return torch.sum(torch.pow(torch.sub(self.ppmi_matrix, torch.mm(self.zone_embedding(self.all_zones), self.event_embedding(self.all_events).t())), 2) * self.G_matrix) / 2
 
 
 # class ZEMobDataSet(Dataset):

@@ -1,8 +1,8 @@
+import os
 from datetime import datetime
 
 import numpy as np
 import geatpy as ea
-import torch
 
 from libcity.data.dataset import TrafficRepresentationDataset
 
@@ -10,6 +10,13 @@ from libcity.data.dataset import TrafficRepresentationDataset
 class ZEMobDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         super().__init__(config)
+
+        # 设置中间变量distance矩阵和ppmi矩阵的缓存路径
+        if not os.path.exists('./libcity/cache/ZEMob_{}'.format(self.dataset)):
+            os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
+        self.distance_matrix_path = './libcity/cache/ZEMob_{}/distance_matrix.npy'.format(self.dataset)
+        self.ppmi_matrix_path = './libcity/cache/ZEMob_{}/ppmi_matrix.npy'.format(self.dataset)
+
         # 求解ppmi_matrix
         self.mobility_events = dict()
         self.zones = dict()
@@ -17,11 +24,13 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.co_occurs_num = 0
 
         # 求解G_matrix
-        self.arrive_num = np.zeros(len(self.region_ids))
-        self.leave_num = np.zeros(len(self.region_ids))
-        self.T = np.zeros(len(self.region_ids), len(self.region_ids))
-        self.T_bar = np.zeros(len(self.region_ids), len(self.region_ids))
-        self.distance = np.zeros(len(self.region_ids), len(self.region_ids))
+        self.arrive_num_weekday = np.zeros(len(self.region_ids))
+        self.arrive_num_weekend = np.zeros(len(self.region_ids))
+        self.leave_num_weekday = np.zeros(len(self.region_ids))
+        self.leave_num_weekend = np.zeros(len(self.region_ids))
+        self.T_weekday = np.zeros((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
+        self.T_weekend = np.zeros((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
+        self.distance = np.zeros((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
 
         # ppmi_matrix为二维矩阵，维度为z*e
         self.ppmi_matrix = []
@@ -44,9 +53,9 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
     def construct_mobility_data(self):
         """
-        返回值如下mobility_event、zone、co_occur的列表
+        统计mobility event和co-occurs的信息，用于创建ppmi matrix和gravity matrix
 
-        :return: (mobility_pattern, mobility_event, zone)
+        :return:
         """
         mobility_event_index = 0
         for traj, time_list in zip(self.traj_road, self.traj_time):
@@ -54,7 +63,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             origin_region = int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
             origin_date = datetime.strptime(time_list[0], '%Y-%m-%d %H:%M:%S')
             origin_hour = origin_date.hour
-            origin_date_type = 'weekday' if origin_date.weekday() in range(5) else 'weekend'
+            origin_date_type = 1 if origin_date.weekday() in range(5) else 0
             origin_mobility_event = (origin_region, origin_hour, origin_date_type, 'o')
 
             # 得到目的zone和目的zone对应的mobility_event
@@ -63,7 +72,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             )
             destination_date = datetime.strptime(time_list[-1], '%Y-%m-%d %H:%M:%S')
             destination_hour = destination_date.hour
-            destination_date_type = 'weekday' if destination_date.weekday() in range(5) else 'weekend'
+            destination_date_type = 1 if destination_date.weekday() in range(5) else 0
             destination_mobility_event = (destination_region, destination_hour, destination_date_type, 'd')
 
             # 计算每个mobility_event出现的次数，同时给每个mobility一个index
@@ -114,18 +123,30 @@ class ZEMobDataset(TrafficRepresentationDataset):
             # 统计总的co-occur的数量
             self.co_occurs_num += 2
 
+            # 计算A、P、T
+            if origin_date_type == 1:
+                self.arrive_num_weekday[destination_region] += 1
+                self.leave_num_weekday[origin_region] += 1
+                self.T_weekday[origin_region][destination_region] += 1
+            else:
+                self.arrive_num_weekend[destination_region] += 1
+                self.leave_num_weekend[origin_region] += 1
+                self.T_weekend[origin_region][destination_region] += 1
+
         # 统计zone和mobility_event的数量
         self.zone_num = len(self.region_ids)
         self.mobility_event_num = len(self.mobility_events)
 
-        return
-
     def construct_ppmi_matrix(self):
         """
-        返回ppmi矩阵
+        创建ppmi矩阵
 
-        :return: ppmi_matrix
+        :return:
         """
+        if os.path.exists(self.ppmi_matrix_path):
+            self.ppmi_matrix = np.load(self.ppmi_matrix_path)
+            self._logger.info("finish constructing ppmi matrix")
+            return
         self.ppmi_matrix = np.zeros((len(self.region_ids), len(self.mobility_events)), dtype=np.float32)
         for region_id in self.co_occurs.keys():
             tmp_mobility_events = self.co_occurs[region_id].keys()
@@ -135,45 +156,86 @@ class ZEMobDataset(TrafficRepresentationDataset):
                     (self.co_occurs[region_id][mobility_event] * self.co_occurs_num) /
                     (self.zones[region_id] * self.mobility_events[mobility_event][0])
                 ))
-
-        return
+        np.save(self.ppmi_matrix_path, self.ppmi_matrix)
+        self._logger.info("finish constructing ppmi matrix")
 
     def construct_gravity_matrix(self):
         """
-        返回G*矩阵
+        创建gravity matrix
 
-        :return: G_matrix
+        :return:
         """
         self.construct_distance_matrix()
 
-        problem = GravityMatrix()
+        problem = GravityMatrix(self.zone_num, self.arrive_num_weekday, self.leave_num_weekday, self.T_weekday, self.distance)
         algorithm = ea.soea_SEGA_templet(
             problem,
             ea.Population(Encoding='RI', NIND=20),
             MAXGEN=50,
-            logTras=1,
+            logTras=0,
             trappedValue=1e-6,
             maxTrappedCount=10
         )
         res = ea.optimize(
             algorithm,
             verbose=True,
-            drawing=1,
+            drawing=0,
             outputMsg=False,
             drawLog=False,
             saveFlag=True
         )
-        beta = res['Vars'][0][0]
+        beta_weekday = res['Vars'][0][0]
 
-        self.G_matrix = np.ones((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
+        problem = GravityMatrix(self.zone_num, self.arrive_num_weekend, self.leave_num_weekend, self.T_weekend, self.distance)
+        algorithm = ea.soea_SEGA_templet(
+            problem,
+            ea.Population(Encoding='RI', NIND=20),
+            MAXGEN=50,
+            logTras=0,
+            trappedValue=1e-6,
+            maxTrappedCount=10
+        )
+        res = ea.optimize(
+            algorithm,
+            verbose=True,
+            drawing=0,
+            outputMsg=False,
+            drawLog=False,
+            saveFlag=True
+        )
+        beta_weekend = res['Vars'][0][0]
 
-        return
+        F = np.exp((-beta_weekday) * self.distance)
+        G_weekday = (F * self.arrive_num_weekday) / np.matmul(F, self.arrive_num_weekday.reshape(self.zone_num, 1))
+
+        F = np.exp((-beta_weekend) * self.distance)
+        G_weekend = (F * self.arrive_num_weekend) / np.matmul(F, self.arrive_num_weekend.reshape(self.zone_num, 1))
+
+        self.G_matrix = np.zeros((self.zone_num, self.mobility_event_num))
+        for zone_id in range(self.zone_num):
+            for mobility_event in self.mobility_events.keys():
+                mb_id = self.mobility_events[mobility_event][1]
+                mb_type = mobility_event[2]
+                mb_zone_id = mobility_event[0]
+                if mb_type == 1:
+                    self.G_matrix[zone_id][mb_id] = G_weekday[zone_id][mb_zone_id]
+                else:
+                    self.G_matrix[zone_id][mb_id] = G_weekend[zone_id][mb_zone_id]
+        self._logger.info("finish constructing gravity matrix, beta_wd is {}, beta_we is {}".format(str(beta_weekday), str(beta_weekend)))
 
     def construct_distance_matrix(self):
+        if os.path.exists(self.distance_matrix_path):
+            self.distance = np.load(self.distance_matrix_path)
+            self._logger.info("finish constructing distance matrix")
+            return
         centroid = self.region_geometry.centroid
         for i in range(self.zone_num):
-            for j in range(self.zone_num):
-                self.distance[i][j] = centroid[i].distance(centroid[j])
+            for j in range(i, self.zone_num):
+                distance = centroid[i].distance(centroid[j])
+                self.distance[i][j] = distance
+                self.distance[j][i] = distance
+        np.save(self.distance_matrix_path, self.distance)
+        self._logger.info("finish constructing distance matrix")
 
     def get_data_feature(self):
         """
@@ -186,16 +248,24 @@ class ZEMobDataset(TrafficRepresentationDataset):
                 'region_num': self.zone_num, 'mobility_event_num': self.mobility_event_num}
 
 
+# 遗传算法求解gravity matrix
 class GravityMatrix(ea.Problem):
-    def __init__(self, mobility_patterns):
+    def __init__(self, zone_num, A, P, T, D):
         ea.Problem.__init__(
             self, name='GravityMatrix', M=1, maxormins=[-1], Dim=1,
             varTypes=[0], lb=[-10], ub=[10], lbin=[1], ubin=[1]
         )
-        self.mobility_patterns = mobility_patterns
-        # self.zones
+        self.zone_num = zone_num
+        self.A = A
+        self.P = P
+        self.T = T
+        self.D = D
 
-    def evalVars(self, beta):
-        pass
-        # f = x * np.sin(10 * np.pi * x) + 2.0
-        # return f
+    def evalVars(self, betas):
+        res = np.zeros_like(betas)
+        for i in range(len(res)):
+            beta = betas[i][0]
+            F = np.exp((-beta) * self.D)
+            sum_denominator = np.matmul(F, self.A.reshape(self.zone_num, 1))
+            res[i][0] = np.sum((self.T - ((np.matmul(self.P.reshape(self.zone_num, 1), self.A.reshape(1, self.zone_num)) * F) / sum_denominator)) ** 2)
+        return res
