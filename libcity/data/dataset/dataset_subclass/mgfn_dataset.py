@@ -22,7 +22,7 @@ class MGFNDataset(TrafficRepresentationDataset):
         if not os.path.exists('./libcity/cache/MGFN_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/MGFN_{}'.format(self.dataset))
         self.multi_graph = None
-        self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_mob_patterns.npy'.format(self.dataset,self.time_slice)
+        self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')

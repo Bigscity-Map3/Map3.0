@@ -1,8 +1,4 @@
-import os
 from logging import getLogger
-import random
-import numpy as np
-from tqdm import tqdm
 import torch
 import numpy as np
 import torch.nn as nn
@@ -38,8 +34,9 @@ class MGFN(AbstractTraditionModel):
         input_tensor = torch.Tensor(self.mob_patterns)
         label = torch.Tensor(self.mob_adj)
         criterion = SimLoss()
-        model = MGFN(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim)
+        model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
+        self._logger.info("start training")
         for epoch in range(self.iter):
             model.train()
             s_out, t_out = model(input_tensor)
@@ -171,9 +168,9 @@ class MobilityPatternJointLearning(nn.Module):
         return out
 
 
-class MGFN(nn.Module):
+class MGFN_layer(nn.Module):
     def __init__(self, graph_num, node_num, output_dim):
-        super(MGFN, self).__init__()
+        super(MGFN_layer, self).__init__()
         self.encoder = MobilityPatternJointLearning(graph_num=graph_num, node_num=node_num, output_dim=output_dim)
         self.decoder_s = nn.Linear(output_dim, output_dim)
         self.decoder_t = nn.Linear(output_dim, output_dim)
