@@ -7,6 +7,6 @@
     "walk_length": 80,
     "window_size": 10,
     "num_workers": 10,
-    "max_epoch": 1000,
-      "representation_object":"region"
+    "max_epoch": 10,
+    "representation_object":"region"
 }
