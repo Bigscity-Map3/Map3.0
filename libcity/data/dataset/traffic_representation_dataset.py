@@ -140,7 +140,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
         self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
-
+        self._logger.info("Loaded file " + self.rel_file + '.rel')
     def _load_dyna(self):
         """
         加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
@@ -154,6 +154,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
             self.traj_road.append(road_list)
             self.traj_time.append(time_list)
+        self._logger.info("Loaded file " + self.dyna_file + '.dyna')
 
 
 

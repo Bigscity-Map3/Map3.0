@@ -15,7 +15,7 @@ class MGFN(AbstractTraditionModel):
         self.geo_to_ind = data_feature.get('geo_to_ind', None)
         self.ind_to_geo = data_feature.get('ind_to_geo', None)
         self._logger = getLogger()
-        self.output_dim = config.get('output_dim', 96)
+        self.output_dim = config.get('output_dim', 64)
         self.iter = config.get('max_epoch', 2000)
         self.dataset = config.get('dataset', '')
         self.learning_rate = config.get('learning_rate', 0.05)
@@ -41,11 +41,12 @@ class MGFN(AbstractTraditionModel):
             model.train()
             s_out, t_out = model(input_tensor)
             loss = criterion(s_out, t_out, label)
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if epoch % 50 == 0:
-                  self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+                self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
         node_embedding = model.out_feature()
         node_embedding = node_embedding.detach().numpy()
         np.save(self.npy_cache_file, node_embedding)
