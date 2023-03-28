@@ -17,6 +17,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
         self.dyna_file = self.config.get('dyna_file', self.dataset)
+        if not os.path.exists('./libcity/cache'.format(self.dataset)):
+            os.mkdir('./libcity/cache'.format(self.dataset))
         if not os.path.exists('./libcity/cache/ZEMob_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
         self.distance_graph_path = './libcity/cache/ZEMob_{}/distance_graph.npy'.format(self.dataset)
@@ -187,7 +189,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
             # Define the range for the individual
             IND_SIZE = 1
-            BOUND_LOW, BOUND_UP = -5.0, 5.0
+            BOUND_LOW, BOUND_UP = -100.0, 100.0
 
             # Define the individual attributes
             toolbox.register("attr_float", random.uniform, BOUND_LOW, BOUND_UP)
@@ -206,8 +208,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
             toolbox.register("select", tools.selNSGA2)
 
             # Set the parameters for the algorithm
-            POP_SIZE = 10
-            GEN_SIZE = 10
+            POP_SIZE = 100
+            GEN_SIZE = 100
 
             # Initialize the population and run the algorithm
             pop = toolbox.population(n=POP_SIZE)
