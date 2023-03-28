@@ -232,6 +232,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         计算G_star,将原文中G_star转换为一个Z*E的矩阵
         :return:
         """
+
         if os.path.exists(self.G_star_graph_path):
             self.G_star = np.load(self.G_star_graph_path)
             self._logger.info("finish consturcting G_star graph")
