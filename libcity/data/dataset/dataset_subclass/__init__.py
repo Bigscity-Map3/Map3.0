@@ -22,6 +22,7 @@ from libcity.data.dataset.dataset_subclass.gsnet_dataset import GSNetDataset
 from libcity.data.dataset.dataset_subclass.line_dataset import LINEDataset
 from libcity.data.dataset.dataset_subclass.node2vec_dataset import Node2VecDataset
 from libcity.data.dataset.dataset_subclass.hdge_dataset import HDGEDataset
+from libcity.data.dataset.dataset_subclass.mgfn_dataset import MGFNDataset
 __all__ = [
     "ACFMDataset",
     "TGCLSTMDataset",
@@ -46,5 +47,6 @@ __all__ = [
     "GSNetDataset",
     "Node2VecDataset",
     "LINEDataset",
-    "HDGEDataset"
+    "HDGEDataset",
+    "MGFNDataset"
 ]
