@@ -235,7 +235,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         if os.path.exists(self.G_star_graph_path):
             self.G_star = np.load(self.G_star_graph_path)
-            self._logger.info("finish consturcting G_star graph")
+            self._logger.info("finish consturcting G_star graph shape is {}".format(self.G_star.shape))
             return
         self.G_star = np.zeros((self.z_num, self.e_num), dtype=np.float32)
         with tqdm(total=self.z_num * self.e_num, desc="consturcting G_star graph") as pbar:
@@ -248,6 +248,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
                         self.G_star[i][j] = self.Gwd[i][self.zones.index(zD)]
                     pbar.update(2)
         np.save( self.G_star_graph_path,self.G_star)
+        self._logger.info("finish consturcting G_star graph shape is {}".format(self.G_star.shape))
 
 
 
