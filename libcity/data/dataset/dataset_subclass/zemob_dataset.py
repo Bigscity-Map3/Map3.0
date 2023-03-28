@@ -20,6 +20,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         if not os.path.exists('./libcity/cache/ZEMob_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
         self.distance_graph_path = './libcity/cache/ZEMob_{}/distance_graph.npy'.format(self.dataset)
+        self.G_star_graph_path = './libcity/cache/ZEMob_{}/G_star_graph.npy'.format(self.dataset)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
@@ -32,6 +33,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.getDistanceGraph()
         self.beta_we, self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKEND)
         self.beta_wd, self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAY)
+        self.getG_star()
 
     def get_data(self):
         return None, None, None
@@ -167,7 +169,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             def evaluate(individual):
                 """
                 评估beta
-                :param beta:
+                :param individual:长度为1的列表
                 :return:
                 """
                 G = cal_G(individual[0])
@@ -175,66 +177,51 @@ class ZEMobDataset(TrafficRepresentationDataset):
                 mse = np.sum((T - T_hat) ** 2)
                 return mse,
 
-            POPULATION_SIZE = 10
-            NUM_GENERATIONS = 10
-            # 创建问题的优化器和个体的数据结构
+            # Define the problem as a minimization problem
             creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-            creator.create("Individual", float, fitness=creator.FitnessMin)
+
+            # Define the individual
+            creator.create("Individual", list, fitness=creator.FitnessMin)
 
             toolbox = base.Toolbox()
-            toolbox.register("attr_float", random.uniform, -5.0, 5.0)
-            toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=1)
+
+            # Define the range for the individual
+            IND_SIZE = 1
+            BOUND_LOW, BOUND_UP = -5.0, 5.0
+
+            # Define the individual attributes
+            toolbox.register("attr_float", random.uniform, BOUND_LOW, BOUND_UP)
+
+            # Define the population
+            toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=IND_SIZE)
             toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-            # 注册评价函数
+            # Define the evaluation function
             toolbox.register("evaluate", evaluate)
 
-            # 注册交叉和变异操作
-            toolbox.register("mate", tools.cxTwoPoint)
-            toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
-
-            # 注册选择操作
+            # Define the genetic operators
+            toolbox.register("mate", tools.cxSimulatedBinaryBounded, low=BOUND_LOW, up=BOUND_UP, eta=20.0)
+            toolbox.register("mutate", tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP, eta=20.0,
+                             indpb=1.0 / IND_SIZE)
             toolbox.register("select", tools.selNSGA2)
-            pop = list(toolbox.population(n=POPULATION_SIZE))
-            # 迭代优化
-            with tqdm(total=NUM_GENERATIONS, desc="NSGA2 GENERATION: ") as pbar:
-                for gen in range(NUM_GENERATIONS):
-                    # 评价种群中的个体
-                    fitnesses = list(map(toolbox.evaluate, pop))
-                    for ind, fit in zip(pop, fitnesses):
-                        ind.fitness.values = fit
 
-                    # 选择下一代
-                    pop = toolbox.select(pop, len(pop))
+            # Set the parameters for the algorithm
+            POP_SIZE = 10
+            GEN_SIZE = 10
 
-                    # 交叉和变异
-                    offspring = tools.selTournamentDCD(pop, len(pop))
-                    offspring = [toolbox.clone(ind) for ind in offspring]
+            # Initialize the population and run the algorithm
+            pop = toolbox.population(n=POP_SIZE)
+            algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=GEN_SIZE)
 
-                    for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
-                        if random.random() < 0.5:
-                            toolbox.mate(ind1, ind2)
-                            del ind1.fitness.values
-                            del ind2.fitness.values
-
-                    for ind in offspring:
-                        if random.random() < 0.2:
-                            toolbox.mutate(ind)
-                            del ind.fitness.values
-
-                    # 更新种群
-                    pop = offspring
-                    pbar.update(1)
-
-            # 输出最优个体
-            best_ind = tools.selBest(pop, 1)[0]
-            self._logger.info("Best individual is: %s\nwith fitness: %s" % (best_ind, best_ind.fitness.values))
+            # Print the best individual found
+            best_ind = tools.selBest(pop, k=1)[0]
+            self._logger.info("Best individual is %s with fitness %s" % (best_ind, best_ind.fitness.values[0]))
             return best_ind
 
 
         beta = NSGA2()
         self._logger.info("finish caculating beta , value is {}".format(beta))
-        G = cal_G(beta)
+        G = cal_G(beta[0])
         self._logger.info("finish caculating G:{}".format(G.shape))
         return beta, G
 
@@ -243,14 +230,22 @@ class ZEMobDataset(TrafficRepresentationDataset):
         计算G_star,将原文中G_star转换为一个Z*E的矩阵
         :return:
         """
+        if os.path.exists(self.G_star_graph_path):
+            self.G_star = np.load(self.G_star_graph_path)
+            self._logger.info("finish consturcting G_star graph")
+            return
         self.G_star = np.zeros((self.z_num, self.e_num), dtype=np.float32)
-        for i in range(self.z_num):
-            for j in range(self.e_num):
-                zD = self.events[j].z
-                if self.events[j].t.sta == TimeSlot.DAYTYPE.WEEKEND:
-                    self.G_star[i][j] = self.Gwe[i][self.zones.index(zD)]
-                else:
-                    self.G_star[i][j] = self.Gwd[i][self.zones.index(zD)]
+        with tqdm(total=self.z_num * self.e_num, desc="consturcting G_star graph") as pbar:
+            for i in range(self.z_num):
+                for j in range(self.e_num):
+                    zD = self.events[j].z
+                    if self.events[j].t.day_type == TimeSlot.DAYTYPE.WEEKEND:
+                        self.G_star[i][j] = self.Gwe[i][self.zones.index(zD)]
+                    else:
+                        self.G_star[i][j] = self.Gwd[i][self.zones.index(zD)]
+                    pbar.update(2)
+        np.save( self.G_star_graph_path,self.G_star)
+
 
 
 
