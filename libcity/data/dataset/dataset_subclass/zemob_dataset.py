@@ -287,6 +287,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         """
         return {
             "M": self.M, "z_num": self.z_num, "e_num": self.e_num, "G_star": self.G_star,
+            "label": { "function_cluster": np.array(self.function)}
         }
 
 
