@@ -70,4 +70,4 @@ class ZEMob(AbstractTraditionModel):
             self._logger.info('Epoch [{}/{}], Loss: {:.4f}'.format(epoch + 1, num_epochs, loss.item()))
         np.save(self.npy_cache_file, self.zones_embedding.weight.data.numpy())
         self._logger.info('词向量和模型保存完成')
-        self._logger.info('词向量维度：' + self.zones_embedding.weight.data.shape)
+        self._logger.info('词向量维度：{}'.format(self.zones_embedding.embedding_dim) )
