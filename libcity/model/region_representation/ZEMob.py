@@ -15,7 +15,7 @@ class ZEMob(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         # libcity/data/dataset/dataset_subclass/zemob_dataset.py
-        self.M = data_feature.get('M')
+        self.M = torch.from_numpy(data_feature.get('M'))
         self.z_num = data_feature.get('z_num', None)
         self.e_num = data_feature.get('e_num', None)
         self.G_star = torch.from_numpy(data_feature.get('G_star', None))
