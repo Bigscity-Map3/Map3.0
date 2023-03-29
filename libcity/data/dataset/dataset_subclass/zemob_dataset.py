@@ -23,6 +23,10 @@ class ZEMobDataset(TrafficRepresentationDataset):
             os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
         self.distance_graph_path = './libcity/cache/ZEMob_{}/distance_graph.npy'.format(self.dataset)
         self.G_star_graph_path = './libcity/cache/ZEMob_{}/G_star_graph.npy'.format(self.dataset)
+        self.G_we_graph_path = './libcity/cache/ZEMob_{}/G_we_graph.npy'.format(self.dataset)
+        self.G_wd_graph_path = './libcity/cache/ZEMob_{}/G_wd_graph.npy'.format(self.dataset)
+        self.beta_we_graph_path = './libcity/cache/ZEMob_{}/beta_we_graph.npy'.format(self.dataset)
+        self.beta_wd_graph_path = './libcity/cache/ZEMob_{}/beta_wd_graph.npy'.format(self.dataset)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
@@ -33,8 +37,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.getZE()
         self.getM()
         self.getDistanceGraph()
-        self.beta_we, self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKEND)
-        self.beta_wd, self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAY)
+
         self.getG_star()
 
     def get_data(self):
@@ -225,7 +228,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self._logger.info("finish caculating beta , value is {}".format(beta))
         G = cal_G(beta[0])
         self._logger.info("finish caculating G:{}".format(G.shape))
-        return beta, G
+        return beta[0],G
 
     def getG_star(self):
         """
@@ -237,6 +240,20 @@ class ZEMobDataset(TrafficRepresentationDataset):
             self.G_star = np.load(self.G_star_graph_path)
             self._logger.info("finish consturcting G_star graph shape is {}".format(self.G_star.shape))
             return
+        if os.path.exists(self.beta_we_graph_path):
+            self.beta_we = np.load(self.beta_we_graph_path)
+            self._logger.info("finish consturcting beta_we value is {}".format(self.beta_we))
+            self.Gwe=np.load(self.G_we_graph_path)
+            self._logger.info("finish consturcting Gwe shape is {}".format(self.Gwe.shape))
+        else:
+            self.beta_we,self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKDAYs)
+        if os.path.exists(self.beta_wd_graph_path):
+            self.beta_wd = np.load(self.beta_wd_graph_path)
+            self._logger.info("finish consturcting beta_wd value is {}".format(self.beta_wd))
+            self.Gwd=np.load(self.G_wd_graph_path)
+            self._logger.info("finish consturcting Gwd shape is {}".format(self.Gwd.shape))
+        else:
+            self.beta_wd,self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAYs)
         self.G_star = np.zeros((self.z_num, self.e_num), dtype=np.float32)
         with tqdm(total=self.z_num * self.e_num, desc="consturcting G_star graph") as pbar:
             for i in range(self.z_num):
