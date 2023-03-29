@@ -216,7 +216,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
             # Initialize the population and run the algorithm
             pop = toolbox.population(n=POP_SIZE)
-            algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=GEN_SIZE)
+            algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=GEN_SIZE,verbose=True)
 
             # Print the best individual found
             best_ind = tools.selBest(pop, k=1)[0]
@@ -246,14 +246,22 @@ class ZEMobDataset(TrafficRepresentationDataset):
             self.Gwe=np.load(self.G_we_graph_path)
             self._logger.info("finish consturcting Gwe shape is {}".format(self.Gwe.shape))
         else:
-            self.beta_we,self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKDAYs)
+            self.beta_we,self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKEND)
+            np.save(self.beta_we_graph_path,self.beta_we)
+            np.save(self.G_we_graph_path, self.Gwe)
+            self._logger.info("finish saving beta_we value is {}".format(self.beta_we))
+            self._logger.info("finish saving Gwe shape is {}".format(self.Gwe.shape))
         if os.path.exists(self.beta_wd_graph_path):
             self.beta_wd = np.load(self.beta_wd_graph_path)
             self._logger.info("finish consturcting beta_wd value is {}".format(self.beta_wd))
             self.Gwd=np.load(self.G_wd_graph_path)
             self._logger.info("finish consturcting Gwd shape is {}".format(self.Gwd.shape))
         else:
-            self.beta_wd,self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAYs)
+            self.beta_wd,self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAY)
+            np.save(self.beta_wd_graph_path,self.beta_wd)
+            np.save(self.G_wd_graph_path, self.Gwd)
+            self._logger.info("finish saving beta_wd value is {}".format(self.beta_wd))
+            self._logger.info("finish saving Gwd shape is {}".format(self.Gwd.shape))
         self.G_star = np.zeros((self.z_num, self.e_num), dtype=np.float32)
         with tqdm(total=self.z_num * self.e_num, desc="consturcting G_star graph") as pbar:
             for i in range(self.z_num):
