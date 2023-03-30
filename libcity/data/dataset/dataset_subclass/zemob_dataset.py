@@ -263,6 +263,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             self._logger.info("finish saving beta_wd value is {}".format(self.beta_wd))
             self._logger.info("finish saving Gwd shape is {}".format(self.Gwd.shape))
         self.G_star = np.zeros((self.z_num, self.e_num), dtype=np.float32)
+        pro=0
         with tqdm(total=self.z_num * self.e_num, desc="consturcting G_star graph") as pbar:
             for i in range(self.z_num):
                 for j in range(self.e_num):
@@ -272,6 +273,10 @@ class ZEMobDataset(TrafficRepresentationDataset):
                     else:
                         self.G_star[i][j] = self.Gwd[i][self.zones.index(zD)]
                     pbar.update(2)
+                if i/self.z_num>pro:
+                    self._logger.info("consturcting G_star graph processing {}%".format(pro*100))
+                    pro+=0.1
+
         np.save( self.G_star_graph_path,self.G_star)
         self._logger.info("finish consturcting G_star graph shape is {}".format(self.G_star.shape))
 
