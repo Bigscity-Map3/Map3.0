@@ -272,7 +272,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
                         self.G_star[i][j] = self.Gwe[i][self.zones.index(zD)]
                     else:
                         self.G_star[i][j] = self.Gwd[i][self.zones.index(zD)]
-                    pbar.update(2)
+                    pbar.update(1)
                 if i/self.z_num>pro:
                     self._logger.info("consturcting G_star graph processing {}%".format(pro*100))
                     pro+=0.1
