@@ -424,10 +424,10 @@
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec", "HDGE", "ZEMob"
+            "Node2Vec","HDGE","MGFN","LINE","ZEMob"
         ],
         "allowed_dataset": [
-            "bj_dataset"
+            "bj_dataset","xa_dataset","bj_dataset_tiny"
         ],
          "Node2Vec": {
             "dataset_class": "Node2VecDataset",
@@ -437,6 +437,16 @@
         "HDGE": {
             "dataset_class": "HDGEDataset",
             "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "MGFN": {
+            "dataset_class": "MGFNDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "LINE": {
+            "dataset_class": "LINERegionDataset",
+            "executor": "LINEExecutor",
             "evaluator": "RepresentationEvaluator"
         },
         "ZEMob": {

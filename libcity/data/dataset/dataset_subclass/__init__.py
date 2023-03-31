@@ -22,6 +22,8 @@ from libcity.data.dataset.dataset_subclass.gsnet_dataset import GSNetDataset
 from libcity.data.dataset.dataset_subclass.line_dataset import LINEDataset
 from libcity.data.dataset.dataset_subclass.node2vec_dataset import Node2VecDataset
 from libcity.data.dataset.dataset_subclass.hdge_dataset import HDGEDataset
+from libcity.data.dataset.dataset_subclass.mgfn_dataset import MGFNDataset
+from libcity.data.dataset.dataset_subclass.line_region_dataset import LINERegionDataset
 from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 __all__ = [
     "ACFMDataset",
@@ -48,5 +50,7 @@ __all__ = [
     "Node2VecDataset",
     "LINEDataset",
     "HDGEDataset",
+    "MGFNDataset",
+    "LINERegionDataset",
     "ZEMobDataset"
 ]

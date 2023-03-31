@@ -40,6 +40,7 @@ class RepresentationEvaluator(AbstractEvaluator):
         pass
 
     def evaluate(self):
+
         node_emb = np.load(self.embedding_path)  # (N, F)
         for task,model in zip(self.evaluate_tasks,self.evaluate_model):
             downstream_model = self.get_downstream_model(model)

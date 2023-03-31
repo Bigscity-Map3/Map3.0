@@ -83,8 +83,6 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.road2poi = None
         if os.path.exists(self.data_path + self.geo_file + '.geo'):
             self._load_geo()
-        if os.path.exists(self.data_path + self.geo_file + '.geo'):
-            self._load_geo()
         else:
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary
@@ -102,6 +100,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         加载.geo文件，格式[geo_id, type, coordinates, function,traffic_type]
         """
         geofile = pd.read_csv(self.data_path+self.geo_file+'.geo')
+        self.geofile = geofile
         l = [geojson2geometry(coordinate) for coordinate in geofile[geofile['traffic_type'] == 'region']['coordinates']]
         self.region_geometry = gpd.GeoSeries.from_wkt(l)
         self.geo_ids = list(geofile['geo_id'])
@@ -139,7 +138,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
         self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
-
+        self._logger.info("Loaded file " + self.rel_file + '.rel')
     def _load_dyna(self):
         """
         加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
@@ -153,6 +152,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
             self.traj_road.append(road_list)
             self.traj_time.append(time_list)
+        self._logger.info("Loaded file " + self.dyna_file + '.dyna')
 
 
 
