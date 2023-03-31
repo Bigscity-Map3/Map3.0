@@ -3,6 +3,8 @@ from logging import getLogger
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
 from libcity.data.dataset import AbstractDataset
 from libcity.utils import ensure_dir
 from libcity.utils import geojson2geometry
@@ -148,11 +150,13 @@ class TrafficRepresentationDataset(AbstractDataset):
         """
         dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
         traj_num = dynafile['total_traj_id'].max() + 1
-        for i in range(traj_num):
-            road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
-            time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
-            self.traj_road.append(road_list)
-            self.traj_time.append(time_list)
+        with tqdm(total=traj_num, desc="consturcting G_star graph") as pbar:
+            for i in range(traj_num):
+                road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
+                time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
+                self.traj_road.append(road_list)
+                self.traj_time.append(time_list)
+                pbar.update(1)
 
 
 
