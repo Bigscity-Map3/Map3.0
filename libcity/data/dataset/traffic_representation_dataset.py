@@ -150,7 +150,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         """
         dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
         traj_num = dynafile['total_traj_id'].max() + 1
-        with tqdm(total=traj_num, desc="consturcting G_star graph") as pbar:
+        with tqdm(total=traj_num, desc="loading .dyna file") as pbar:
             for i in range(traj_num):
                 road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
                 time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
