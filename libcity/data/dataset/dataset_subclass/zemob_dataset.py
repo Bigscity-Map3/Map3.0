@@ -116,7 +116,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         pound_e = np.sum(self.ZE, axis=0).reshape(1,-1)
         # (z)#(e)
         pound_ze = np.dot(pound_z, pound_e)
-        self.M = self.M * np.reciprocal(pound_ze) #取倒数
+        self.M = self.M * np.reciprocal(pound_ze+ 1e-10) #取倒数
         self.M = np.log2(self.M + 1e-10)  # 防止log(0)
         self.M = np.maximum(self.M, 0)
         self._logger.info("finish consturcting M")
