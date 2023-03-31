@@ -192,7 +192,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
             # Define the range for the individual
             IND_SIZE = 1
-            BOUND_LOW, BOUND_UP = -10.0, 10.0
+            BOUND_LOW, BOUND_UP = -100.0, 100.0
 
             # Define the individual attributes
             toolbox.register("attr_float", random.uniform, BOUND_LOW, BOUND_UP)
