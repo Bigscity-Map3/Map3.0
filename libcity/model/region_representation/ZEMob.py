@@ -38,8 +38,8 @@ class ZEMob(AbstractTraditionModel):
         self.events_embedding = nn.Embedding(self.e_num, self.output_dim)
 
     def loss_function(self, zones_embeddings, events_embeddings):
-        self._logger.info("caculating loss of zones {} and events {}".format(zones_embeddings.weight.data.numpy().shape,
-                                                                             events_embeddings.weight.data.numpy().shape))
+        self._logger.info("caculating loss of zones {} and events {}".format(zones_embeddings.shape,
+                                                                             events_embeddings.shape))
         sim_matrix = torch.matmul(zones_embeddings, events_embeddings.t())
         mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
         mse = torch.sum(mse_matrix) / 2
