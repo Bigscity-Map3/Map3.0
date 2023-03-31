@@ -1,7 +1,7 @@
 {
     "output_dim": 64,
     "num_workers": 10,
-    "max_epoch": 1000,
+    "max_epoch": 10000,
     "representation_object":"region"
 
 }
