@@ -37,7 +37,6 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.getZE()
         self.getM()
         self.getDistanceGraph()
-
         self.getG_star()
 
     def get_data(self):
@@ -69,7 +68,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
             tO = TimeSlot(self.traj_time[i][0])
             tD = TimeSlot(self.traj_time[i][-1])
             self.patterns.append(Pattern(zO, zD, tO, tD))
-        self._logger.info("finish processing patterns, patterns total num {}".format( len(self.patterns)))
+        self._logger.info("finish processing patterns, patterns total num {}".format(len(self.patterns)))
+
     def process_events(self):
         """
         加载Human mobility event Set
@@ -80,6 +80,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         for p in self.patterns:
             self.events.append(Event(p.zO, p.tO, Event.STA.LEAVE))
             self.events.append(Event(p.zD, p.tD, Event.STA.ARRIVE))
+        self.events=list(set(self.events))
         self.e_num = len(self.events)
         self._logger.info("finish processing events, events total num {}".format(len(self.events)))
 
@@ -92,22 +93,31 @@ class ZEMobDataset(TrafficRepresentationDataset):
         :return:
         """
         self.ZE = np.zeros((len(self.zones), len(self.events)), dtype=np.int)
-        idx_e = 0
-        for p in self.patterns:
-            # 相同顺序遍历patterns保证events顺序一致
-            idx_z = self.zones.index(p.zO)
-            # zO~Event(p.zD,p.tD,Event.STA.ARRIVE)
-            self.ZE[idx_z][idx_e + 1] += 1
-            idx_z = self.zones.index(p.zD)
-            # zD~Event(p.zO,p.tO,Event.STA.LEAVE)
-            self.ZE[idx_z][idx_e] += 1
-            idx_e += 2
+        with tqdm(total=len(self.patterns), desc="caculating co-occurences of (zone,event)") as pbar:
+            for p in self.patterns:
+                # 相同顺序遍历patterns保证events顺序一致
+                # zO~Event(p.zD,p.tD,Event.STA.ARRIVE)
+                idx_z = self.zones.index(p.zO)
+                idx_e = self.events.index(Event(p.zD, p.tD, Event.STA.ARRIVE))
+                self.ZE[idx_z][idx_e] += 1
+                # zD~Event(p.zO,p.tO,Event.STA.LEAVE)
+                idx_z = self.zones.index(p.zD)
+                idx_e = self.events.index(Event(p.zO, p.tO, Event.STA.LEAVE))
+                self.ZE[idx_z][idx_e] += 1
+                pbar.update(1)
         self.gama = np.sum(self.ZE)
-        self._logger.info("finish building ZE matrix, shape is {} ,gama is {}".format(self.ZE.shape,self.gama))
+        self._logger.info("finish building ZE matrix, shape is {} ,gama is {}".format(self.ZE.shape, self.gama))
 
     def getM(self):
-        self.M = np.dot(self.ZE, self.gama / (self.z_num * self.e_num))
-        self.M = np.log2(self.M+ 1e-10) # 防止log(0)
+        self.M = np.dot(self.ZE, 100)
+        # (z)
+        pound_z = np.sum(self.ZE, axis=1).reshape(-1,1)
+        # (e)
+        pound_e = np.sum(self.ZE, axis=0).reshape(1,-1)
+        # (z)#(e)
+        pound_ze = np.dot(pound_z, pound_e)
+        self.M = self.M * np.reciprocal(pound_ze) #取倒数
+        self.M = np.log2(self.M + 1e-10)  # 防止log(0)
         self.M = np.maximum(self.M, 0)
         self._logger.info("finish consturcting M")
 
@@ -122,7 +132,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             return
         self.distance_graph = np.zeros((self.z_num, self.z_num), dtype=np.float32)
         self.centroid = self.region_geometry.centroid
-        with tqdm(total=self.z_num*self.z_num, desc="consturcting distance graph") as pbar:
+        with tqdm(total=self.z_num * self.z_num, desc="consturcting distance graph") as pbar:
             for i in range(self.z_num):
                 for j in range(i, self.z_num):
                     distance = self.centroid[i].distance(self.centroid[j])
@@ -153,7 +163,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
                 A[self.zones.index(pattern.zD)] += 1
                 T[self.zones.index(pattern.zO)][self.zones.index(pattern.zD)] += 1
                 P[self.zones.index(pattern.zO)] += 1
-        self._logger.info("finish initializing A: {},T:{},P:{}".format(A.shape,T.shape,P.shape))
+        self._logger.info("finish initializing A: {},T:{},P:{}".format(A.shape, T.shape, P.shape))
 
         def cal_G(beta):
             """
@@ -216,19 +226,18 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
             # Initialize the population and run the algorithm
             pop = toolbox.population(n=POP_SIZE)
-            algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=GEN_SIZE,verbose=True)
+            algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=GEN_SIZE, verbose=True)
 
             # Print the best individual found
             best_ind = tools.selBest(pop, k=1)[0]
             self._logger.info("Best individual is %s with fitness %s" % (best_ind, best_ind.fitness.values[0]))
             return best_ind
 
-
         beta = NSGA2()
         self._logger.info("finish caculating beta , value is {}".format(beta))
         G = cal_G(beta[0])
         self._logger.info("finish caculating G:{}".format(G.shape))
-        return beta[0],G
+        return beta[0], G
 
     def getG_star(self):
         """
@@ -243,27 +252,27 @@ class ZEMobDataset(TrafficRepresentationDataset):
         if os.path.exists(self.beta_we_graph_path):
             self.beta_we = np.load(self.beta_we_graph_path)
             self._logger.info("finish consturcting beta_we value is {}".format(self.beta_we))
-            self.Gwe=np.load(self.G_we_graph_path)
+            self.Gwe = np.load(self.G_we_graph_path)
             self._logger.info("finish consturcting Gwe shape is {}".format(self.Gwe.shape))
         else:
-            self.beta_we,self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKEND)
-            np.save(self.beta_we_graph_path,self.beta_we)
+            self.beta_we, self.Gwe = self.getG(TimeSlot.DAYTYPE.WEEKEND)
+            np.save(self.beta_we_graph_path, self.beta_we)
             np.save(self.G_we_graph_path, self.Gwe)
             self._logger.info("finish saving beta_we value is {}".format(self.beta_we))
             self._logger.info("finish saving Gwe shape is {}".format(self.Gwe.shape))
         if os.path.exists(self.beta_wd_graph_path):
             self.beta_wd = np.load(self.beta_wd_graph_path)
             self._logger.info("finish consturcting beta_wd value is {}".format(self.beta_wd))
-            self.Gwd=np.load(self.G_wd_graph_path)
+            self.Gwd = np.load(self.G_wd_graph_path)
             self._logger.info("finish consturcting Gwd shape is {}".format(self.Gwd.shape))
         else:
-            self.beta_wd,self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAY)
-            np.save(self.beta_wd_graph_path,self.beta_wd)
+            self.beta_wd, self.Gwd = self.getG(TimeSlot.DAYTYPE.WEEKDAY)
+            np.save(self.beta_wd_graph_path, self.beta_wd)
             np.save(self.G_wd_graph_path, self.Gwd)
             self._logger.info("finish saving beta_wd value is {}".format(self.beta_wd))
             self._logger.info("finish saving Gwd shape is {}".format(self.Gwd.shape))
         self.G_star = np.zeros((self.z_num, self.e_num), dtype=np.float32)
-        pro=0
+        pro = 0
         with tqdm(total=self.z_num * self.e_num, desc="consturcting G_star graph") as pbar:
             for i in range(self.z_num):
                 for j in range(self.e_num):
@@ -273,16 +282,12 @@ class ZEMobDataset(TrafficRepresentationDataset):
                     else:
                         self.G_star[i][j] = self.Gwd[i][self.zones.index(zD)]
                     pbar.update(1)
-                if i/self.z_num>pro:
-                    self._logger.info("consturcting G_star graph processing {}%".format(pro*100))
-                    pro+=0.1
+                if i / self.z_num > pro:
+                    self._logger.info("consturcting G_star graph processing {}%".format(pro * 100))
+                    pro += 0.1
 
-        np.save( self.G_star_graph_path,self.G_star)
+        np.save(self.G_star_graph_path, self.G_star)
         self._logger.info("finish consturcting G_star graph shape is {}".format(self.G_star.shape))
-
-
-
-
 
     def get_data_feature(self):
         """
@@ -293,7 +298,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         """
         return {
             "M": self.M, "z_num": self.z_num, "e_num": self.e_num, "G_star": self.G_star,
-            "label": { "function_cluster": np.array(self.function)}
+            "label": {"function_cluster": np.array(self.function)}
         }
 
 
@@ -320,7 +325,13 @@ class Pattern():
         self.zD = zD
         self.tO = tO
         self.tD = tD
+    def __eq__(self, other):
+        if isinstance(other, Pattern):
+            return self.zO == other.zO and self.tO == other.tO and self.zD == other.zD and self.tD == other.tD
+        return False
 
+    def __hash__(self):
+        return hash((self.zO, self.tO,self.zD, self.tD))
 
 class Event():
     class STA(Enum):
@@ -337,6 +348,14 @@ class Event():
         self.z = z
         self.t = t
         self.sta = sta
+
+    def __eq__(self, other):
+        if isinstance(other, Event):
+            return self.z == other.z and self.t == other.t and self.sta == other.sta
+        return False
+
+    def __hash__(self):
+        return hash((self.z, self.t,self.sta))
 
 
 class TimeSlot():
@@ -357,3 +376,11 @@ class TimeSlot():
         else:
             self.day_type = self.DAYTYPE.WEEKEND  # 周末
         self.t = int(date_obj.hour)
+
+    def __eq__(self, other):
+        if isinstance(other, TimeSlot):
+            return self.day_type == other.day_type and self.t == other.t
+        return False
+
+    def __hash__(self):
+        return hash((self.day_type, self.t))

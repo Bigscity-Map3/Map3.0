@@ -8,7 +8,7 @@ from libcity.model.abstract_traffic_tradition_model import AbstractTraditionMode
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 class ZEMob(AbstractTraditionModel):
 
@@ -38,8 +38,7 @@ class ZEMob(AbstractTraditionModel):
         self.events_embedding = nn.Embedding(self.e_num, self.output_dim)
 
     def loss_function(self, zones_embeddings, events_embeddings):
-        self._logger.info("caculating loss of zones {} and events {}".format(zones_embeddings.shape,
-                                                                             events_embeddings.shape))
+        # self._logger.info("caculating loss of zones {} and events {}".format(zones_embeddings.shape,events_embeddings.shape))
         sim_matrix = torch.matmul(zones_embeddings, events_embeddings.t())
         mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
         mse = torch.sum(mse_matrix) / 2
@@ -48,8 +47,8 @@ class ZEMob(AbstractTraditionModel):
     def run(self, data=None):
         num_epochs = self.iter
         optimizer = optim.SGD(list(self.zones_embedding.parameters()) + list(self.events_embedding.parameters()),
-                              lr=0.01)
-        batch_size = 128
+                              lr=0.1)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=1, factor=0.1, verbose=True)
         zones_data = torch.arange(0, self.z_num)
         events_data = torch.arange(0, self.e_num)
         # zones_batches = torch.split(zones_data, batch_size)
@@ -61,6 +60,7 @@ class ZEMob(AbstractTraditionModel):
             loss = self.loss_function(zones_embeddings, events_embeddings)
             loss.backward()
             optimizer.step()
+            scheduler.step(loss)
             # for batch_idx, batch_data in enumerate(zip(zones_batches, events_batches)):
             #     optimizer.zero_grad()
             #     zones_embeddings = self.zones_embedding(batch_data[0])
