@@ -11,19 +11,15 @@ class ZEMobDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         super().__init__(config)
 
-        # 设置中间变量distance矩阵和ppmi矩阵的缓存路径
-        if not os.path.exists('./libcity/cache/ZEMob_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
-        self.distance_matrix_path = './libcity/cache/ZEMob_{}/distance_matrix.npy'.format(self.dataset)
-        self.ppmi_matrix_path = './libcity/cache/ZEMob_{}/ppmi_matrix.npy'.format(self.dataset)
-
-        # 求解ppmi_matrix
+        # 求解ppmi_matrix，三个字典分别存储了event的出现次数，zone的出现次数，zone和event的共现次数
         self.mobility_events = dict()
         self.zones = dict()
         self.co_occurs = dict()
         self.co_occurs_num = 0
 
-        # 求解G_matrix
+        # 求解G_matrix，三组变量分别对应文章中的A、P、T
+        self.max_gen = config.get('MaxGen')
+        self.NIND = config.get('NIND')
         self.arrive_num_weekday = np.zeros(len(self.region_ids))
         self.arrive_num_weekend = np.zeros(len(self.region_ids))
         self.leave_num_weekday = np.zeros(len(self.region_ids))
@@ -43,6 +39,12 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         # mobility_event的数量
         self.mobility_event_num = 0
+
+        # 设置中间变量的缓存路径
+        if not os.path.exists('./libcity/cache/ZEMob_{}'.format(self.dataset)):
+            os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
+        self.distance_matrix_path = './libcity/cache/ZEMob_{}/distance_matrix.npy'.format(self.dataset)
+        self.ppmi_matrix_path = './libcity/cache/ZEMob_{}/ppmi_matrix.npy'.format(self.dataset)
 
         self.construct_mobility_data()
         self.construct_ppmi_matrix()
@@ -137,6 +139,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.zone_num = len(self.region_ids)
         self.mobility_event_num = len(self.mobility_events)
 
+        self._logger.info("finish constructing mobility basic data")
+
     def construct_ppmi_matrix(self):
         """
         创建ppmi矩阵
@@ -170,11 +174,11 @@ class ZEMobDataset(TrafficRepresentationDataset):
         problem = GravityMatrix(self.zone_num, self.arrive_num_weekday, self.leave_num_weekday, self.T_weekday, self.distance)
         algorithm = ea.soea_SEGA_templet(
             problem,
-            ea.Population(Encoding='RI', NIND=20),
-            MAXGEN=50,
-            logTras=0,
+            ea.Population(Encoding='RI', NIND=self.NIND),
+            MAXGEN=self.max_gen,
             trappedValue=1e-6,
-            maxTrappedCount=10
+            maxTrappedCount=10,
+            logTras=0,
         )
         res = ea.optimize(
             algorithm,
@@ -182,18 +186,18 @@ class ZEMobDataset(TrafficRepresentationDataset):
             drawing=0,
             outputMsg=False,
             drawLog=False,
-            saveFlag=True
+            saveFlag=False
         )
         beta_weekday = res['Vars'][0][0]
 
         problem = GravityMatrix(self.zone_num, self.arrive_num_weekend, self.leave_num_weekend, self.T_weekend, self.distance)
         algorithm = ea.soea_SEGA_templet(
             problem,
-            ea.Population(Encoding='RI', NIND=20),
-            MAXGEN=50,
-            logTras=0,
+            ea.Population(Encoding='RI', NIND=self.NIND),
+            MAXGEN=self.max_gen,
             trappedValue=1e-6,
-            maxTrappedCount=10
+            maxTrappedCount=10,
+            logTras=0,
         )
         res = ea.optimize(
             algorithm,
@@ -201,7 +205,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             drawing=0,
             outputMsg=False,
             drawLog=False,
-            saveFlag=True
+            saveFlag=False
         )
         beta_weekend = res['Vars'][0][0]
 
@@ -244,16 +248,17 @@ class ZEMobDataset(TrafficRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {'ppmi_matrix': self.ppmi_matrix, 'G_matrix': self.G_matrix,
-                'region_num': self.zone_num, 'mobility_event_num': self.mobility_event_num}
+        return {'ppmi_matrix': self.ppmi_matrix, 'G_matrix': self.G_matrix, 
+                'region_num': self.zone_num, 'mobility_event_num': self.mobility_event_num,
+                'label': {"function_cluster": np.array(self.function)}}
 
 
 # 遗传算法求解gravity matrix
 class GravityMatrix(ea.Problem):
     def __init__(self, zone_num, A, P, T, D):
         ea.Problem.__init__(
-            self, name='GravityMatrix', M=1, maxormins=[-1], Dim=1,
-            varTypes=[0], lb=[-10], ub=[10], lbin=[1], ubin=[1]
+            self, name='GravityMatrix', M=1, maxormins=[1], Dim=1,
+            varTypes=[0], lb=[-50], ub=[50], lbin=[1], ubin=[1]
         )
         self.zone_num = zone_num
         self.A = A
@@ -266,6 +271,8 @@ class GravityMatrix(ea.Problem):
         for i in range(len(res)):
             beta = betas[i][0]
             F = np.exp((-beta) * self.D)
-            sum_denominator = np.matmul(F, self.A.reshape(self.zone_num, 1))
-            res[i][0] = np.sum((self.T - ((np.matmul(self.P.reshape(self.zone_num, 1), self.A.reshape(1, self.zone_num)) * F) / sum_denominator)) ** 2)
+            G_denominator = np.matmul(F, self.A.reshape(self.zone_num, 1))
+            G_numerator = np.matmul(self.P.reshape(self.zone_num, 1), self.A.reshape(1, self.zone_num)) * F
+            T_roof = G_numerator / G_denominator
+            res[i][0] = np.sum((self.T - T_roof) ** 2)
         return res

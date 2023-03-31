@@ -1,5 +1,6 @@
 *.pyc
 *.log
+.vscode
 raw_data/
 libcity/log/
 libcity/cache/

@@ -1,7 +1,9 @@
 {
+  "MaxGen": 30,
+  "NIND": 10,
   "output_dim": 128,
   "max_epoch": 1000,
   "batch_size": 64,
-  "learning_rate": 0.01,
+  "learning_rate": 0.04,
   "representation_object":"region"
 }
