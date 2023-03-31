@@ -28,7 +28,7 @@ def get_dataset(config):
             raise AttributeError('dataset_class is not found')
 
 
-def generate_dataloader(train_data, eval_data, test_data, feature_name,
+def generate_dataloader(train_data, eval_data, test_data,  feature_name,
                         batch_size, num_workers, shuffle=True,
                         pad_with_last_sample=False):
     """

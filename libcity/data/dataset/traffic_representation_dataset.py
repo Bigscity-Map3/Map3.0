@@ -83,8 +83,6 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.road2poi = None
         if os.path.exists(self.data_path + self.geo_file + '.geo'):
             self._load_geo()
-        if os.path.exists(self.data_path + self.geo_file + '.geo'):
-            self._load_geo()
         else:
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary

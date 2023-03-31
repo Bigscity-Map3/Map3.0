@@ -21,12 +21,13 @@ class KmeansModel(AbstractModel):
     def run(self,node_emb,label):
         self.n_clusters = np.unique(label).shape[0]
         kmeans = KMeans(n_clusters=self.n_clusters,random_state=self.random_state)
+        self._logger.info("K-Means Cluster:n_clusters={},random_state={}".format(self.n_clusters,self.random_state))
         predict = kmeans.fit_predict(node_emb)
-        #self.save_result(predict,self.result_path)
+        np.save(self.result_path,predict)
         nmi = normalized_mutual_info_score(label, predict)
         ars = adjusted_rand_score(label, predict)
         result={'nmi':nmi,'ars':ars}
-        self._logger.info("finish Kmeans cluster {nmi="+str(nmi)+",ars="+str(ars)+"}")
+        self._logger.info("finish Kmeans cluster,result is {nmi="+str(nmi)+",ars="+str(ars)+"}")
         return result
     
     def clear(self):

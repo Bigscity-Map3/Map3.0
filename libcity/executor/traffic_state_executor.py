@@ -13,7 +13,7 @@ from functools import partial
 
 class TrafficStateExecutor(AbstractExecutor):
     def __init__(self, config, model, data_feature):
-        self.evaluator = get_evaluator(config)
+        self.evaluator = get_evaluator(config,data_feature)
         self.config = config
         self.data_feature = data_feature
         self.device = self.config.get('device', torch.device('cpu'))
