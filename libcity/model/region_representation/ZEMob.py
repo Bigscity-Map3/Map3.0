@@ -42,8 +42,7 @@ class ZEMob(AbstractTraditionModel):
         sim_matrix = torch.matmul(zones_embeddings, events_embeddings.t())
         # mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
         mse_matrix = ((self.M - sim_matrix) ** 2)
-        mse = torch.sum(mse_matrix) / 2
-        mse= torch.log(mse)
+        mse = torch.sum(mse_matrix) / (2*self.z_num*self.e_num)
         return mse
 
     def run(self, data=None):
