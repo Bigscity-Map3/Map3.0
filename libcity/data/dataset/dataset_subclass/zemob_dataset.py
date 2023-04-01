@@ -221,8 +221,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
             toolbox.register("select", tools.selNSGA2)
 
             # Set the parameters for the algorithm
-            POP_SIZE = 100
-            GEN_SIZE = 100
+            POP_SIZE = 50
+            GEN_SIZE = 20
 
             # Initialize the population and run the algorithm
             pop = toolbox.population(n=POP_SIZE)
