@@ -48,7 +48,7 @@ class ZEMob(AbstractTraditionModel):
     def run(self, data=None):
         num_epochs = self.iter
         optimizer = optim.SGD(list(self.zones_embedding.parameters()) + list(self.events_embedding.parameters()),
-                              lr=1)
+                              lr=10)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.1, verbose=True)
         zones_data = torch.arange(0, self.z_num)
         events_data = torch.arange(0, self.e_num)
