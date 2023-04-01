@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+
 class ZEMob(AbstractTraditionModel):
 
     def __init__(self, config, data_feature):
@@ -42,7 +43,7 @@ class ZEMob(AbstractTraditionModel):
         sim_matrix = torch.matmul(zones_embeddings, events_embeddings.t())
         # mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
         mse_matrix = ((self.M - sim_matrix) ** 2)
-        mse = torch.sum(mse_matrix) / (2*self.z_num*self.e_num)
+        mse = torch.sum(mse_matrix) / (2 * self.z_num * self.e_num)
         return mse
 
     def run(self, data=None):
@@ -70,7 +71,8 @@ class ZEMob(AbstractTraditionModel):
             #     loss.backward()
             #     optimizer.step()
             #     total_loss += loss.item()
-            self._logger.info('Epoch [{}/{}], Loss: {:.4f}'.format(epoch + 1, num_epochs, loss.item()))
+            if epoch % 50 == 0 or epoch<10:
+                self._logger.info('Epoch [{}/{}], Loss: {:.4f}'.format(epoch + 1, num_epochs, loss.item()))
         np.save(self.npy_cache_file, self.zones_embedding.weight.data.numpy())
         self._logger.info('词向量和模型保存完成')
-        self._logger.info('词向量维度：{}'.format(self.zones_embedding.embedding_dim) )
+        self._logger.info('词向量维度：{}'.format(self.zones_embedding.embedding_dim))
