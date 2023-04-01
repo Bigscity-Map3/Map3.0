@@ -188,7 +188,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
                 :return:
                 """
                 G = cal_G(individual[0])
-                T_hat = P[:np.newaxis] * G
+                T_hat = P[:,np.newaxis] * G
                 mse = np.sum((T - T_hat) ** 2)
                 return mse,
 
