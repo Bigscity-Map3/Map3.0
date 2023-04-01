@@ -43,7 +43,7 @@ class ZEMob(AbstractTraditionModel):
         # mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
         mse_matrix = ((self.M - sim_matrix) ** 2)
         mse = torch.sum(mse_matrix) / 2
-        return np.log(mse)
+        return torch.log(mse)
 
     def run(self, data=None):
         num_epochs = self.iter
