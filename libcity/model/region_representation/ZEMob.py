@@ -43,12 +43,13 @@ class ZEMob(AbstractTraditionModel):
         # mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
         mse_matrix = ((self.M - sim_matrix) ** 2)
         mse = torch.sum(mse_matrix) / 2
-        return torch.log(mse)
+        mse= torch.log(mse)
+        return mse
 
     def run(self, data=None):
         num_epochs = self.iter
         optimizer = optim.SGD(list(self.zones_embedding.parameters()) + list(self.events_embedding.parameters()),
-                              lr=0.01)
+                              lr=1)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.1, verbose=True)
         zones_data = torch.arange(0, self.z_num)
         events_data = torch.arange(0, self.e_num)
