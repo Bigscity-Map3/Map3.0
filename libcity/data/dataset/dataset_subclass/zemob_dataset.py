@@ -3,6 +3,7 @@ from datetime import datetime
 
 import numpy as np
 import geatpy as ea
+import torch
 
 from libcity.data.dataset import TrafficRepresentationDataset
 
@@ -11,13 +12,15 @@ class ZEMobDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         super().__init__(config)
 
-        # 求解ppmi_matrix，三个字典分别存储了event的出现次数，zone的出现次数，zone和event的共现次数
+        self.device = config.get('device', torch.device('cpu'))
+
+        # 用于求解ppmi_matrix（即公式中的M）的中间变量，三个字典分别存储了event的出现次数，zone的出现次数，zone和event的共现次数
         self.mobility_events = dict()
         self.zones = dict()
         self.co_occurs = dict()
         self.co_occurs_num = 0
 
-        # 求解G_matrix，三组变量分别对应文章中的A、P、T
+        # 用于求解G_matrix的中间变量，三组变量分别对应文章中的A、P、T
         self.max_gen = config.get('MaxGen')
         self.NIND = config.get('NIND')
         self.arrive_num_weekday = np.zeros(len(self.region_ids))
@@ -45,6 +48,13 @@ class ZEMobDataset(TrafficRepresentationDataset):
             os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
         self.distance_matrix_path = './libcity/cache/ZEMob_{}/distance_matrix.npy'.format(self.dataset)
         self.ppmi_matrix_path = './libcity/cache/ZEMob_{}/ppmi_matrix.npy'.format(self.dataset)
+
+        self.A_wd_path = './libcity/cache/ZEMob_{}/A_wd.npy'.format(self.dataset)
+        self.A_we_path = './libcity/cache/ZEMob_{}/A_we.npy'.format(self.dataset)
+        self.T_wd_path = './libcity/cache/ZEMob_{}/T_wd.npy'.format(self.dataset)
+        self.T_we_path = './libcity/cache/ZEMob_{}/T_we.npy'.format(self.dataset)
+        self.P_wd_path = './libcity/cache/ZEMob_{}/P_wd.npy'.format(self.dataset)
+        self.P_we_path = './libcity/cache/ZEMob_{}/P_we.npy'.format(self.dataset)
 
         self.construct_mobility_data()
         self.construct_ppmi_matrix()
@@ -125,7 +135,9 @@ class ZEMobDataset(TrafficRepresentationDataset):
             # 统计总的co-occur的数量
             self.co_occurs_num += 2
 
-            # 计算A、P、T
+            # 计算A、P、T。
+            # 出发的时间在工作日的话，这个pattern就属于工作日。
+            # 出发的时间在周末的话，这个pattern就属于周末。
             if origin_date_type == 1:
                 self.arrive_num_weekday[destination_region] += 1
                 self.leave_num_weekday[origin_region] += 1
@@ -139,6 +151,19 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.zone_num = len(self.region_ids)
         self.mobility_event_num = len(self.mobility_events)
 
+        # 保存A、P、T
+        if not os.path.exists(self.A_wd_path):
+            np.save(self.A_wd_path, self.arrive_num_weekday)
+        if not os.path.exists(self.A_we_path):
+            np.save(self.A_we_path, self.arrive_num_weekend)
+        if not os.path.exists(self.P_wd_path):
+            np.save(self.P_wd_path, self.leave_num_weekday)
+        if not os.path.exists(self.P_we_path):
+            np.save(self.P_we_path, self.leave_num_weekend)
+        if not os.path.exists(self.T_wd_path):
+            np.save(self.T_wd_path, self.T_weekday)
+        if not os.path.exists(self.T_we_path):
+            np.save(self.T_we_path, self.T_weekend)
         self._logger.info("finish constructing mobility basic data")
 
     def construct_ppmi_matrix(self):
@@ -169,9 +194,11 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         :return:
         """
+        # 计算距离矩阵
         self.construct_distance_matrix()
 
-        problem = GravityMatrix(self.zone_num, self.arrive_num_weekday, self.leave_num_weekday, self.T_weekday, self.distance)
+        # 遗传算法求解工作日的beta
+        problem = GravityMatrix(self.zone_num, self.device, self.arrive_num_weekday, self.leave_num_weekday, self.T_weekday, self.distance)
         algorithm = ea.soea_SEGA_templet(
             problem,
             ea.Population(Encoding='RI', NIND=self.NIND),
@@ -190,7 +217,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
         )
         beta_weekday = res['Vars'][0][0]
 
-        problem = GravityMatrix(self.zone_num, self.arrive_num_weekend, self.leave_num_weekend, self.T_weekend, self.distance)
+        # 遗传算法求解周末的beta
+        problem = GravityMatrix(self.zone_num, self.device, self.arrive_num_weekend, self.leave_num_weekend, self.T_weekend, self.distance)
         algorithm = ea.soea_SEGA_templet(
             problem,
             ea.Population(Encoding='RI', NIND=self.NIND),
@@ -209,12 +237,16 @@ class ZEMobDataset(TrafficRepresentationDataset):
         )
         beta_weekend = res['Vars'][0][0]
 
+        # 求解工作日的G
         F = np.exp((-beta_weekday) * self.distance)
         G_weekday = (F * self.arrive_num_weekday) / np.matmul(F, self.arrive_num_weekday.reshape(self.zone_num, 1))
 
+        # 求解周末的G
         F = np.exp((-beta_weekend) * self.distance)
         G_weekend = (F * self.arrive_num_weekend) / np.matmul(F, self.arrive_num_weekend.reshape(self.zone_num, 1))
 
+
+        # 上述求解的G维度为z*z，如果要转化为z*e，还需要根据每个event进行筛选，得到z*e维度的G*矩阵
         self.G_matrix = np.zeros((self.zone_num, self.mobility_event_num))
         for zone_id in range(self.zone_num):
             for mobility_event in self.mobility_events.keys():
@@ -253,26 +285,29 @@ class ZEMobDataset(TrafficRepresentationDataset):
                 'label': {"function_cluster": np.array(self.function)}}
 
 
-# 遗传算法求解gravity matrix
+# 遗传算法求解gravity matrix的模型
 class GravityMatrix(ea.Problem):
-    def __init__(self, zone_num, A, P, T, D):
+    def __init__(self, zone_num, device, A, P, T, D):
         ea.Problem.__init__(
             self, name='GravityMatrix', M=1, maxormins=[1], Dim=1,
-            varTypes=[0], lb=[-50], ub=[50], lbin=[1], ubin=[1]
+            varTypes=[0], lb=[-100], ub=[100], lbin=[1], ubin=[1]
         )
         self.zone_num = zone_num
-        self.A = A
-        self.P = P
-        self.T = T
-        self.D = D
+        self.device = device
+        self.A = torch.tensor(A, dtype=torch.float32).to(self.device)
+        self.P = torch.tensor(P, dtype=torch.float32).to(self.device)
+        self.T = torch.tensor(T, dtype=torch.float32).to(self.device)
+        self.D = torch.tensor(D, dtype=torch.float32).to(self.device)
 
+    # 只需要关注这个目标函数，即为文章第三页最后提到的需要使用遗传算法进行最小化的那个函数
+    # 注意T_hat的计算，这里将文章中的P*G中的G进行了展开，然后分别求解了展开后的分子和分母
     def evalVars(self, betas):
         res = np.zeros_like(betas)
         for i in range(len(res)):
             beta = betas[i][0]
-            F = np.exp((-beta) * self.D)
-            G_denominator = np.matmul(F, self.A.reshape(self.zone_num, 1))
-            G_numerator = np.matmul(self.P.reshape(self.zone_num, 1), self.A.reshape(1, self.zone_num)) * F
-            T_roof = G_numerator / G_denominator
-            res[i][0] = np.sum((self.T - T_roof) ** 2)
+            F = torch.exp((-beta) * self.D)
+            G_denominator = torch.matmul(F, self.A.reshape(self.zone_num, 1))
+            G_numerator = torch.matmul(self.P.reshape(self.zone_num, 1), self.A.reshape(1, self.zone_num)) * F
+            T_hat = G_numerator / G_denominator
+            res[i][0] = torch.sum((self.T - T_hat) ** 2)
         return res
