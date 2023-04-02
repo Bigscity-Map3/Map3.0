@@ -41,15 +41,15 @@ class ZEMob(AbstractTraditionModel):
     def loss_function(self, zones_embeddings, events_embeddings):
         # self._logger.info("caculating loss of zones {} and events {}".format(zones_embeddings.shape,events_embeddings.shape))
         sim_matrix = torch.matmul(zones_embeddings, events_embeddings.t())
-        # mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
-        mse_matrix = ((self.M - sim_matrix) ** 2)
-        mse = torch.sum(mse_matrix) / (2 * self.z_num * self.e_num)
+        mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
+        # mse_matrix = ((self.M - sim_matrix) ** 2)
+        mse = torch.sum(mse_matrix) / 2
         return mse
 
     def run(self, data=None):
         num_epochs = self.iter
         optimizer = optim.SGD(list(self.zones_embedding.parameters()) + list(self.events_embedding.parameters()),
-                              lr=10)
+                              lr=0.001)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.1, verbose=True)
         zones_data = torch.arange(0, self.z_num)
         events_data = torch.arange(0, self.e_num)
