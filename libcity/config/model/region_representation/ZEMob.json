@@ -1,5 +1,5 @@
 {
-    "output_dim": 64,
+    "output_dim": 128,
     "num_workers": 10,
     "max_epoch": 1000,
     "representation_object":"region"
