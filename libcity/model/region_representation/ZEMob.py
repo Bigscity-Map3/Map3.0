@@ -106,7 +106,6 @@ class ZEMobModel(nn.Module):
         self.event_embedding.weight.data.uniform_(-initrange, initrange)
 
         # 一些辅助变量，在分批进行loss的计算时，当我们选定了一部分的z，需要对每一个z遍历所有的e
-        # 只有self.all_events在forward函数中被使用了
         self.all_events = torch.arange(mobility_event_num).to(self.device)
 
     # 前向传播，公式即为文章中需要最小化的函数，得到的结果即为loss
