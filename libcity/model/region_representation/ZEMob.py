@@ -18,8 +18,8 @@ class ZEMob(AbstractTraditionModel):
         # 从数据预处理中拿到PPMI矩阵（即M），G*矩阵，以及region的总数和mobility_event的总数，用于生成两个embedding
         # 这里我们生成0-region_num的regionid，即embedding矩阵的编号，分别对应的是数据预处理得到的self.region_idx中的顺序
         # 因此这里并不需要拿到具体的region和event的列表，我们最终只关注region的embedding
-        self.ppmi_matrix = torch.from_numpy(data_feature.get('ppmi_matrix')).to(self.device)
-        self.G_matrix = torch.from_numpy(data_feature.get('G_matrix')).to(self.device)
+        self.ppmi_matrix = torch.from_numpy(data_feature.get('ppmi_matrix'))
+        self.G_matrix = torch.from_numpy(data_feature.get('G_matrix'))
         self.region_num = data_feature.get('region_num')
         self.mobility_event_num = data_feature.get('mobility_event_num')
         self._logger = getLogger()
@@ -41,10 +41,9 @@ class ZEMob(AbstractTraditionModel):
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
-        self.region_list = torch.arange(self.region_num).to(self.device)
-        self.mobility_event_list = torch.arange(self.mobility_event_num).to(self.device)
+        self.region_list = torch.arange(self.region_num)
 
-        # 分批加载数据
+        # 分批加载数据，这里为了防止大型数据集的G和ppmi过大，需要在cpu分批进行读取
         self.train_data = ZEMobDataSet(self.region_list)
         self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
@@ -109,13 +108,18 @@ class ZEMobModel(nn.Module):
         # 一些辅助变量，在分批进行loss的计算时，当我们选定了一部分的z，需要对每一个z遍历所有的e
         # 只有self.all_events在forward函数中被使用了
         self.all_events = torch.arange(mobility_event_num).to(self.device)
-        self.all_zones = torch.arange(zone_num).to(self.device)
 
     # 前向传播，公式即为文章中需要最小化的函数，得到的结果即为loss
+    # 注意ppmi和G在cpu上
     def forward(self, batch):
-        batch_zone = self.zone_embedding(batch)
+        batch_gpu = batch.to(self.device)
+        batch_zone = self.zone_embedding(batch_gpu)
         batch_event = self.event_embedding(self.all_events)
-        return torch.sum(torch.pow(torch.sub(self.ppmi_matrix[batch], torch.mm(batch_zone, batch_event.t())), 2) * self.G_matrix[batch]) / 2
+
+        batch_ppmi = self.ppmi_matrix[batch].to(self.device)
+        batch_G = self.G_matrix[batch].to(self.device)
+
+        return torch.sum(torch.pow(torch.sub(batch_ppmi, torch.mm(batch_zone, batch_event.t())), 2) * batch_G) / 2
 
 # 数据加载
 class ZEMobDataSet(Dataset):

@@ -2,8 +2,8 @@
   "MaxGen": 200,
   "NIND": 50,
   "output_dim": 128,
-  "max_epoch": 5000,
+  "max_epoch": 1000,
   "batch_size": 64,
-  "learning_rate": 0.2,
+  "learning_rate": 0.3,
   "representation_object":"region"
 }

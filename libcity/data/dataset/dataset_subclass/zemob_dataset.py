@@ -14,6 +14,11 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         self.device = config.get('device', torch.device('cpu'))
 
+        # 如果region的id不连续或不从零开始，将所有的region映射成从零开始的列表，并提供两种映射
+        self.zone_ids = list(range(len(self.region_ids)))
+        self.id_to_zone = dict(zip(self.zone_ids, self.region_ids))
+        self.zone_to_id = dict(zip(self.region_ids, self.zone_ids))
+
         # 用于求解ppmi_matrix（即公式中的M）的中间变量，三个字典分别存储了event的出现次数，zone的出现次数，zone和event的共现次数
         self.mobility_events = dict()
         self.zones = dict()
@@ -48,6 +53,9 @@ class ZEMobDataset(TrafficRepresentationDataset):
             os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
         self.distance_matrix_path = './libcity/cache/ZEMob_{}/distance_matrix.npy'.format(self.dataset)
         self.ppmi_matrix_path = './libcity/cache/ZEMob_{}/ppmi_matrix.npy'.format(self.dataset)
+        self.G_matrix_path = './libcity/cache/ZEMob_{}/G_matrix.npy'.format(self.dataset)
+
+        self.mobility_events_path = './libcity/cache/ZEMob_{}/mobility_events.npy'.format(self.dataset)
 
         self.A_wd_path = './libcity/cache/ZEMob_{}/A_wd.npy'.format(self.dataset)
         self.A_we_path = './libcity/cache/ZEMob_{}/A_we.npy'.format(self.dataset)
@@ -55,6 +63,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.T_we_path = './libcity/cache/ZEMob_{}/T_we.npy'.format(self.dataset)
         self.P_wd_path = './libcity/cache/ZEMob_{}/P_wd.npy'.format(self.dataset)
         self.P_we_path = './libcity/cache/ZEMob_{}/P_we.npy'.format(self.dataset)
+
+        self.label_path = './libcity/cache/ZEMob_{}/label.npy'.format(self.dataset)
 
         self.construct_mobility_data()
         self.construct_ppmi_matrix()
@@ -72,16 +82,18 @@ class ZEMobDataset(TrafficRepresentationDataset):
         mobility_event_index = 0
         for traj, time_list in zip(self.traj_road, self.traj_time):
             # 得到起始zone和起始zone对应的mobility_event
-            origin_region = int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
+            origin_region = self.zone_to_id.get(
+                int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
+            )
             origin_date = datetime.strptime(time_list[0], '%Y-%m-%d %H:%M:%S')
             origin_hour = origin_date.hour
             origin_date_type = 1 if origin_date.weekday() in range(5) else 0
             origin_mobility_event = (origin_region, origin_hour, origin_date_type, 'o')
 
             # 得到目的zone和目的zone对应的mobility_event
-            destination_region = int(
+            destination_region = self.zone_to_id.get(int(
                 list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            )
+            ))
             destination_date = datetime.strptime(time_list[-1], '%Y-%m-%d %H:%M:%S')
             destination_hour = destination_date.hour
             destination_date_type = 1 if destination_date.weekday() in range(5) else 0
@@ -151,6 +163,10 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self.zone_num = len(self.region_ids)
         self.mobility_event_num = len(self.mobility_events)
 
+        # 保存记录了mobility_events信息的字典
+        if not os.path.exists(self.mobility_events_path):
+            np.save(self.mobility_events_path, self.mobility_events)
+
         # 保存A、P、T
         if not os.path.exists(self.A_wd_path):
             np.save(self.A_wd_path, self.arrive_num_weekday)
@@ -164,6 +180,8 @@ class ZEMobDataset(TrafficRepresentationDataset):
             np.save(self.T_wd_path, self.T_weekday)
         if not os.path.exists(self.T_we_path):
             np.save(self.T_we_path, self.T_weekend)
+        if not os.path.exists(self.label_path):
+            np.save(self.label_path, np.array(self.function))
         self._logger.info("finish constructing mobility basic data")
 
     def construct_ppmi_matrix(self):
@@ -257,6 +275,11 @@ class ZEMobDataset(TrafficRepresentationDataset):
                     self.G_matrix[zone_id][mb_id] = G_weekday[zone_id][mb_zone_id]
                 else:
                     self.G_matrix[zone_id][mb_id] = G_weekend[zone_id][mb_zone_id]
+
+        # 保存G matrix
+        if not os.path.exists(self.G_matrix_path):
+            np.save(self.G_matrix_path, self.G_matrix)
+
         self._logger.info("finish constructing gravity matrix, beta_wd is {}, beta_we is {}".format(str(beta_weekday), str(beta_weekend)))
 
     def construct_distance_matrix(self):
@@ -299,6 +322,7 @@ class GravityMatrix(ea.Problem):
         self.T = torch.tensor(T, dtype=torch.float32).to(self.device)
         self.D = torch.tensor(D, dtype=torch.float32).to(self.device)
 
+    # 给每个个体计算目标函数值
     # 只需要关注这个目标函数，即为文章第三页最后提到的需要使用遗传算法进行最小化的那个函数
     # 注意T_hat的计算，这里将文章中的P*G中的G进行了展开，然后分别求解了展开后的分子和分母
     def evalVars(self, betas):
