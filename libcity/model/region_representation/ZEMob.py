@@ -4,6 +4,9 @@ import networkx as nx
 import numpy as np
 from deap import base, creator, tools
 from logging import getLogger
+
+from torch.utils.data import Dataset
+
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
 import torch
 import torch.nn as nn
@@ -37,11 +40,14 @@ class ZEMob(AbstractTraditionModel):
         # initialize embeddings
         self.zones_embedding = nn.Embedding(self.z_num, self.output_dim)
         self.events_embedding = nn.Embedding(self.e_num, self.output_dim)
+        initrange = 0.5 / self.embedding_dim
+        self.zone_embedding.weight.data.uniform_(-initrange, initrange)
+        self.event_embedding.weight.data.uniform_(-initrange, initrange)
 
     def loss_function(self, zones_embeddings, events_embeddings):
         # self._logger.info("caculating loss of zones {} and events {}".format(zones_embeddings.shape,events_embeddings.shape))
         sim_matrix = torch.matmul(zones_embeddings, events_embeddings.t())
-        mse_matrix = ((self.M - sim_matrix) ** 2) * self.G_star
+        mse_matrix = torch.pow( torch.sub(self.M , sim_matrix), 2) * self.G_star
         # mse_matrix = ((self.M - sim_matrix) ** 2)
         mse = torch.sum(mse_matrix) / 2
         return mse
@@ -76,3 +82,37 @@ class ZEMob(AbstractTraditionModel):
         np.save(self.npy_cache_file, self.zones_embedding.weight.data.numpy())
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：{}'.format(self.zones_embedding.embedding_dim))
+
+
+# class ZEMob_Model(torch.nn):
+#     def __init__(self,zone_num,event_num,M,G_star,output_dim):
+#         self.output_dim = output_dim
+#         self.M = M
+#         self.G_star = G_star
+#         self.event_num = event_num
+#         self.zone_num = zone_num
+#         self.zone_embedding=nn.Embedding(zone_num,output_dim)
+#         self.event_embedding=nn.Embedding(zone_num,output_dim)
+#         nn.init.normal_(self.zone_embedding.weight)
+#         nn.init.normal_(self.event_embedding.weight)
+#     def forward(self, batch):
+#         batch_gpu = batch.to(self.device)
+#         batch_zone = self.zone_embedding(batch_gpu)
+#         batch_event = self.event_embedding(self.all_events)
+#
+#         batch_ppmi = self.ppmi_matrix[batch].to(self.device)
+#         batch_G = self.G_matrix[batch].to(self.device)
+#
+#         return torch.sum(torch.pow(torch.sub(batch_ppmi, torch.mm(batch_zone, batch_event.t())), 2) * batch_G) / 2
+#
+#
+# class ZEMobDataSet(Dataset):
+#     def __init__(self, zones):
+#         self.zones = zones
+#
+#     def __len__(self):
+#         return len(self.zones)
+#
+#     def __getitem__(self, idx):
+#         zone = self.zones[idx]
+#         return zone
