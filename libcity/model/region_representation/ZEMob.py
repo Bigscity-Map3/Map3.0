@@ -40,7 +40,7 @@ class ZEMob(AbstractTraditionModel):
         # initialize embeddings
         self.zones_embedding = nn.Embedding(self.z_num, self.output_dim)
         self.events_embedding = nn.Embedding(self.e_num, self.output_dim)
-        initrange = 0.5 / self.embedding_dim
+        initrange = 0.5 / self.output_dim
         self.zone_embedding.weight.data.uniform_(-initrange, initrange)
         self.event_embedding.weight.data.uniform_(-initrange, initrange)
 
