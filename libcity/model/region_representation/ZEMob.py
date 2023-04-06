@@ -31,7 +31,7 @@ class ZEMob(AbstractTraditionModel):
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
-        self.lr =self.config.get('learning_rate', 0.06)
+        self.lr =config.get('learning_rate', 0.06)
         self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \

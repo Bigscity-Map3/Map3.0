@@ -2,7 +2,6 @@
     "output_dim": 128,
     "num_workers": 10,
     "max_epoch": 1000,
-    "lr": 0.06,
     "representation_object":"region"
 
 }
