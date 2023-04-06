@@ -109,7 +109,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         self._logger.info("finish building ZE matrix, shape is {} ,gama is {}".format(self.ZE.shape, self.gama))
 
     def getM(self):
-        self.M = np.dot(self.ZE, 100)
+        self.M = np.dot(self.ZE, self.gama)
         # (z)
         pound_z = np.sum(self.ZE, axis=1).reshape(-1,1)
         # (e)
