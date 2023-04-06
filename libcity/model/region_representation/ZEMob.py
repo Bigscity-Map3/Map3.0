@@ -31,6 +31,7 @@ class ZEMob(AbstractTraditionModel):
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
+        self.lr = config.get('lr', 0.06)
         self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
@@ -55,7 +56,7 @@ class ZEMob(AbstractTraditionModel):
     def run(self, data=None):
         num_epochs = self.iter
         optimizer = optim.SGD(list(self.zones_embedding.parameters()) + list(self.events_embedding.parameters()),
-                              lr=0.06)
+                              lr=self.lr)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.1, verbose=True)
         zones_data = torch.arange(0, self.z_num)
         events_data = torch.arange(0, self.e_num)
