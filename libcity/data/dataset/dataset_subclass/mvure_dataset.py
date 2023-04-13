@@ -27,7 +27,7 @@ class MVUREDataset(TrafficRepresentationDataset):
         self.construct_od_matrix()
         self.construct_flow_adj()
         self.construct_poi_simi()
-
+        self.data_preprocess()
     def get_data(self):
         return None,None,None
 
@@ -120,6 +120,31 @@ class MVUREDataset(TrafficRepresentationDataset):
         np.save(self.poi_simi_path,self.poi_simi)
         self._logger.info("finish construct poi_simi")
 
+    def data_preprocess(self):
+        self.mob_adj = np.zeros([1,self.num_nodes,self.num_nodes])
+        self.mob_adj[0] = np.copy(self.od_label)
+        _, n, _ = self.mob_adj.shape
+        self.mob_adj = self.mob_adj/np.mean(self.mob_adj,axis=(1,2))
+        #TODO:k可能需要修改
+        k = 20
+        self.inflow_adj_sp = np.copy(self.mob_adj[0])
+        for i in range(n):
+            self.inflow_adj_sp[np.argsort( self.inflow_adj_sp[:, i])[:-k], i] = 0
+            self.inflow_adj_sp[i, np.argsort(self.inflow_adj_sp[i, :])[:-k]] = 0
+        self.outflow_adj_sp = np.copy(self.mob_adj[0])
+        for i in range(n):
+            self.outflow_adj_sp[np.argsort(self.outflow_adj_sp[:, i])[:-k], i] = 0
+            self.outflow_adj_sp[i, np.argsort(self.outflow_adj_sp[i, :])[:-k]] = 0
+
+        k=15
+        self.poi_adj_sp = np.copy(self.poi_simi)
+        for i in range(n):
+            self.poi_adj_sp[np.argsort(self.poi_adj_sp[:, i])[:-k], i] = 0
+            self.poi_adj_sp[i, np.argsort(self.poi_adj_sp[i, :])[:-k]] = 0
+        self.feature = np.random.uniform(-1, 1, size=(self.num_nodes, 250))
+        self.feature = self.feature[np.newaxis]
+
+
     def get_data_feature(self):
         """
         返回一个 dict，包含数据集的相关特征
@@ -127,8 +152,9 @@ class MVUREDataset(TrafficRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"in_flow_adj":self.inflow_adj,"out_flow_adj":self.outflow_adj,"od_matrix":self.od_label,
-            "poi_simi":self.poi_simi,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
+        return {"mob_adj":self.mob_adj,"s_adj_sp":self.inflow_adj_sp,"t_adj_sp":self.outflow_adj_sp,
+                "poi_adj":self.poi_simi,"poi_adj_sp":self.poi_adj_sp,"feature":self.feature
+            ,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
             "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
 
 
