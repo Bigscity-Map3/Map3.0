@@ -20,6 +20,7 @@ class MVUREDataset(TrafficRepresentationDataset):
         self.in_flow_adj_path = './libcity/cache/MVURE_{}/in_flow_adj.npy'.format(self.dataset)
         self.out_flow_adj_path = './libcity/cache/MVURE_{}/out_flow_adj.npy'.format(self.dataset)
         self.poi_simi_path = './libcity/cache/MVURE_{}/poi_simi.npy'.format(self.dataset)
+        self.od_label_path = './libcity/cache/MVURE_{}/od_label.npy'.format(self.dataset)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
@@ -32,6 +33,9 @@ class MVUREDataset(TrafficRepresentationDataset):
         return None,None,None
 
     def construct_od_matrix(self):
+        if os.path.exists(self.od_label_path):
+            self.od_label = np.od_label(self.od_label_path)
+            return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
@@ -44,7 +48,7 @@ class MVUREDataset(TrafficRepresentationDataset):
 
     def get_cos_similarity(self,v1,v2):
         if np.linalg.norm(v1) == 0 and np.linalg.norm(v2) == 0:
-            return 1
+            return 0
         if np.linalg.norm(v1) == 0:
             return 0
         if np.linalg.norm(v2) == 0:
@@ -104,10 +108,10 @@ class MVUREDataset(TrafficRepresentationDataset):
         self.poi_simi = np.zeros([self.num_regions,self.num_regions])
         contents = []
         for i in range(self.num_regions):
-            content = []
+            content = ''
             poi_ids = list(self.region2poi[self.region2poi["origin_id"]==i]["destination_id"])
             for poi_id in poi_ids:
-                content.append(self.geofile.loc[poi_id,"function"])
+                content=content+ (self.geofile.loc[poi_id,"function"])+' '
             contents.append(content)
         vectorizer = CountVectorizer(max_features=5)
         tf_idf_transformer = TfidfTransformer()
@@ -126,17 +130,17 @@ class MVUREDataset(TrafficRepresentationDataset):
         _, n, _ = self.mob_adj.shape
         self.mob_adj = self.mob_adj/np.mean(self.mob_adj,axis=(1,2))
         #TODO:k可能需要修改
-        k = 20
-        self.inflow_adj_sp = np.copy(self.mob_adj[0])
+        k = self.num_nodes//5
+        self.inflow_adj_sp = np.copy(self.inflow_adj)
         for i in range(n):
             self.inflow_adj_sp[np.argsort( self.inflow_adj_sp[:, i])[:-k], i] = 0
             self.inflow_adj_sp[i, np.argsort(self.inflow_adj_sp[i, :])[:-k]] = 0
-        self.outflow_adj_sp = np.copy(self.mob_adj[0])
+        self.outflow_adj_sp = np.copy(self.outflow_adj)
         for i in range(n):
             self.outflow_adj_sp[np.argsort(self.outflow_adj_sp[:, i])[:-k], i] = 0
             self.outflow_adj_sp[i, np.argsort(self.outflow_adj_sp[i, :])[:-k]] = 0
 
-        k=15
+        k= self.num_nodes//5
         self.poi_adj_sp = np.copy(self.poi_simi)
         for i in range(n):
             self.poi_adj_sp[np.argsort(self.poi_adj_sp[:, i])[:-k], i] = 0
@@ -152,7 +156,7 @@ class MVUREDataset(TrafficRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"mob_adj":self.mob_adj,"s_adj_sp":self.inflow_adj_sp,"t_adj_sp":self.outflow_adj_sp,
+        return {"mob_adj":self.mob_adj[0],"s_adj_sp":self.inflow_adj_sp,"t_adj_sp":self.outflow_adj_sp,
                 "poi_adj":self.poi_simi,"poi_adj_sp":self.poi_adj_sp,"feature":self.feature
             ,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
             "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
