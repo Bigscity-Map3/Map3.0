@@ -2,6 +2,7 @@ import numpy as np
 inflow_adj = np.load("Data/in_flow_adj.npy")
 outflow_adj = np.load("Data/out_flow_adj.npy")
 poi_simi = np.load("Data/poi_simi.npy")
+od_label = np.load("Data/od_label.npy")
 num_nodes = inflow_adj.shape[0]
 k = num_nodes//5
 n = num_nodes

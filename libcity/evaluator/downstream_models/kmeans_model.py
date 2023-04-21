@@ -15,6 +15,7 @@ class KmeansModel(AbstractModel):
     def __init__(self, config):
         self._logger = getLogger()
         self.n_clusters = config.get('n_clusters', 2)
+        self.representation_object = config.get('representation_object','region')
         self.random_state = config.get('random_state',3)
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset','')
@@ -26,13 +27,15 @@ class KmeansModel(AbstractModel):
             format(self.exp_id, self.model, self.dataset, str(self.output_dim), str(self.n_clusters))
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = config.get('geo_file', self.dataset)
-        self.qgis_result_path =
+
     def run(self,node_emb,label):
         self.n_clusters = np.unique(label).shape[0]
         kmeans = KMeans(n_clusters=self.n_clusters,random_state=self.random_state)
         self._logger.info("K-Means Cluster:n_clusters={},random_state={}".format(self.n_clusters,self.random_state))
         predict = kmeans.fit_predict(node_emb)
         np.save(self.result_path,predict)
+        if self.representation_object == 'region':
+            self.region_cluster_visualize(predict)
         nmi = normalized_mutual_info_score(label, predict)
         ars = adjusted_rand_score(label, predict)
         result={'nmi':nmi,'ars':ars}

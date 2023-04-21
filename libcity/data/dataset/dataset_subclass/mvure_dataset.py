@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import os
 
@@ -34,21 +35,23 @@ class MVUREDataset(TrafficRepresentationDataset):
 
     def construct_od_matrix(self):
         if os.path.exists(self.od_label_path):
-            self.od_label = np.od_label(self.od_label_path)
+            self.od_label = np.load(self.od_label_path)
+            self._logger.info("finish construct od graph")
             return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            origin_region = self.geo_to_ind[list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]]
+            destination_region = self.geo_to_ind[list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]]
             self.od_label[origin_region][destination_region] += 1
+        np.save(self.od_label_path,self.od_label)
+        self._logger.info("finish construct od graph")
         return self.od_label
 
 
 
+
     def get_cos_similarity(self,v1,v2):
-        if np.linalg.norm(v1) == 0 and np.linalg.norm(v2) == 0:
-            return 0
         if np.linalg.norm(v1) == 0:
             return 0
         if np.linalg.norm(v2) == 0:
@@ -109,7 +112,7 @@ class MVUREDataset(TrafficRepresentationDataset):
         contents = []
         for i in range(self.num_regions):
             content = ''
-            poi_ids = list(self.region2poi[self.region2poi["origin_id"]==i]["destination_id"])
+            poi_ids = list(self.region2poi[self.region2poi["origin_id"]==self.ind_to_geo[i]]["destination_id"])
             for poi_id in poi_ids:
                 content=content+ (self.geofile.loc[poi_id,"function"])+' '
             contents.append(content)
@@ -125,10 +128,10 @@ class MVUREDataset(TrafficRepresentationDataset):
         self._logger.info("finish construct poi_simi")
 
     def data_preprocess(self):
-        self.mob_adj = np.zeros([1,self.num_nodes,self.num_nodes])
-        self.mob_adj[0] = np.copy(self.od_label)
-        _, n, _ = self.mob_adj.shape
-        self.mob_adj = self.mob_adj/np.mean(self.mob_adj,axis=(1,2))
+        self.mob_adj = np.zeros([self.num_nodes,self.num_nodes])
+        self.mob_adj = np.copy(self.od_label)
+        n, _ = self.mob_adj.shape
+        self.mob_adj = self.mob_adj/np.mean(self.mob_adj,axis=(0,1))
         #TODO:k可能需要修改
         k = self.num_nodes//5
         self.inflow_adj_sp = np.copy(self.inflow_adj)
@@ -156,9 +159,9 @@ class MVUREDataset(TrafficRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"mob_adj":self.mob_adj[0],"s_adj_sp":self.inflow_adj_sp,"t_adj_sp":self.outflow_adj_sp,
+        return {"mob_adj":self.mob_adj,"s_adj_sp":self.inflow_adj_sp,"t_adj_sp":self.outflow_adj_sp,
                 "poi_adj":self.poi_simi,"poi_adj_sp":self.poi_adj_sp,"feature":self.feature
             ,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
-            "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
+            "label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}
 
 
