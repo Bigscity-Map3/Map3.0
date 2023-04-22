@@ -22,7 +22,7 @@ class MVURE(AbstractTraditionModel):
         self.geo_to_ind = data_feature.get('geo_to_ind', None)
         self.ind_to_geo = data_feature.get('ind_to_geo', None)
         self._logger = getLogger()
-        self.output_dim =  12
+        self.output_dim = config.get('output_dim', 96)
         self.is_directed = config.get('is_directed', True)
         self.dataset = config.get('dataset', '')
         self.iter = config.get('max_epoch', 2000)
@@ -150,9 +150,11 @@ class MVURE_Layer(nn.Module):
         self.inputs = torch.from_numpy(feature).to(torch.float32)
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=self.output_dim,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=self.output_dim,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=self.output_dim,num_heads=12,attn_drop=0.2,activation=F.relu)
+        assert self.output_dim%12 == 0
+        out_feat_num = self.output_dim//12
+        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
+        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
+        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
         self.num_nodes = feature.shape[-2]
         self.fused_layer = self_attn(48)
         self.mv_layer = mv_attn()
