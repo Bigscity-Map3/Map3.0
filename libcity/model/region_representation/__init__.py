@@ -3,10 +3,13 @@ from libcity.model.region_representation.HDGE import HDGE
 from libcity.model.region_representation.ZEMob import ZEMob
 from libcity.model.region_representation.MGFN import MGFN
 from libcity.model.region_representation.LINE import LINE
+from libcity.model.region_representation.MVURE import MVURE
+
 __all__ = [
     "Node2Vec",
     "HDGE",
     "ZEMob",
     "MGFN",
-    "LINE"
+    "LINE",
+    "MVURE"
 ]
