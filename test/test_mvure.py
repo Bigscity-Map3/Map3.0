@@ -1,9 +1,23 @@
 import numpy as np
-inflow_adj = np.load("Data/in_flow_adj.npy")
-outflow_adj = np.load("Data/out_flow_adj.npy")
-poi_simi = np.load("Data/poi_simi.npy")
-od_label = np.load("Data/od_label.npy")
+
+inflow_adj = np.load("Data/in_flow_adj_MVURE.npy")
+outflow_adj = np.load("Data/out_flow_adj_MVURE.npy")
+#poi_simi = np.load("Data/poi_simi_od.npy")
+print(np.count_nonzero(inflow_adj))
+print(np.count_nonzero(outflow_adj))
+od_label = np.load("Data/od_label_MVURE.npy")
+print(np.count_nonzero(np.count_nonzero(od_label)))
+print(od_label[659][618])
+a = od_label[:][618]
+print(sum(od_label[:][618]))
 num_nodes = inflow_adj.shape[0]
+ind_to_geo = np.load("../libcity/cache/dataset_cache/xa_dataset/ind_to_geo_od.npy")
+mx = inflow_adj+outflow_adj
+print(np.count_nonzero(mx))
+for i in range(num_nodes):
+    if sum(od_label[i]) == 0 and sum(od_label[:,i]) == 0:
+        print(ind_to_geo[i])
+print("no")
 k = num_nodes//5
 n = num_nodes
 inflow_adj_sp = np.copy(inflow_adj)

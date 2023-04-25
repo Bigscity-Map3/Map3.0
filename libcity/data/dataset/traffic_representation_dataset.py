@@ -7,6 +7,7 @@ from libcity.data.dataset import AbstractDataset
 from libcity.utils import ensure_dir
 from libcity.utils import geojson2geometry
 from tqdm import tqdm
+import copy
 class TrafficRepresentationDataset(AbstractDataset):
     def __init__(self,config):
         self.config = config
@@ -60,8 +61,9 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.calculate_weight_adj = self.config.get('calculate_weight_adj', False)
         self.weight_adj_epsilon = self.config.get('weight_adj_epsilon', 0.1)
         self.distance_inverse = self.config.get('distance_inverse', False)
-        self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo.npy'.format(self.dataset)
-        self.func_label_path = './libcity/cache/dataset_cache/{}/func_label.npy'.format(self.dataset)
+        self.remove_node_type = self.config.get("remove_node_type","od")
+        self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo_{}.npy'.format(self.dataset,self.remove_node_type)
+        self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,self.remove_node_type)
         #初始化
         self.data = None
         self.feature_name = {'X': 'float', 'y': 'float'}  # 此类的输入只有X和y
@@ -96,7 +98,12 @@ class TrafficRepresentationDataset(AbstractDataset):
             self._load_dyna()
         else:
             raise ValueError('Not found .dyna file!')
-        self.remove_0_degree_nodes()
+        if self.remove_node_type == "traj":
+            self.remove_0_degree_nodes()
+        if self.remove_node_type == "od":
+            self.keep_od_nodes()
+        if self.remove_node_type == "MVURE":
+            self.keep_mvure_nodes()
 
 
     def _load_geo(self):
@@ -230,9 +237,105 @@ class TrafficRepresentationDataset(AbstractDataset):
 
 
 
+    def keep_od_nodes(self):
+        # dict保存为
+        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+            region_list = np.load(self.ind_to_geo_path)
+            self.geo_to_ind = {}
+            self.ind_to_geo = {}
+            index = 0
+            for region in region_list:
+                self.geo_to_ind[region] = index
+                self.ind_to_geo[index] = region
+                index += 1
+            self.num_nodes = index
+            self.num_regions = index
+            self.function = np.load(self.func_label_path)
+            self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
+            return
+    #去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
+        self.geo_to_ind = {}
+        self.ind_to_geo = {}
+        region_set = set()  # 记录所有在od中出现过的区域
+        for road_list in self.traj_road:
+            road = road_list[0]
+            region = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+            region_set.add(region)
+            road = road_list[-1]
+            region = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+            region_set.add(region)
+        index = 0
+        for region in region_set:
+            self.geo_to_ind[region] = index
+            self.ind_to_geo[index] = region
+            index += 1
+        self.num_nodes = index
+        self.num_regions = index
+        # 对 function_label进行映射
+        self.function = np.zeros(self.num_regions)
+        for i in range(index):
+            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        region_list = list(region_set)
+        region_array = np.array(region_list)
+        np.save(self.ind_to_geo_path, region_array)
+        np.save(self.func_label_path, self.function)
+        self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
 
-
-
+    def keep_mvure_nodes(self):
+        # dict保存为
+        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+            region_list = np.load(self.ind_to_geo_path)
+            self.geo_to_ind = {}
+            self.ind_to_geo = {}
+            index = 0
+            for region in region_list:
+                self.geo_to_ind[region] = index
+                self.ind_to_geo[index] = region
+                index += 1
+            self.num_nodes = index
+            self.num_regions = index
+            self.function = np.load(self.func_label_path)
+            self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
+            return
+        # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
+        #计算全量的od矩阵
+        od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        for traj in self.traj_road:
+            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            od_label[origin_region][destination_region] += 1
+        self.geo_to_ind = {}
+        self.ind_to_geo = {}
+        poi_set = set()
+        for region in range(self.num_regions):
+            if len(list(self.region2poi[self.region2poi["origin_id"] == region]["destination_id"])) > 0:
+                poi_set.add(region)
+        region_set = copy.copy(poi_set)
+        stop = False
+        while not stop:
+            stop = True
+            for region in region_set.copy():
+                if  (sum(od_label[region,:]) == 0) or (sum(od_label[:,region]) == 0):
+                    region_set.remove(region)
+                    #修改od_label
+                    od_label[region, :] = 0
+                    od_label[:, region] = 0
+                    stop = False
+        index = 0
+        for region in region_set:
+            self.geo_to_ind[region] = index
+            self.ind_to_geo[index] = region
+            index += 1
+        self.num_nodes = index
+        self.num_regions = index
+        # 对 function_label进行映射
+        self.function = np.zeros(self.num_regions)
+        for i in range(index):
+            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        region_array = np.array(region_set)
+        np.save(self.ind_to_geo_path, region_array)
+        np.save(self.func_label_path, self.function)
+        self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
 
 
 

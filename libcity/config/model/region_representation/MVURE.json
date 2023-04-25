@@ -1,4 +1,5 @@
 {
   "output_dim": 96,
-  "representation_object":"region"
+  "representation_object":"region",
+  "remove_node_type":"MVURE"
 }
