@@ -30,7 +30,7 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         self.geo_ids = list(geofile['geo_id'])
         self.num_nodes = len(self.geo_ids)
-        self.geo_to_ind = {}
+        self.geo_to_ind =   {}
         self.ind_to_geo = {}
         for index, idx in enumerate(self.geo_ids):
             self.geo_to_ind[idx] = index

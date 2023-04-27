@@ -5,7 +5,7 @@ import os
 import numpy
 import numpy as np
 from libcity.data.dataset import TrafficRepresentationDataset
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 class MVUREDataset(TrafficRepresentationDataset):
 
@@ -18,10 +18,11 @@ class MVUREDataset(TrafficRepresentationDataset):
         self.dyna_file = self.config.get('dyna_file', self.dataset)
         if not os.path.exists('./libcity/cache/MVURE_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/MVURE_{}'.format(self.dataset))
-        self.in_flow_adj_path = './libcity/cache/MVURE_{}/in_flow_adj.npy'.format(self.dataset)
-        self.out_flow_adj_path = './libcity/cache/MVURE_{}/out_flow_adj.npy'.format(self.dataset)
-        self.poi_simi_path = './libcity/cache/MVURE_{}/poi_simi.npy'.format(self.dataset)
-        self.od_label_path = './libcity/cache/MVURE_{}/od_label.npy'.format(self.dataset)
+        self.remove_node_type = self.config.get('remove_node_type', 'od')
+        self.in_flow_adj_path = './libcity/cache/MVURE_{}/in_flow_adj_{}.npy'.format(self.dataset,self.remove_node_type)
+        self.out_flow_adj_path = './libcity/cache/MVURE_{}/out_flow_adj_{}.npy'.format(self.dataset,self.remove_node_type)
+        self.poi_simi_path = './libcity/cache/MVURE_{}/poi_simi_{}.npy'.format(self.dataset,self.remove_node_type)
+        self.od_label_path = './libcity/cache/MVURE_{}/od_label_{}.npy'.format(self.dataset,self.remove_node_type)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
@@ -41,9 +42,12 @@ class MVUREDataset(TrafficRepresentationDataset):
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = self.geo_to_ind[list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]]
-            destination_region = self.geo_to_ind[list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]]
-            self.od_label[origin_region][destination_region] += 1
+            origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
+                origin_region = self.geo_to_ind[origin_region_geo_id]
+                destination_region = self.geo_to_ind[destination_region_geo_id]
+                self.od_label[origin_region][destination_region] += 1
         np.save(self.od_label_path,self.od_label)
         self._logger.info("finish construct od graph")
         return self.od_label
@@ -112,11 +116,11 @@ class MVUREDataset(TrafficRepresentationDataset):
         contents = []
         for i in range(self.num_regions):
             content = ''
-            poi_ids = list(self.region2poi[self.region2poi["origin_id"]==i]["destination_id"])
+            poi_ids = list(self.region2poi[self.region2poi["origin_id"]==self.ind_to_geo[i]]["destination_id"])
             for poi_id in poi_ids:
                 content=content+ (self.geofile.loc[poi_id,"function"])+' '
             contents.append(content)
-        vectorizer = CountVectorizer(max_features=5)
+        vectorizer = TfidfVectorizer()
         tf_idf_transformer = TfidfTransformer()
         X = vectorizer.fit_transform(contents)
         tf_idf = tf_idf_transformer.fit_transform(X)
@@ -130,8 +134,8 @@ class MVUREDataset(TrafficRepresentationDataset):
     def data_preprocess(self):
         self.mob_adj = np.zeros([self.num_nodes,self.num_nodes])
         self.mob_adj = np.copy(self.od_label)
-        _, n, _ = self.mob_adj.shape
-        self.mob_adj = self.mob_adj/np.mean(self.mob_adj,axis=(1,2))
+        n, _ = self.mob_adj.shape
+        self.mob_adj = self.mob_adj/np.mean(self.mob_adj,axis=(0,1))
         #TODO:k可能需要修改
         k = self.num_nodes//5
         self.inflow_adj_sp = np.copy(self.inflow_adj)
@@ -149,7 +153,7 @@ class MVUREDataset(TrafficRepresentationDataset):
             self.poi_adj_sp[np.argsort(self.poi_adj_sp[:, i])[:-k], i] = 0
             self.poi_adj_sp[i, np.argsort(self.poi_adj_sp[i, :])[:-k]] = 0
         self.feature = np.random.uniform(-1, 1, size=(self.num_nodes, 250))
-        #self.feature = self.feature[np.newaxis]
+        self.feature = self.feature[np.newaxis]
 
 
     def get_data_feature(self):

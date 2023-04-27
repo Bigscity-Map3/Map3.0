@@ -308,13 +308,13 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.ind_to_geo = {}
         poi_set = set()
         for region in range(self.num_regions):
-            if len(list(self.region2poi[self.region2poi["origin_id"] == region]["destination_id"])) == 0:
+            if len(list(self.region2poi[self.region2poi["origin_id"] == region]["destination_id"])) > 0:
                 poi_set.add(region)
         region_set = copy.copy(poi_set)
         stop = False
         while not stop:
             stop = True
-            for region in region_set:
+            for region in region_set.copy():
                 if  (sum(od_label[region,:]) == 0) or (sum(od_label[:,region]) == 0):
                     region_set.remove(region)
                     #修改od_label

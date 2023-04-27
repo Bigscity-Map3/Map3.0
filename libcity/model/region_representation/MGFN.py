@@ -18,7 +18,7 @@ class MGFN(AbstractTraditionModel):
         self.output_dim = config.get('output_dim', 64)
         self.iter = config.get('max_epoch', 2000)
         self.dataset = config.get('dataset', '')
-        self.learning_rate = config.get('learning_rate', 0.05)
+        self.learning_rate = config.get('learning_rate', 0.0001)
         self.weight_dacay = config.get('weight_dacay', 5e-4)
         self.n_cluster = data_feature.get("n_cluster")
         self.model = config.get('model', '')
@@ -36,12 +36,11 @@ class MGFN(AbstractTraditionModel):
         criterion = SimLoss()
         model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
-        self._logger.info("start training")
+        self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
         for epoch in range(self.iter):
             model.train()
             s_out, t_out = model(input_tensor)
             loss = criterion(s_out, t_out, label)
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

@@ -2,15 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import dgl
 import dgl.function as fn
 from dgl import DGLGraph
 from logging import getLogger
-import scipy.sparse as sp
 import networkx as nx
 from libcity.model.abstract_traffic_state_model import AbstractTrafficStateModel
 from libcity.model import loss
-from libcity.model import utils
 
 
 class GeomGCNSingleChannel(nn.Module):

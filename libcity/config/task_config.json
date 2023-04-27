@@ -424,7 +424,7 @@
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec","HDGE","MGFN","LINE"
+            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE"
         ],
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
@@ -447,6 +447,16 @@
         "LINE": {
             "dataset_class": "LINERegionDataset",
             "executor": "LINEExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "ZEMob": {
+            "dataset_class": "ZEMobDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
+        },
+        "MVURE": {
+            "dataset_class": "MVUREDataset",
+            "executor": "TwoStepExecutor",
             "evaluator": "RepresentationEvaluator"
         }
     }

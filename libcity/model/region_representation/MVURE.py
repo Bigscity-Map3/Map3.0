@@ -38,8 +38,8 @@ class MVURE(AbstractTraditionModel):
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
     def run(self, data=None):
-        self.preprocess_features(self.feature)
-        model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature,
+        self.feature = self.preprocess_features(self.feature)
+        model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],
                                  self.feature.shape[2], self.output_dim)
         optimizer = optim.Adam(model.parameters(),lr=self.learning_rate, weight_decay=self.weight_dacay)
         item_num, _ = self.mob_adj.shape
@@ -62,14 +62,14 @@ class MVURE(AbstractTraditionModel):
 
     def preprocess_features(self,feature):
         """Row-normalize feature matrix and convert to tuple representation"""
-        feature = feature[0]
-        colvar = np.var(feature, axis=1, keepdims=True)
-        colmean = np.mean(feature, axis=1, keepdims=True)
+        feature_new = feature[0]
+        colvar = np.var(feature_new, axis=1, keepdims=True)
+        colmean = np.mean(feature_new, axis=1, keepdims=True)
         c_inv = np.power(colvar, -0.5)
         c_inv[np.isinf(c_inv)] = 0.
-        feature = np.multiply((feature - colmean), c_inv)
-        feature = feature[np.newaxis]
-        return feature
+        feature_new = np.multiply((feature_new - colmean), c_inv)
+        feature_new = feature_new[np.newaxis]
+        return feature_new
 
     def adj_to_bias(self,adj, sizes, nhood=1):
         adj = adj[np.newaxis]
@@ -89,7 +89,7 @@ class MVURE(AbstractTraditionModel):
         return -1e9 * (1.0 - mt)
 
 class self_attn(nn.Module):
-    def __init__(self,input_dim,hidden_dim):
+    def __init__(self,hidden_dim):
         #这里的input*dim和hidden_dim是对于每一个节点展平后的维度，因此传入前要乘上num_nodes
         super(self_attn,self).__init__()
         self.hidden_dim = hidden_dim
@@ -103,27 +103,28 @@ class self_attn(nn.Module):
         """
         num_views,num_nodes,embedding_dim = inputs.shape
         inputs_3dim = inputs
-        result = torch.zeros([num_views , num_nodes, embedding_dim], dtype=torch.float)
-        inputs = inputs.view(num_views, num_nodes * embedding_dim)
+        result = torch.zeros([num_views , num_nodes, embedding_dim], dtype=torch.float32)
+        self.input_dim = embedding_dim
+        Q_linear = nn.Linear(self.input_dim,self.hidden_dim)
+        K_linear = nn.Linear(self.input_dim, self.hidden_dim)
+        Q = Q_linear(inputs)
+        Q = Q.reshape([num_views,num_nodes*self.hidden_dim])
+        Q = torch.unsqueeze(Q,-1)
+        K = K_linear(inputs)
+        K = K.reshape([num_views, num_nodes * self.hidden_dim])
+        K = torch.unsqueeze(K,-1)
+        d_k = math.sqrt(self.hidden_dim*num_nodes)
+        attn = torch.bmm(Q.transpose(-2,-1),K)/d_k
+        attn = torch.squeeze(attn)
+        attn = F.softmax(attn)
         for i in range(num_views):
-            Q_linear = nn.Linear(self.input_dim,self.hidden_dim)
-            K_linear = nn.Linear(self.input_dim, self.hidden_dim)
-            Q = Q_linear(inputs)
-            Q = torch.unsqueeze(Q,-1)
-            K = K_linear(inputs)
-            K = torch.unsqueeze(K,-1)
-            d_k = math.sqrt(self.hidden_dim/num_nodes)
-            attn = torch.bmm(Q,K.transpose(-2,-1))/d_k
-            attn = torch.squeeze(attn)
-            for i in range(num_views):
-                result[i] += (attn[i]*inputs_3dim[i])
+            result[i] += (attn[i]*inputs_3dim[i])
         return result
 
 class mv_attn(nn.Module):
-    def __init__(self,input_dim):
+    def __init__(self):
         super(mv_attn,self).__init__()
         #输入为单视图表征，输出权值
-        self.mlp = nn.Linear(input_dim,1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self,inputs):
@@ -134,10 +135,11 @@ class mv_attn(nn.Module):
         num_views,num_nodes,embedding_dim = inputs.shape
         inputs_3dim = inputs
         inputs = inputs.view(num_views, num_nodes * embedding_dim)
+        self.mlp = nn.Linear(num_nodes * embedding_dim,1)
         omega = self.mlp(inputs)
         omega = self.sigmoid(omega)
         omega = torch.squeeze(omega)
-        result = torch.zeros([num_nodes, embedding_dim], dtype=torch.float)
+        result = torch.zeros([num_nodes, embedding_dim], dtype=torch.float32)
         for i in range(num_views):
             result += (omega[i]*inputs_3dim[i])
         return result
@@ -145,15 +147,17 @@ class MVURE_Layer(nn.Module):
     def __init__(self,mob_adj,s_graph,t_graph,poi_graph,feature,input_dim,output_dim):
         super(MVURE_Layer,self).__init__()
         self.mob_adj = mob_adj
-        self.inputs = torch.from_numpy(feature)
+        self.inputs = torch.from_numpy(feature).to(torch.float32)
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=self.output_dim,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=self.output_dim,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=self.output_dim,num_heads=12,attn_drop=0.2,activation=F.relu)
+        assert self.output_dim%12 == 0
+        out_feat_num = self.output_dim//12
+        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
+        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
+        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
         self.num_nodes = feature.shape[-2]
-        self.fused_layer = self_attn(self.num_nodes*self.output_dim,self.num_nodes*48)
-        self.mv_layer = mv_attn(self.num_nodes*self.output_dim)
+        self.fused_layer = self_attn(48)
+        self.mv_layer = mv_attn()
         self.alpha = 0.8
         self.beta = 0.5
         self.s_graph = s_graph
@@ -165,19 +169,26 @@ class MVURE_Layer(nn.Module):
         :param adj_mx:邻接矩阵，[num_nodes,num_nodes],np.array
         :return: dgl_graph,将邻接矩阵中大于0的全部算成一条边，
         """
-        num_edges = np.count_nonzero(adj_mx)
-        src_index = torch.zeros([num_edges])
-        dst_index = torch.zeros([num_edges])
         num_nodes = adj_mx.shape[0]
+        num_edges = np.count_nonzero(adj_mx)
+        g = dgl.DGLGraph()
+        g.add_nodes(self.num_nodes)
+        src_index = []
+        dst_index = []
+        cost = torch.zeros(num_edges)
         edge_cnt = 0
         for i in range(num_nodes):
             for j in range(num_nodes):
                 if adj_mx[i][j] > 0:
-                    src_index[edge_cnt] = i
-                    dst_index[edge_cnt] = j
+                    src_index.append(i)
+                    dst_index.append(j)
+                    cost[edge_cnt] = adj_mx[i][j]
                     edge_cnt += 1
-        dgl_graph = dgl.graph((src_index,dst_index),num_nodes=num_nodes)
-        return dgl_graph
+        g.add_edges(src_index, dst_index)
+        g = dgl.add_self_loop(g)
+        g.edges[src_index,dst_index].data['w'] = cost
+
+        return g
 
 
 
@@ -185,11 +196,17 @@ class MVURE_Layer(nn.Module):
 
     def forward(self):
         s_dgl_graph = self.construct_dgl_graph(self.s_graph)
-        s_out = self.s_gat(graph = s_dgl_graph,feat = self.inputs)
+        s_dgl_graph = dgl.add_self_loop(s_dgl_graph)
+        s_out = self.s_gat(graph = s_dgl_graph,feat = self.inputs)#[num_nodes,num_heads,dim]
+        s_out = s_out.reshape([s_out.shape[0],s_out.shape[1]*s_out.shape[2]])
         t_dgl_graph = self.construct_dgl_graph(self.t_graph)
+        t_dgl_graph = dgl.add_self_loop(t_dgl_graph)
         t_out = self.t_gat(graph = t_dgl_graph,feat = self.inputs)
+        t_out = t_out.reshape([t_out.shape[0], t_out.shape[1] * t_out.shape[2]])
         poi_dgl_graph = self.construct_dgl_graph(self.poi_graph)
+        poi_dgl_graph = dgl.add_self_loop(poi_dgl_graph)
         poi_out = self.poi_gat(graph=poi_dgl_graph, feat=self.inputs)
+        poi_out = poi_out.reshape([poi_out.shape[0], poi_out.shape[1] * poi_out.shape[2]])
         single_view_out = torch.stack([s_out,t_out,poi_out],dim = 0)
         fused_out = self.fused_layer(single_view_out)
         s_out = self.alpha * fused_out[0] + (1 - self.alpha)* s_out
@@ -213,15 +230,17 @@ class MVURE_Layer(nn.Module):
         poi_embeddings = embedding[2]
         loss1 = self.calculate_mob_loss(s_embeddings,t_embeddings,self.mob_adj)
         loss2 = self.calculate_poi_loss(poi_embeddings,self.poi_graph)
-        return loss1 + loss2
+        result = loss1 + loss2
+        return result
 
-    def calculate_mob_loss(self,s_embeddings,t_embeddings,mob_adj):
+    def calculate_mob_loss(self,s_embeddings,t_embeddings,mob_adj_np):
         """
         :param s_embeddings:tensor[num_nodes,embedding_dim]
         :param t_embeddings: tensor[num_nodes,embedding_dim]
         :param mob_adj: np.array[num_nodes,num_nodes]
         :return:
         """
+        mob_adj = torch.tensor(mob_adj_np)
         inner_prod = self.pairwise_inner_product(s_embeddings,t_embeddings)
         phat = torch.softmax(inner_prod,dim = -1)
         loss = torch.sum(-torch.mm(mob_adj,torch.log(phat)))
@@ -231,25 +250,26 @@ class MVURE_Layer(nn.Module):
         return loss
 
 
-    def calculate_poi_loss(self,embedding,poi_adj):
+    def calculate_poi_loss(self,embedding,poi_adj_np):
         """
         :param embedding: tensor[num_nodes,embedding_dim]
         :param poi_adj: np.array[num_nodes,num_nodes]
         :return:
         """
+        poi_adj = torch.tensor(poi_adj_np).float()
         inner_prod = self.pairwise_inner_product(embedding, embedding)
         loss_function = nn.MSELoss(reduction="sum")
         loss = loss_function(inner_prod,poi_adj)
         return loss
 
-
-    def pairwise_inner_product(self,mat_1,mat_2):
-        n,_=mat_1.shape
-        result = torch.zeros([n,n],dtype=torch.float)
-        for i in range(n):
-            for j in range(n):
-                result[i][j] = torch.dot(mat_1[i],mat_2[j])
-        return result
+    def pairwise_inner_product(self,mat_1, mat_2):
+        n, m = mat_1.shape
+        mat_expand = torch.unsqueeze(mat_2, 0)
+        mat_expand = mat_expand.expand(n, n, m)
+        mat_expand = mat_expand.permute(1, 0, 2)
+        inner_prod = torch.mul(mat_expand, mat_1)
+        inner_prod = torch.sum(inner_prod, axis=-1)
+        return inner_prod
 
 
 
