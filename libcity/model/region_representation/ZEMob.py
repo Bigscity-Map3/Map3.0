@@ -23,6 +23,7 @@ class ZEMob(AbstractTraditionModel):
         self.z_num = data_feature.get('z_num', None)
         self.e_num = data_feature.get('e_num', None)
         self.G_star = torch.from_numpy(data_feature.get('G_star', None))
+        #  self.gama = data_feature.get('gama',1)
         self._logger = getLogger()
         # libcity/config/model/region_representation/ZEMob.json
         self.output_dim = config.get('output_dim', 128)
