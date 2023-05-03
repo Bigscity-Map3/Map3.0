@@ -117,12 +117,13 @@ class ZEMobModel(nn.Module):
             memory_usage = self.G_matrix.element_size() * self.G_matrix.nelement()\
                            +self.ppmi_matrix.element_size() * self.ppmi_matrix.nelement()
             memory_allocated = torch.cuda.max_memory_allocated(self.device)
+            self._logger.info("GPU : {} Memory is sufficient, {}/{}"
+                                  .format(self.device,memory_usage,total_memory))
             if memory_usage + memory_allocated <= total_memory:
                 self.G_matrix = self.G_matrix.to(self.device)
                 self.memory_sufficient = True
-            else:
-                self._logger.info("GPU : {} Memory is sufficient, {}/{}"
-                                  .format(self.device,memory_usage,total_memory))
+                self._logger.info("G_matrix and ppmi are already on GPU")
+
         else:
             self._logger.info("CUDA is not available")
 
