@@ -121,6 +121,7 @@ class ZEMobModel(nn.Module):
                                   .format(self.device,memory_usage,total_memory))
             if memory_usage + memory_allocated <= total_memory:
                 self.G_matrix = self.G_matrix.to(self.device)
+                self.ppmi_matrix = self.ppmi_matrix.to(self.device)
                 self.memory_sufficient = True
                 print("G_matrix and ppmi are already on GPU")
 
