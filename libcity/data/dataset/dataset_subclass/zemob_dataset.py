@@ -14,11 +14,6 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         self.device = config.get('device', torch.device('cpu'))
 
-        # 如果region的id不连续或不从零开始，将所有的region映射成从零开始的列表，并提供两种映射
-        self.zone_ids = list(range(len(self.region_ids)))
-        self.id_to_zone = dict(zip(self.zone_ids, self.region_ids))
-        self.zone_to_id = dict(zip(self.region_ids, self.zone_ids))
-
         # 用于求解ppmi_matrix（即公式中的M）的中间变量，三个字典分别存储了event的出现次数，zone的出现次数，zone和event的共现次数
         self.mobility_events = dict()
         self.zones = dict()
@@ -28,13 +23,13 @@ class ZEMobDataset(TrafficRepresentationDataset):
         # 用于求解G_matrix的中间变量，三组变量分别对应文章中的A、P、T
         self.max_gen = config.get('MaxGen')
         self.NIND = config.get('NIND')
-        self.arrive_num_weekday = np.zeros(len(self.region_ids))
-        self.arrive_num_weekend = np.zeros(len(self.region_ids))
-        self.leave_num_weekday = np.zeros(len(self.region_ids))
-        self.leave_num_weekend = np.zeros(len(self.region_ids))
-        self.T_weekday = np.zeros((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
-        self.T_weekend = np.zeros((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
-        self.distance = np.zeros((len(self.region_ids), len(self.region_ids)), dtype=np.float32)
+        self.arrive_num_weekday = np.zeros(self.num_nodes)
+        self.arrive_num_weekend = np.zeros(self.num_nodes)
+        self.leave_num_weekday = np.zeros(self.num_nodes)
+        self.leave_num_weekend = np.zeros(self.num_nodes)
+        self.T_weekday = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        self.T_weekend = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        self.distance = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
 
         # ppmi_matrix为二维矩阵，维度为z*e
         self.ppmi_matrix = []
@@ -82,7 +77,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         mobility_event_index = 0
         for traj, time_list in zip(self.traj_road, self.traj_time):
             # 得到起始zone和起始zone对应的mobility_event
-            origin_region = self.zone_to_id.get(
+            origin_region = self.geo_to_ind.get(
                 int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
             )
             origin_date = datetime.strptime(time_list[0], '%Y-%m-%d %H:%M:%S')
@@ -91,7 +86,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             origin_mobility_event = (origin_region, origin_hour, origin_date_type, 'o')
 
             # 得到目的zone和目的zone对应的mobility_event
-            destination_region = self.zone_to_id.get(int(
+            destination_region = self.geo_to_ind.get(int(
                 list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
             ))
             destination_date = datetime.strptime(time_list[-1], '%Y-%m-%d %H:%M:%S')
@@ -160,7 +155,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
                 self.T_weekend[origin_region][destination_region] += 1
 
         # 统计zone和mobility_event的数量
-        self.zone_num = len(self.region_ids)
+        self.zone_num = self.num_nodes
         self.mobility_event_num = len(self.mobility_events)
 
         # 保存记录了mobility_events信息的字典
@@ -181,7 +176,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         if not os.path.exists(self.T_we_path):
             np.save(self.T_we_path, self.T_weekend)
         if not os.path.exists(self.label_path):
-            np.save(self.label_path, np.array(self.function))
+            np.save(self.label_path, self.function)
         self._logger.info("finish constructing mobility basic data")
 
     def construct_ppmi_matrix(self):
@@ -194,7 +189,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
             self.ppmi_matrix = np.load(self.ppmi_matrix_path)
             self._logger.info("finish constructing ppmi matrix")
             return
-        self.ppmi_matrix = np.zeros((len(self.region_ids), len(self.mobility_events)), dtype=np.float32)
+        self.ppmi_matrix = np.zeros((self.zone_num, len(self.mobility_events)), dtype=np.float32)
         for region_id in self.co_occurs.keys():
             tmp_mobility_events = self.co_occurs[region_id].keys()
             for mobility_event in tmp_mobility_events:
@@ -290,7 +285,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         centroid = self.region_geometry.centroid
         for i in range(self.zone_num):
             for j in range(i, self.zone_num):
-                distance = centroid[i].distance(centroid[j])
+                distance = centroid[self.ind_to_geo[i]].distance(centroid[self.ind_to_geo[j]])
                 self.distance[i][j] = distance
                 self.distance[j][i] = distance
         np.save(self.distance_matrix_path, self.distance)
@@ -305,7 +300,7 @@ class ZEMobDataset(TrafficRepresentationDataset):
         """
         return {'ppmi_matrix': self.ppmi_matrix, 'G_matrix': self.G_matrix, 
                 'region_num': self.zone_num, 'mobility_event_num': self.mobility_event_num,
-                'label': {"function_cluster": np.array(self.function)}}
+                'label': {"function_cluster": self.function}}
 
 
 # 遗传算法求解gravity matrix的模型
