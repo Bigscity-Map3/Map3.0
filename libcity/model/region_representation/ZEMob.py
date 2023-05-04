@@ -139,6 +139,7 @@ class ZEMobModel(nn.Module):
         batch_ppmi = batch_ppmi.to(self.device)
         batch_G = batch_G.to(self.device)
         # 内存不够，分批次放到gpu
+
         # if not self.memory_sufficient:
         #     batch_ppmi = batch_ppmi.to(self.device)
         #     batch_G = batch_G.to(self.device)
