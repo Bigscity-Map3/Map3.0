@@ -103,7 +103,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         if self.remove_node_type == "od":
             self.keep_od_nodes()
         if self.remove_node_type == "non_zero":
-            self.keep_non_zero_od_nodes
+            self.keep_non_zero_od_nodes()
         if self.remove_node_type == "MVURE":
             self.keep_mvure_nodes()
 
