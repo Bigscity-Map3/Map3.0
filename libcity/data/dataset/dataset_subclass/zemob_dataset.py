@@ -92,65 +92,68 @@ class ZEMobDataset(TrafficRepresentationDataset):
             destination_date_type = 1 if destination_date.weekday() in range(5) else 0
             destination_mobility_event = (destination_region, destination_hour, destination_date_type, 'd')
 
-            # 计算每个mobility_event出现的次数，同时给每个mobility一个index
-            # 即一个一维字典，key是mobility_event，value是一个二元列表，第一个值是co-occur的次数，第二个值是index
-            if self.mobility_events.get(origin_mobility_event) is None:
-                self.mobility_events[origin_mobility_event] = [1, mobility_event_index]
-                mobility_event_index += 1
-            else:
-                self.mobility_events[origin_mobility_event][0] += 1
-            if self.mobility_events.get(destination_mobility_event) is None:
-                self.mobility_events[destination_mobility_event] = [1, mobility_event_index]
-                mobility_event_index += 1
-            else:
-                self.mobility_events[destination_mobility_event][0] += 1
+            # 如果轨迹中的点已经被剔除，则忽略这条轨迹
+            if origin_region is not None and destination_region is not None:
 
-            # 计算每个zone出现的次数，即一个一维字典，key是zone，value是co-occur的次数
-            if self.zones.get(origin_region) is None:
-                self.zones[origin_region] = 1
-            else:
-                self.zones[origin_region] += 1
-            if self.zones.get(destination_region) is None:
-                self.zones[destination_region] = 1
-            else:
-                self.zones[destination_region] += 1
+                # 计算每个mobility_event出现的次数，同时给每个mobility一个index
+                # 即一个一维字典，key是mobility_event，value是一个二元列表，第一个值是co-occur的次数，第二个值是index
+                if self.mobility_events.get(origin_mobility_event) is None:
+                    self.mobility_events[origin_mobility_event] = [1, mobility_event_index]
+                    mobility_event_index += 1
+                else:
+                    self.mobility_events[origin_mobility_event][0] += 1
+                if self.mobility_events.get(destination_mobility_event) is None:
+                    self.mobility_events[destination_mobility_event] = [1, mobility_event_index]
+                    mobility_event_index += 1
+                else:
+                    self.mobility_events[destination_mobility_event][0] += 1
 
-            # 计算每种co-occur的次数，即一个二维字典，第一维的key是zone，第二维的key是mobility_event，value是co-occur的次数
-            if self.co_occurs.get(origin_region) is None:
-                event_dict = dict()
-                event_dict[destination_mobility_event] = 1
-                self.co_occurs[origin_region] = event_dict
-            else:
-                event_dict = self.co_occurs[origin_region]
-                if event_dict.get(destination_mobility_event) is None:
+                # 计算每个zone出现的次数，即一个一维字典，key是zone，value是co-occur的次数
+                if self.zones.get(origin_region) is None:
+                    self.zones[origin_region] = 1
+                else:
+                    self.zones[origin_region] += 1
+                if self.zones.get(destination_region) is None:
+                    self.zones[destination_region] = 1
+                else:
+                    self.zones[destination_region] += 1
+
+                # 计算每种co-occur的次数，即一个二维字典，第一维的key是zone，第二维的key是mobility_event，value是co-occur的次数
+                if self.co_occurs.get(origin_region) is None:
+                    event_dict = dict()
                     event_dict[destination_mobility_event] = 1
+                    self.co_occurs[origin_region] = event_dict
                 else:
-                    event_dict[destination_mobility_event] += 1
-            if self.co_occurs.get(destination_region) is None:
-                event_dict = dict()
-                event_dict[origin_mobility_event] = 1
-                self.co_occurs[destination_region] = event_dict
-            else:
-                event_dict = self.co_occurs[destination_region]
-                if event_dict.get(origin_mobility_event) is None:
+                    event_dict = self.co_occurs[origin_region]
+                    if event_dict.get(destination_mobility_event) is None:
+                        event_dict[destination_mobility_event] = 1
+                    else:
+                        event_dict[destination_mobility_event] += 1
+                if self.co_occurs.get(destination_region) is None:
+                    event_dict = dict()
                     event_dict[origin_mobility_event] = 1
+                    self.co_occurs[destination_region] = event_dict
                 else:
-                    event_dict[origin_mobility_event] += 1
+                    event_dict = self.co_occurs[destination_region]
+                    if event_dict.get(origin_mobility_event) is None:
+                        event_dict[origin_mobility_event] = 1
+                    else:
+                        event_dict[origin_mobility_event] += 1
 
-            # 统计总的co-occur的数量
-            self.co_occurs_num += 2
+                # 统计总的co-occur的数量
+                self.co_occurs_num += 2
 
-            # 计算A、P、T。
-            # 出发的时间在工作日的话，这个pattern就属于工作日。
-            # 出发的时间在周末的话，这个pattern就属于周末。
-            if origin_date_type == 1:
-                self.arrive_num_weekday[destination_region] += 1
-                self.leave_num_weekday[origin_region] += 1
-                self.T_weekday[origin_region][destination_region] += 1
-            else:
-                self.arrive_num_weekend[destination_region] += 1
-                self.leave_num_weekend[origin_region] += 1
-                self.T_weekend[origin_region][destination_region] += 1
+                # 计算A、P、T。
+                # 出发的时间在工作日的话，这个pattern就属于工作日。
+                # 出发的时间在周末的话，这个pattern就属于周末。
+                if origin_date_type == 1:
+                    self.arrive_num_weekday[destination_region] += 1
+                    self.leave_num_weekday[origin_region] += 1
+                    self.T_weekday[origin_region][destination_region] += 1
+                else:
+                    self.arrive_num_weekend[destination_region] += 1
+                    self.leave_num_weekend[origin_region] += 1
+                    self.T_weekend[origin_region][destination_region] += 1
 
         # 统计zone和mobility_event的数量
         self.zone_num = self.num_nodes
