@@ -5,5 +5,6 @@
   "max_epoch": 1000,
   "batch_size": 64,
   "learning_rate": 0.3,
-  "representation_object":"region"
+  "representation_object":"region",
+  "remove_node_type": "non_zero"
 }
