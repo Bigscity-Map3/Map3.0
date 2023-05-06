@@ -61,14 +61,12 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         self.label_path = './libcity/cache/ZEMob_{}/label.npy'.format(self.dataset)
 
-        self.construct_mobility_data()
-        self.construct_ppmi_matrix()
+        self.process_mobility_data()
+        self.construct_distance_matrix()
         self.construct_gravity_matrix()
+        self.construct_ppmi_matrix()
 
-    def get_data(self):
-        return None, None, None
-
-    def construct_mobility_data(self):
+    def process_mobility_data(self):
         """
         统计mobility event和co-occurs的信息，用于创建ppmi matrix和gravity matrix
 
@@ -179,27 +177,19 @@ class ZEMobDataset(TrafficRepresentationDataset):
             np.save(self.label_path, self.function)
         self._logger.info("finish constructing mobility basic data")
 
-    def construct_ppmi_matrix(self):
-        """
-        创建ppmi矩阵
-
-        :return:
-        """
-        if os.path.exists(self.ppmi_matrix_path):
-            self.ppmi_matrix = np.load(self.ppmi_matrix_path)
-            self._logger.info("finish constructing ppmi matrix")
+    def construct_distance_matrix(self):
+        if os.path.exists(self.distance_matrix_path):
+            self.distance = np.load(self.distance_matrix_path)
+            self._logger.info("finish constructing distance matrix")
             return
-        self.ppmi_matrix = np.zeros((self.zone_num, len(self.mobility_events)), dtype=np.float32)
-        for region_id in self.co_occurs.keys():
-            tmp_mobility_events = self.co_occurs[region_id].keys()
-            for mobility_event in tmp_mobility_events:
-                mb_id = self.mobility_events[mobility_event][1]
-                self.ppmi_matrix[region_id][mb_id] = max(0, np.log2(
-                    (self.co_occurs[region_id][mobility_event] * self.co_occurs_num) /
-                    (self.zones[region_id] * self.mobility_events[mobility_event][0])
-                ))
-        np.save(self.ppmi_matrix_path, self.ppmi_matrix)
-        self._logger.info("finish constructing ppmi matrix")
+        centroid = self.region_geometry.centroid
+        for i in range(self.zone_num):
+            for j in range(i, self.zone_num):
+                distance = centroid[self.ind_to_geo[i]].distance(centroid[self.ind_to_geo[j]])
+                self.distance[i][j] = distance
+                self.distance[j][i] = distance
+        np.save(self.distance_matrix_path, self.distance)
+        self._logger.info("finish constructing distance matrix")
 
     def construct_gravity_matrix(self):
         """
@@ -207,8 +197,6 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         :return:
         """
-        # 计算距离矩阵
-        self.construct_distance_matrix()
 
         # 遗传算法求解工作日的beta
         problem = GravityMatrix(self.zone_num, self.device, self.arrive_num_weekday, self.leave_num_weekday, self.T_weekday, self.distance)
@@ -265,11 +253,18 @@ class ZEMobDataset(TrafficRepresentationDataset):
             for mobility_event in self.mobility_events.keys():
                 mb_id = self.mobility_events[mobility_event][1]
                 mb_type = mobility_event[2]
+                mb_sta = mobility_event[3]
                 mb_zone_id = mobility_event[0]
                 if mb_type == 1:
-                    self.G_matrix[zone_id][mb_id] = G_weekday[zone_id][mb_zone_id]
+                    if mb_sta == 'o':
+                        self.G_matrix[zone_id][mb_id] = G_weekday[mb_zone_id][zone_id]
+                    else:
+                        self.G_matrix[zone_id][mb_id] = G_weekday[zone_id][mb_zone_id]
                 else:
-                    self.G_matrix[zone_id][mb_id] = G_weekend[zone_id][mb_zone_id]
+                    if mb_sta == 'o':
+                        self.G_matrix[zone_id][mb_id] = G_weekend[mb_zone_id][zone_id]
+                    else:
+                        self.G_matrix[zone_id][mb_id] = G_weekend[zone_id][mb_zone_id]
 
         # 保存G matrix
         if not os.path.exists(self.G_matrix_path):
@@ -277,19 +272,30 @@ class ZEMobDataset(TrafficRepresentationDataset):
 
         self._logger.info("finish constructing gravity matrix, beta_wd is {}, beta_we is {}".format(str(beta_weekday), str(beta_weekend)))
 
-    def construct_distance_matrix(self):
-        if os.path.exists(self.distance_matrix_path):
-            self.distance = np.load(self.distance_matrix_path)
-            self._logger.info("finish constructing distance matrix")
+    def construct_ppmi_matrix(self):
+        """
+        创建ppmi矩阵
+
+        :return:
+        """
+        if os.path.exists(self.ppmi_matrix_path):
+            self.ppmi_matrix = np.load(self.ppmi_matrix_path)
+            self._logger.info("finish constructing ppmi matrix")
             return
-        centroid = self.region_geometry.centroid
-        for i in range(self.zone_num):
-            for j in range(i, self.zone_num):
-                distance = centroid[self.ind_to_geo[i]].distance(centroid[self.ind_to_geo[j]])
-                self.distance[i][j] = distance
-                self.distance[j][i] = distance
-        np.save(self.distance_matrix_path, self.distance)
-        self._logger.info("finish constructing distance matrix")
+        self.ppmi_matrix = np.zeros((self.zone_num, len(self.mobility_events)), dtype=np.float32)
+        for region_id in self.co_occurs.keys():
+            tmp_mobility_events = self.co_occurs[region_id].keys()
+            for mobility_event in tmp_mobility_events:
+                mb_id = self.mobility_events[mobility_event][1]
+                self.ppmi_matrix[region_id][mb_id] = max(0, np.log2(
+                    (self.co_occurs[region_id][mobility_event] * self.co_occurs_num) /
+                    (self.zones[region_id] * self.mobility_events[mobility_event][0])
+                ))
+        np.save(self.ppmi_matrix_path, self.ppmi_matrix)
+        self._logger.info("finish constructing ppmi matrix")
+    
+    def get_data(self):
+        return None, None, None
 
     def get_data_feature(self):
         """
