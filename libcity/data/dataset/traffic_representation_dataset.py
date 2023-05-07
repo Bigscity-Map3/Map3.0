@@ -102,6 +102,8 @@ class TrafficRepresentationDataset(AbstractDataset):
             self.remove_0_degree_nodes()
         if self.remove_node_type == "od":
             self.keep_od_nodes()
+        if self.remove_node_type == "non_zero":
+            self.keep_non_zero_od_nodes()
         if self.remove_node_type == "MVURE":
             self.keep_mvure_nodes()
 
@@ -264,6 +266,84 @@ class TrafficRepresentationDataset(AbstractDataset):
             road = road_list[-1]
             region = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
             region_set.add(region)
+        index = 0
+        for region in region_set:
+            self.geo_to_ind[region] = index
+            self.ind_to_geo[index] = region
+            index += 1
+        self.num_nodes = index
+        self.num_regions = index
+        # 对 function_label进行映射
+        self.function = np.zeros(self.num_regions)
+        for i in range(index):
+            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        region_list = list(region_set)
+        region_array = np.array(region_list)
+        np.save(self.ind_to_geo_path, region_array)
+        np.save(self.func_label_path, self.function)
+        self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
+
+    def keep_non_zero_od_nodes(self):
+        # dict保存为
+        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+            region_list = np.load(self.ind_to_geo_path)
+            self.geo_to_ind = {}
+            self.ind_to_geo = {}
+            index = 0
+            for region in region_list:
+                self.geo_to_ind[region] = index
+                self.ind_to_geo[index] = region
+                index += 1
+            self.num_nodes = index
+            self.num_regions = index
+            self.function = np.load(self.func_label_path)
+            self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
+            return
+        # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
+        # 计算od矩阵
+        self.geo_to_ind = {}
+        self.ind_to_geo = {}
+        od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        for road_list in self.traj_road:
+            road = road_list[0]
+            origin = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+            road = road_list[-1]
+            destination = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+            od_label[origin][destination] += 1
+
+        # 首先筛除没有自己到自己的轨迹的区域，这部分区域一定不在最后的结果中
+        final_vertex = []
+        for i in range(self.num_nodes):
+            if od_label[i][i] != 0:
+                final_vertex.append(i)
+        # 得到第一步筛除后的od矩阵
+        screened_od = np.zeros((len(final_vertex), len(final_vertex)), dtype=int)
+        for indi, vi in enumerate(final_vertex):
+            for indj, vj in enumerate(final_vertex):
+                screened_od[indi][indj] = int(od_label[vi][vj])
+
+        # 使od矩阵中不包含0，思路是在每一次的循环中找出这样的区域：
+        # 该区域在od矩阵中对应行的0的个数和对应列的0的个数的总和最多
+        # 剔除这样的区域
+        # 直到找到的0的总数最多的区域，对应的0的个数也是0，那么循环停止
+        # 这里可以看看有没有别的算法，保留的区域会更多
+        del_zero = True
+        while del_zero:
+            del_zero = False
+            row_col_zero_num = np.zeros(len(final_vertex), dtype=int)
+            for i in range(len(final_vertex)):
+                row_col_zero_num[i] += sum(screened_od[i] == 0)
+                row_col_zero_num[i] += sum(screened_od[:, i] == 0)
+
+            max_ind = np.argmax(row_col_zero_num)
+            if row_col_zero_num[max_ind] > 0:
+                screened_od = np.delete(screened_od, max_ind, axis=0)
+                screened_od = np.delete(screened_od, max_ind, axis=1)
+                final_vertex.pop(max_ind)
+                del_zero = True
+
+        region_set = set(final_vertex)
+
         index = 0
         for region in region_set:
             self.geo_to_ind[region] = index

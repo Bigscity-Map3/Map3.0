@@ -54,6 +54,8 @@ class ZEMob(AbstractTraditionModel):
         # 优化器
         self.optimizer = optim.SGD(self.ZEMob_model.parameters(), lr=self.lr)
 
+
+
     def run(self, data=None):
         # 共训练iter轮
         for epoch in range(1, self.iter + 1):
@@ -108,16 +110,37 @@ class ZEMobModel(nn.Module):
         # 一些辅助变量，在分批进行loss的计算时，当我们选定了一部分的z，需要对每一个z遍历所有的e
         self.all_events = torch.arange(mobility_event_num).to(self.device)
 
+        # 判断GPU内存是足够否全部加载到GPU
+        self.memory_sufficient=False
+        if torch.cuda.is_available():
+            total_memory = torch.cuda.get_device_properties(self.device).total_memory
+            memory_usage = self.G_matrix.element_size() * self.G_matrix.nelement()\
+                           +self.ppmi_matrix.element_size() * self.ppmi_matrix.nelement()
+            memory_allocated = torch.cuda.max_memory_allocated(self.device)
+            print("GPU : {} Memory is sufficient, {}/{}"
+                                  .format(self.device,memory_usage,total_memory))
+            if memory_usage + memory_allocated <= total_memory:
+                self.G_matrix = self.G_matrix.to(self.device)
+                self.ppmi_matrix = self.ppmi_matrix.to(self.device)
+                self.memory_sufficient = True
+                print("G_matrix and ppmi are already on GPU")
+
+        else:
+            print("CUDA is not available")
+
     # 前向传播，公式即为文章中需要最小化的函数，得到的结果即为loss
     # 注意ppmi和G在cpu上
     def forward(self, batch):
         batch_gpu = batch.to(self.device)
         batch_zone = self.zone_embedding(batch_gpu)
         batch_event = self.event_embedding(self.all_events)
-
-        batch_ppmi = self.ppmi_matrix[batch].to(self.device)
-        batch_G = self.G_matrix[batch].to(self.device)
-
+        batch_ppmi = self.ppmi_matrix[batch]
+        batch_G = self.G_matrix[batch]
+        # 内存不够，分批次放到gpu
+        if not self.memory_sufficient:
+            batch_ppmi = batch_ppmi.to(self.device)
+            batch_G = batch_G.to(self.device)
+        print(batch_zone.device,batch_event.device,batch_G.device,batch_ppmi.device)
         return torch.sum(torch.pow(torch.sub(batch_ppmi, torch.mm(batch_zone, batch_event.t())), 2) * batch_G) / 2
 
 # 数据加载
