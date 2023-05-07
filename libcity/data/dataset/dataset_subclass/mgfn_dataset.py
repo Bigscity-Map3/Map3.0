@@ -27,6 +27,7 @@ class MGFNDataset(TrafficRepresentationDataset):
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
         super().__init__(config)
+        self.od_label_path = './libcity/cache/MGFN_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
         self.construct_od_matrix()
         if os.path.exists(self.mob_patterns_path):
             self.mob_patterns = np.load(self.mob_patterns_path)
@@ -39,23 +40,36 @@ class MGFNDataset(TrafficRepresentationDataset):
         return None, None, None
 
     def construct_od_matrix(self):
+        if os.path.exists(self.od_label_path):
+            self.od_label = np.load(self.od_label_path)
+            self._logger.info("finish construct od graph")
+            return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            self.od_label[origin_region][destination_region] += 1
+            origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region_geo_id = \
+                list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
+                origin_region = self.geo_to_ind[origin_region_geo_id]
+                destination_region = self.geo_to_ind[destination_region_geo_id]
+                self.od_label[origin_region][destination_region] += 1
+        np.save(self.od_label_path, self.od_label)
+        self._logger.info("finish construct od graph")
         return self.od_label
 
     def construct_multi_graph(self):
         time_each_slice = 24 // self.time_slice
         self.multi_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
         for traj, time_list in zip(self.traj_road, self.traj_time):
-            origin_region = int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
-            destination_region = int(
+            origin_region_geo_id = int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
+            destination_region_geo_id = int(
                 list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0])
-            origin_hour = datetime.strptime(time_list[0], '%Y-%m-%d %H:%M:%S').hour
-            self.multi_graph[origin_hour // time_each_slice][origin_region][destination_region] += 1
+            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
+                origin_region = self.geo_to_ind[origin_region_geo_id]
+                destination_region = self.geo_to_ind[destination_region_geo_id]
+                origin_hour = datetime.strptime(time_list[0], '%Y-%m-%d %H:%M:%S').hour
+                self.multi_graph[origin_hour // time_each_slice][origin_region][destination_region] += 1
         return self.multi_graph
 
     def propertyFunc_var(self,adj_matrix):

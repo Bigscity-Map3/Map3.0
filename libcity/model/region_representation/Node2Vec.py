@@ -222,7 +222,3 @@ class Node2Vec(AbstractTraditionModel):
 
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(model.wv)) + ',' + str(len(model.wv[0])) + ')')
-        json.dump(self.ind_to_geo, open('./libcity/cache/{}/evaluate_cache/ind_to_geo_{}.json'.format(
-            self.exp_id, self.dataset), 'w'))
-        json.dump(self.geo_to_ind, open('./libcity/cache/{}/evaluate_cache/geo_to_ind_{}.json'.format(
-            self.exp_id, self.dataset), 'w'))

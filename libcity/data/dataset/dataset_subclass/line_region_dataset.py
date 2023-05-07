@@ -60,6 +60,7 @@ class LINERegionDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         # 数据集参数
         super().__init__(config)
+        self.od_label_path = './libcity/cache/LINE_Region_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
         self.config = config
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -118,19 +119,31 @@ class LINERegionDataset(TrafficRepresentationDataset):
         assert self.representation_object == "region"
         self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            self.adj_mx[origin_region][destination_region] += 1
+            origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region_geo_id  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
+                origin_region = self.geo_to_ind[origin_region_geo_id]
+                destination_region = self.geo_to_ind[destination_region_geo_id]
+                self.adj_mx[origin_region][destination_region] += 1
         return self.adj_mx
 
-
     def construct_od_matrix(self):
+        if os.path.exists(self.od_label_path):
+            self.od_label = np.load(self.od_label_path)
+            self._logger.info("finish construct od graph")
+            return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            self.od_label[origin_region][destination_region] += 1
+            origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region_geo_id = \
+                list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
+                origin_region = self.geo_to_ind[origin_region_geo_id]
+                destination_region = self.geo_to_ind[destination_region_geo_id]
+                self.od_label[origin_region][destination_region] += 1
+        np.save(self.od_label_path, self.od_label)
+        self._logger.info("finish construct od graph")
         return self.od_label
 
 
@@ -161,25 +174,7 @@ class LINERegionDataset(TrafficRepresentationDataset):
         self._load_geo()
         self._load_rel()
 
-        # 生成采样数据
-        self._gen_sampling_table()
-        I = []  # 起始点
-        J = []  # 终止点
-        Neg = []  # 是否为负采样
 
-        pad_sample = self.num_samples % (1 + self.negative_ratio)
-
-        for _ in range(self.num_samples // (1 + self.negative_ratio)):
-            # 正样本
-            edge = self.edges[self.edge_alias.sample()]
-            I.append(edge[0])
-            J.append(edge[1])
-            Neg.append(1)
-            # 负样本
-            for _ in range(self.negative_ratio):
-                I.append(edge[0])
-                J.append(self.node_alias.sample())
-                Neg.append(-1)
 
         # 填满 epoch
         if pad_sample > 0:

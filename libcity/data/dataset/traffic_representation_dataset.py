@@ -332,7 +332,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.function = np.zeros(self.num_regions)
         for i in range(index):
             self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
-        region_array = np.array(region_set)
+        region_array = np.array([region for region in region_set])
         np.save(self.ind_to_geo_path, region_array)
         np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))

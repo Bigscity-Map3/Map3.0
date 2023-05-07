@@ -119,15 +119,17 @@ class MVUREDataset(TrafficRepresentationDataset):
             poi_ids = list(self.region2poi[self.region2poi["origin_id"]==self.ind_to_geo[i]]["destination_id"])
             for poi_id in poi_ids:
                 content=content+ (self.geofile.loc[poi_id,"function"])+' '
+            if content == '':
+                print("i")
             contents.append(content)
         vectorizer = TfidfVectorizer()
-        tf_idf_transformer = TfidfTransformer()
         X = vectorizer.fit_transform(contents)
-        tf_idf = tf_idf_transformer.fit_transform(X)
-        poi_attr = tf_idf.toarray()
+        poi_attr = np.array(X.todense())
         for i in range(self.num_regions):
             for j in range(self.num_regions):
-                self.poi_simi[i][j] = self.get_cos_similarity(poi_attr[i],poi_attr[j])
+                poi_attr_i = poi_attr[i]
+                poi_attr_j = poi_attr[j]
+                self.poi_simi[i][j] = self.get_cos_similarity(poi_attr_i,poi_attr_j)
         np.save(self.poi_simi_path,self.poi_simi)
         self._logger.info("finish construct poi_simi")
 
