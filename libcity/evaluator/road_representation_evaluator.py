@@ -9,16 +9,29 @@ from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 
 class RoadRepresentationEvaluator(AbstractEvaluator):
 
-    def __init__(self, config):
+    def __init__(self, config,data_feature):
         self._logger = getLogger()
+        self.config = config
+        self.evaluate_tasks = self.config.get('evaluate_task', ["speed_inference"])
+        self.evaluate_model = self.config.get('evaluate_model', ["SpeedInferenceModel"])
+        self.all_result = []
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = config.get('geo_file', self.dataset)
         self.output_dim = config.get('output_dim', 32)
-        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'\
+        self.data_feature = data_feature
+        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy' \
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.result_path = './libcity/cache/{}/evaluate_cache/result_{}_{}_{}.json' \
+            .format(self.exp_id, self.model, self.dataset, self.output_dim)
+
+    def get_downstream_model(self, model):
+        try:
+            return getattr(importlib.import_module('libcity.evaluator.downstream_models'), model)(self.config)
+        except AttributeError:
+            raise AttributeError('evaluate model is not found')
 
     def collect(self, batch):
         pass
@@ -39,12 +52,19 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         return geofile
 
     def evaluate(self):
-        node_emb = np.load(self.embedding_path)  # (N, F)
-        kinds = int(math.sqrt(node_emb.shape[0] / 2))
-        self._logger.info('Start Kmeans, data.shape = {}, kinds = {}'.format(str(node_emb.shape), kinds))
-        k_means = KMeans(n_clusters=kinds, random_state=10)
-        k_means.fit(node_emb)
-        y_predict = k_means.predict(node_emb)
+        road_emb = np.load(self.embedding_path)  # (N, F)
+        for task, model in zip(self.evaluate_tasks, self.evaluate_model):
+            downstream_model = self.get_downstream_model(model)
+            x = road_emb
+            label = self.data_feature["label"][task]
+            result = downstream_model.run(x, label)
+            result = {task: result}
+            self.all_result.append(result)
+        for r in self.all_result:
+            for key in r:
+                self._logger.info('{} result: {}', format(key, r[key]))
+        return
+
 
         # !这个load_geo必须跟dataset部分相同，也就是得到同样的geo_id和index的映射，否则就会乱码
         # TODO: 把dataset部分得到的geo_to_ind和ind_to_geo传过来

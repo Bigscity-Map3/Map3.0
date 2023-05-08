@@ -91,11 +91,13 @@ class TrafficRepresentationDataset(AbstractDataset):
         else:
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary
-            self._load_rel()
+            # self._load_rel()
+            pass
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
-            self._load_dyna()
+            # self._load_dyna()
+            pass
         else:
             raise ValueError('Not found .dyna file!')
         if self.remove_node_type == "traj":

@@ -7,5 +7,10 @@
     "walk_length": 80,
     "window_size": 10,
     "num_workers": 10,
-    "max_epoch": 1000
+    "max_epoch": 1,
+    "representation_object":"road",
+    "evaluate_task": ["speed_inference","time_estimation"],
+    "evaluate_model": ["SpeedInferenceModel","TimeEstimationModel"],
+    "min_len": 1,
+    "max_len": 100
 }
