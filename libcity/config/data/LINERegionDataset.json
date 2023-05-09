@@ -6,5 +6,6 @@
     "train_rate": 0.7,
     "eval_rate": 0.1,
     "cache_dataset": true,
-    "num_workers": 0
+    "num_workers": 0,
+    "remove_node_type": "non_zero"
 }

@@ -1,10 +1,11 @@
 import numpy as np
-
+a = np.load("Data/ind_to_geo_MVURE.npy",allow_pickle=True)
 inflow_adj = np.load("Data/in_flow_adj_MVURE.npy")
 outflow_adj = np.load("Data/out_flow_adj_MVURE.npy")
-#poi_simi = np.load("Data/poi_simi_od.npy")
+poi_simi = np.load("Data/poi_simi_MVURE.npy")
 print(np.count_nonzero(inflow_adj))
 print(np.count_nonzero(outflow_adj))
+print(np.count_nonzero(poi_simi))
 od_label = np.load("Data/od_label_MVURE.npy")
 print(np.count_nonzero(np.count_nonzero(od_label)))
 print(od_label[659][618])
