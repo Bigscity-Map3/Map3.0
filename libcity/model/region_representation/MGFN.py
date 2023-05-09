@@ -138,9 +138,9 @@ class MobilityPatternJointLearning(nn.Module):
         self.num_multi_pattern_encoder = 3
         self.num_cross_graph_encoder = 1
         self.multi_pattern_blocks = nn.ModuleList(
-            [GraphStructuralEncoder(d_model=node_num, nhead=4) for _ in range(self.num_multi_pattern_encoder)])
+            [GraphStructuralEncoder(d_model=node_num, nhead=2) for _ in range(self.num_multi_pattern_encoder)])
         self.cross_graph_blocks = nn.ModuleList(
-            [GraphStructuralEncoder(d_model=node_num, nhead=4) for _ in range(self.num_cross_graph_encoder)])
+            [GraphStructuralEncoder(d_model=node_num, nhead=2) for _ in range(self.num_cross_graph_encoder)])
         self.fc = DeepFc(self.graph_num*self.node_num, output_dim)
         self.linear_out = nn.Linear(node_num, output_dim)
         self.para1 = torch.nn.Parameter(torch.FloatTensor(1), requires_grad=True)#the size is [1]

@@ -17,7 +17,6 @@ class Node2VecDataset(TrafficRepresentationDataset):
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
-        super().__init__(config)
         if not os.path.exists('./libcity/cache/Node2Vec_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/Node2Vec_{}'.format(self.dataset))
         self.od_label_path = './libcity/cache/Node2Vec_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
@@ -62,4 +61,4 @@ class Node2VecDataset(TrafficRepresentationDataset):
         """
         return {"adj_mx": self.adj_mx, "num_nodes": self.num_nodes,
                 "geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
-                "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
+                "label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}

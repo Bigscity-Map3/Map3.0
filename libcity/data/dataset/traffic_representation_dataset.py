@@ -322,10 +322,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             for indj, vj in enumerate(final_vertex):
                 screened_od[indi][indj] = int(od_label[vi][vj])
 
-        # 使od矩阵中不包含0，思路是在每一次的循环中找出这样的区域：
-        # 该区域在od矩阵中对应行的0的个数和对应列的0的个数的总和最多
-        # 剔除这样的区域
-        # 直到找到的0的总数最多的区域，对应的0的个数也是0，那么循环停止
+        #
         # 这里可以看看有没有别的算法，保留的区域会更多
         del_zero = True
         while del_zero:

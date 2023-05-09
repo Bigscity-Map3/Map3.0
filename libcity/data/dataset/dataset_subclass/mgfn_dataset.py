@@ -238,5 +238,5 @@ class MGFNDataset(TrafficRepresentationDataset):
             dict: 包含数据集的相关特征的字典
         """
         return {"n_cluster":self.n_cluster,"od_matrix":self.od_label,"mob_patterns":self.mob_patterns,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
-            "label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
+            "label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}
 
