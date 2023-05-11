@@ -60,6 +60,9 @@ class LINERegionDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         # 数据集参数
         super().__init__(config)
+        if not os.path.exists('./libcity/cache/LINE_Region_{}'.format(self.dataset)):
+            os.mkdir('./libcity/cache/LINE_Region_{}'.format(self.dataset))
+        self.od_label_path = './libcity/cache/LINE_Region_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
         self.config = config
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -91,8 +94,8 @@ class LINERegionDataset(TrafficRepresentationDataset):
         self._logger = getLogger()
         self.feature_name = {'I': 'int', 'J': 'int', 'Neg': 'int'}
         self.num_workers = config.get('num_workers', 0)
-        self.construct_graph()
         self.construct_od_matrix()
+        self.construct_graph()
         self.get_edges(self.adj_mx)
         # 采样条数
         self.num_samples = self.num_edges * (1 + self.negative_ratio) * self.times
@@ -115,22 +118,25 @@ class LINERegionDataset(TrafficRepresentationDataset):
         先采用region_od矩阵当作邻接矩阵
         :return:adj_mx
         """
-        assert self.representation_object == "region"
-        self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_road:
-            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            self.adj_mx[origin_region][destination_region] += 1
-        return self.adj_mx
-
+        self.adj_mx = self.od_label
 
     def construct_od_matrix(self):
+        if os.path.exists(self.od_label_path):
+            self.od_label = np.load(self.od_label_path)
+            self._logger.info("finish construct od graph")
+            return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
-            origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region  = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            self.od_label[origin_region][destination_region] += 1
+            origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
+            destination_region_geo_id = \
+                list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
+            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
+                origin_region = self.geo_to_ind[origin_region_geo_id]
+                destination_region = self.geo_to_ind[destination_region_geo_id]
+                self.od_label[origin_region][destination_region] += 1
+        np.save(self.od_label_path, self.od_label)
+        self._logger.info("finish construct od graph")
         return self.od_label
 
 
@@ -261,7 +267,6 @@ class LINERegionDataset(TrafficRepresentationDataset):
     def get_data(self):
         """
                 返回数据的DataLoader，包括训练数据、测试数据、验证数据
-
                 Returns:
                     batch_data: dict
                 """
@@ -283,9 +288,9 @@ class LINERegionDataset(TrafficRepresentationDataset):
     def get_data_feature(self):
         """
         返回一个 dict，包含数据集的相关特征
-
         Returns:
             dict: 包含数据集的相关特征的字典
         """
+        self._logger.info(self.function.shape)
         return {"scaler": self.scaler, "num_edges": self.num_edges,
-                "num_nodes": self.num_nodes,"label":{"od_matrix_predict":self.od_label,"function_cluster":np.array(self.function)}}
+                "num_nodes": self.num_nodes,"label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}

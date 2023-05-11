@@ -1,3 +1,4 @@
 {
-  "n_cluster": 3
+  "n_cluster": 7,
+  "remove_node_type": "non_zero"
 }
