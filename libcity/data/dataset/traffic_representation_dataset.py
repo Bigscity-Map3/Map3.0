@@ -91,7 +91,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         else:
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary
-            # self._load_rel()
+            self._load_rel()
             pass
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -100,14 +100,27 @@ class TrafficRepresentationDataset(AbstractDataset):
             pass
         else:
             raise ValueError('Not found .dyna file!')
-        if self.remove_node_type == "traj":
-            self.remove_0_degree_nodes()
-        if self.remove_node_type == "od":
-            self.keep_od_nodes()
-        if self.remove_node_type == "non_zero":
-            self.keep_non_zero_od_nodes()
-        if self.remove_node_type == "MVURE":
-            self.keep_mvure_nodes()
+        if self.representation_object == "region":
+            if self.remove_node_type == "traj":
+                self.remove_0_degree_nodes()
+            if self.remove_node_type == "od":
+                self.keep_od_nodes()
+            if self.remove_node_type == "non_zero":
+                self.keep_non_zero_od_nodes()
+            if self.remove_node_type == "MVURE":
+                self.keep_mvure_nodes()
+        elif self.representation_object == "road":
+            self.geo_to_ind = {}
+            self.ind_to_geo = {}
+            for index, idx in enumerate(self.geo_ids):
+                self.geo_to_ind[idx] = index
+                self.ind_to_geo[index] = idx
+
+            geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
+            self.geofile = geofile
+            self.num_nodes = self.num_roads
+            self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
+
 
 
     def _load_geo(self):

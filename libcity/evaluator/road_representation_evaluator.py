@@ -1,3 +1,4 @@
+import importlib
 import math
 import json
 import numpy as np
@@ -60,9 +61,11 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
             result = downstream_model.run(x, label)
             result = {task: result}
             self.all_result.append(result)
+        print(self.all_result)
         for r in self.all_result:
             for key in r:
-                self._logger.info('{} result: {}', format(key, r[key]))
+                result_string = 
+                self._logger.info('{} result: {}', format(key, r[key][0]))
         return
 
 
