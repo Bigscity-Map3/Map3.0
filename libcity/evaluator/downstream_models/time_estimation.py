@@ -73,10 +73,7 @@ class TimeEstimationModel(AbstractModel):
                 temp = np.array([padding_id] * (max_len - len(row['path'])))
                 path = np.append(path, temp)
             for index in path:
-                try:
-                    embed = x[index-num_road]
-                except:
-                    print(index)
+                embed = x[index-num_road]
                 path_rep.append(embed)
 
             path_rep = np.array(path_rep)
@@ -101,7 +98,7 @@ class TimeEstimationModel(AbstractModel):
         opt = torch.optim.Adam(model.parameters())
 
         patience = 3
-        best = [0, 1e9, 1e9]
+        best = {"epoch":0,"mae":0,"rmse":0}
         for epoch in tqdm(range(1, 101)):
             model.train()
             for batch_x, batch_y in train_dataloader:
@@ -121,21 +118,20 @@ class TimeEstimationModel(AbstractModel):
                 y_preds.append(model(batch_x).detach().cpu())
                 y_trues.append(batch_y.detach().cpu())
 
-
             y_preds = torch.cat(y_preds, dim=0)
             y_trues = torch.cat(y_trues, dim=0)
 
             mae = mean_absolute_error(y_trues, y_preds)
             rmse = mean_squared_error(y_trues, y_preds) ** 0.5
             print(f'Epoch: {epoch}, MAE: {mae.item():.4f}, RMSE: {rmse.item():.4f}')
-            if mae < best[1]:
-                best = [epoch, mae, rmse]
-                patience = 3
+            if mae < best["mae"]:
+                best = {"best epoch": epoch, "mae": mae, "rmse": rmse}
+                patience = 5
             else:
                 if epoch > 10:
                     patience -= 1
                 if not patience:
-                    print(f'Best epoch: {best[0]}, MAE: {best[1].item():.4f}, RMSE: {best[2].item():.4f}')
+                    print("Best epoch: {}, MAE:{}, RMSE:{}".format(best['epoch'],best['mae'], best["rmse"]))
                     break
         return best
 

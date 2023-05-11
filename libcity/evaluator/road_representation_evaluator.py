@@ -61,11 +61,14 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
             result = downstream_model.run(x, label)
             result = {task: result}
             self.all_result.append(result)
+
         print(self.all_result)
-        for r in self.all_result:
-            for key in r:
-                result_string = 
-                self._logger.info('{} result: {}', format(key, r[key][0]))
+        for result in self.all_result:
+            for task in result:
+                result_string = ""
+                for key in result[task]:
+                    result_string += key + "=" +str(result[task][key])+" "
+                self._logger.info('{} result: {}', format(task, result_string))
         return
 
 

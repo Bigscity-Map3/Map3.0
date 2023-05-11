@@ -26,6 +26,7 @@ class SpeedInferenceModel(AbstractModel):
             format(self.exp_id, self.alpha, self.n_split)
 
     def run(self, x, label):
+        self._logger.info("--- Speed Inference ---")
         split = x.shape[0] // self.n_split
         y_preds = []
         y_trues = []
@@ -43,7 +44,6 @@ class SpeedInferenceModel(AbstractModel):
             y = torch.cat((y[split:], y[:split]), 0)
             x_train, x_eval = x[split:], x[:split]
             y_train, y_eval = y[split:], y[:split]
-            print(x_train.shape,y_train.shape)
             model = Regressor(x.shape[1]).cuda()
             opt = torch.optim.Adam(model.parameters())
 
@@ -72,7 +72,7 @@ class SpeedInferenceModel(AbstractModel):
 
         self.save_result(y_preds, self.result_path)
 
-        result = [{'mae': mae, 'mse': mse, 'rmse': rmse}]
+        result = {'mae': mae, 'mse': mse, 'rmse': rmse}
         return result
 
     def clear(self):
