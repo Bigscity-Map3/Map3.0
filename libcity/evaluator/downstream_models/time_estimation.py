@@ -97,8 +97,8 @@ class TimeEstimationModel(AbstractModel):
         model = MLPReg(x_arr.shape[1], 3, nn.ReLU()).cuda()
         opt = torch.optim.Adam(model.parameters())
 
-        patience = 3
-        best = {"epoch":0,"mae":0,"rmse":0}
+        patience = 5
+        best = {"best epoch": 0, "mae": 1e9, "rmse": 1e9}
         for epoch in tqdm(range(1, 101)):
             model.train()
             for batch_x, batch_y in train_dataloader:
@@ -131,7 +131,7 @@ class TimeEstimationModel(AbstractModel):
                 if epoch > 10:
                     patience -= 1
                 if not patience:
-                    print("Best epoch: {}, MAE:{}, RMSE:{}".format(best['epoch'],best['mae'], best["rmse"]))
+                    print("Best epoch: {}, MAE:{}, RMSE:{}".format(best['best epoch'], best['mae'], best["rmse"]))
                     break
         return best
 

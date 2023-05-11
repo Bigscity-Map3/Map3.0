@@ -67,8 +67,8 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
             for task in result:
                 result_string = ""
                 for key in result[task]:
-                    result_string += key + "=" +str(result[task][key])+" "
-                self._logger.info('{} result: {}', format(task, result_string))
+                    result_string += key + " = " +str(result[task][key])+" "
+                self._logger.info('{} result: {}'.format(task, result_string))
         return
 
 
