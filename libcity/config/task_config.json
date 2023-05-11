@@ -413,7 +413,7 @@
         },
         "Node2Vec": {
             "dataset_class": "RoadNetWorkDataset",
-            "executor": "GensimExecutor",
+            "executor": "TwoStepExecutor",
             "evaluator": "RoadRepresentationEvaluator"
         },
         "DeepWalk": {
