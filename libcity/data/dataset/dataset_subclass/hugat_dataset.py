@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+
 from logging import getLogger
 import geopandas as gpd
 import numpy as np
@@ -6,6 +8,7 @@ import pandas as pd
 from libcity.data.dataset import AbstractDataset
 from libcity.utils import ensure_dir
 from tqdm import tqdm
+import torch
 import dgl
 
 
@@ -30,7 +33,8 @@ class HUGATDataset(AbstractDataset):
         self.ext_file = self.config.get('ext_file', self.dataset)
         self.od_file = self.config.get('od_file', self.dataset)
 
-        # od矩阵的缓存路径
+        # od数据的缓存路径
+        self.od_data_path = './libcity/cache/dataset_cache/{}/od_data.npy'.format(self.dataset)
         self.od_mx_path = './libcity/cache/dataset_cache/{}/od_label.npy'.format(self.dataset)
 
         # 目标节点的geo_id和下标的映射
@@ -38,6 +42,7 @@ class HUGATDataset(AbstractDataset):
         self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,self.remove_node_type)
 
         # 重要的原始数据
+        self.feature_dim = self.config.get('feature_dim', 256)
         self.geo_ids = None
 
         self.region_ids = None
@@ -52,7 +57,7 @@ class HUGATDataset(AbstractDataset):
         self.centroid = None
 
         self.crime_count = None
-        self.poi_category = None
+        self.poi_function_class = None
 
         self.poi2region = None
         self.region2poi = None
@@ -68,6 +73,10 @@ class HUGATDataset(AbstractDataset):
         self.od_label = None
 
         # 重要的中间变量
+
+        # TC、TO、TD的格式
+        self.time_format = self.config.get('time_format', 'weekday-type:hour')
+
         # meta path R_R
         self.R_to_tmp = None
         self.tmp_to_R = None
@@ -139,10 +148,15 @@ class HUGATDataset(AbstractDataset):
         self.process_meta_path_R_R()
         self.process_meta_path_R_C_R()
         self.process_meta_path_R_TC_R()
-        self.process_meta_path_R_TO_R()
-        self.process_meta_path_R_TD_R()
+        self.process_meta_path_R_TO_R_and_R_TD_R()
 
         self.process_hetero_graph()
+
+        self.generate_node_feature()
+
+        self.process_P_org_dst_and_P_dst_org()
+        self.process_S_chk()
+        self.process_S_land()
 
 
     # 读入各个region和POI
@@ -167,7 +181,7 @@ class HUGATDataset(AbstractDataset):
         self.centroid = self.region_geometry.centroid
 
         self.crime_count = list(geofile[geofile['traffic_type'] == 'region']['crime_count'])
-        self.poi_category = list(geofile[geofile['traffic_type'] == 'poi']['venue_category_name'])
+        self.poi_function_class = list(geofile['venue_category_name'].astype('category').cat.codes)
         
         self._logger.info("Loaded file " + self.geo_file + '.geo' + ',num_regions=' + str(self.num_regions) + ',num_pois=' + str(self.num_pois) + ', num_nodes=' + str(self.num_nodes))
 
@@ -193,24 +207,25 @@ class HUGATDataset(AbstractDataset):
         加载签到数据，格式[dyna_id,type,time,geo_id]
         """
         dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-        self.check_in_poi = dynafile['geo_id']
-        self.check_in_time = dynafile['time']
+        self.check_in_poi = list(dynafile['geo_id'])
+        self.check_in_time = list(dynafile['time'])
 
     def _load_ext(self):
         """
         加载土地使用数据，格式[ext_id,geo_id,landuse_type]
         """
         extfile = pd.read_csv(self.data_path + self.ext_file + '.ext')
-        self.land_usage_region = extfile['geo_id']
-        self.land_usage_type = extfile['landuse_type']
+        self.land_usage_region = list(extfile['geo_id'])
+        self.land_usage_type = list(extfile['landuse_type'])
         
     def _load_od(self):
         """
         构造区域间的od矩阵 dyna_id,type,time,origin_id,destination_id,flow
         :return: od_mx
         """
-        if os.path.exists(self.od_mx_path):
+        if os.path.exists(self.od_mx_path) and os.path.exists(self.od_data_path):
             self.od_label = np.load(self.od_mx_path)
+            self.od_data = np.load(self.od_data_path)
             self._logger.info("finish construct od graph")
             return self.od_label
         odfile = pd.read_csv(self.data_path + self.od_file + '.od')
@@ -222,6 +237,11 @@ class HUGATDataset(AbstractDataset):
             destination_region = odfile.loc[i,"destination_id"]
             self.od_label[origin_region][destination_region] += 1
         np.save(self.od_mx_path, self.od_label)
+
+        self.od_data = odfile[['origin_id', 'destination_id', 'time']]
+        self.od_data = self.od_data.to_numpy()
+        np.save(self.od_data_path, self.od_data)
+
         self._logger.info("finish construct od graph")
         return self.od_label
     
@@ -254,16 +274,101 @@ class HUGATDataset(AbstractDataset):
         self.tmp_to_R = tmp_to_region
 
     def process_meta_path_R_C_R(self):
-        pass
+        region_to_category = []
+        category_to_region = []
+        for poi_id in self.poi_ids:
+            region_id = list(self.poi2region[self.poi2region['origin_id'] == poi_id]['destination_id'])[0]
+            poi_category = self.poi_function_class[poi_id]
+
+            region_to_category.append([region_id, poi_category])
+            category_to_region.append([poi_category, region_id])
+
+        region_to_category = np.array(region_to_category).transpose()
+        region_to_category = (region_to_category[0], region_to_category[1])
+        
+        category_to_region = np.array(category_to_region).transpose()
+        category_to_region = (category_to_region[0], category_to_region[1])
+
+        self.R_to_C = region_to_category
+        self.C_to_R = category_to_region
 
     def process_meta_path_R_TC_R(self):
-        pass
+        all_tc_id = 0
+        tc_to_id = dict()
+        region_to_tc = []
+        tc_to_region = []
 
-    def process_meta_path_R_TO_R(self):
-        pass
+        for poi_id, time_check_in in zip(self.check_in_poi, self.check_in_time):
+            region_id = list(self.poi2region[self.poi2region['origin_id'] == poi_id]['destination_id'])[0]
+            standard_time = datetime.strptime(time_check_in, '%Y-%m-%d %H:%M:%S')
 
-    def process_meta_path_R_TD_R(self):
-        pass
+            if self.time_format == 'hour':
+                tc = (standard_time.hour)
+            elif self.time_format == 'weekday:hour':
+                tc = (standard_time.weekday(), standard_time.hour)
+            else:
+                tc = (1 if standard_time.weekday() in range(5) else 0, standard_time.hour)
+
+            if tc_to_id.get(tc) is None:
+                tc_to_id[tc] = all_tc_id
+                all_tc_id += 1
+            tc_id = tc_to_id.get(tc)
+
+            region_to_tc.append([region_id, tc_id])
+            tc_to_region.append([tc_id, region_id])
+
+        region_to_tc = np.array(region_to_tc).transpose()
+        region_to_tc = (region_to_tc[0], region_to_tc[1])
+        
+        tc_to_region = np.array(tc_to_region).transpose()
+        tc_to_region = (tc_to_region[0], tc_to_region[1])
+
+        self.R_to_TC = region_to_tc
+        self.TC_to_R = tc_to_region
+
+    def process_meta_path_R_TO_R_and_R_TD_R(self):
+        all_t_id = 0
+        t_to_id = dict()
+
+        region_to_to = []
+        to_to_region = []
+        region_to_td = []
+        td_to_region = []
+
+        for i in range(len(self.od_data)):
+            origin_region_id = self.od_data[i][0]
+            destination_region_id = self.od_data[i][1]
+            standard_time = datetime.strptime(self.od_data[i][2], '%Y-%m-%d %H:%M:%S')
+
+            if self.time_format == 'hour':
+                t = (standard_time.hour)
+            elif self.time_format == 'weekday:hour':
+                t = (standard_time.weekday(), standard_time.hour)
+            else:
+                t = (1 if standard_time.weekday() in range(5) else 0, standard_time.hour)
+
+            if t_to_id.get(t) is None:
+                t_to_id[t] = all_t_id
+                all_t_id += 1
+            td_id = to_id = t_to_id.get(t)
+
+            region_to_to.append([origin_region_id, to_id])
+            to_to_region.append([to_id, origin_region_id])
+
+            region_to_td.append([destination_region_id, td_id])
+            td_to_region.append([td_id, destination_region_id])
+
+        region_to_tc = np.array(region_to_tc).transpose()
+        region_to_tc = (region_to_tc[0], region_to_tc[1])
+        
+        tc_to_region = np.array(tc_to_region).transpose()
+        tc_to_region = (tc_to_region[0], tc_to_region[1])
+
+        self.R_to_TO = region_to_to
+        self.TO_to_R = to_to_region
+
+        self.R_to_TD = region_to_td
+        self.TD_to_R = td_to_region
 
     def process_hetero_graph(self):
         self.g = dgl.heterograph(
@@ -285,6 +390,52 @@ class HUGATDataset(AbstractDataset):
             }
         )
 
+    def generate_node_feature(self):
+        self.feature = np.random.uniform(-1, 1, size=(self.num_nodes, self.feature_dim))
+        self.feature = torch.from_numpy(self.feature)
+
+    def process_P_org_dst_and_P_dst_org(self):
+        self.P_org_dst = np.copy(self.od_label)
+        self.P_org_dst = self.P_org_dst / self.P_org_dst.sum(axis=0, keepdims=True)
+
+        self.P_dst_org = np.copy(self.od_label).transpose()
+        self.P_dst_org = self.P_dst_org / self.P_dst_org.sum(axis=0, keepdims=True)
+        
+    def process_S_chk(self):
+        poi_category_num = max(self.poi_function_class) + 1
+        P_cat_reg = np.zeros((poi_category_num, self.num_nodes), dtype=np.float32)
+        
+        for poi_id in self.check_in_poi:
+            region_id = list(self.poi2region[self.poi2region['origin_id'] == poi_id]['destination_id'])[0]
+            poi_category = self.poi_function_class[poi_id]
+            P_cat_reg[poi_category][region_id] += 1
+
+        P_cat_reg = P_cat_reg / P_cat_reg.sum(axis=0, keepdims=True)
+
+        P_cat_reg = np.sqrt(P_cat_reg)
+
+        self.S_chk = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        for i in range(self.num_nodes):
+            for j in range(i + 1, self.num_nodes):
+                chk = (1 / np.sqrt(2)) * np.sqrt(np.power(P_cat_reg[:, i] - P_cat_reg[:, j], 2).sum())
+                self.S_chk[i][j] = self.S_chk[j][i] = chk
+
+    def process_S_land(self):
+        land_usage_type_num = len(set(self.land_usage_type))
+        P_type_reg = np.zeros((land_usage_type_num, self.num_nodes), dtype=np.float32)
+        for region_id, type_land_usage in zip(self.land_usage_region, self.land_usage_type):
+            P_type_reg[type_land_usage - 1][region_id] += 1
+
+        P_type_reg = P_type_reg / P_type_reg.sum(axis=0, keepdims=True)
+
+        P_type_reg = np.sqrt(P_type_reg)
+
+        self.S_land = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        for i in range(self.num_nodes):
+            for j in range(i + 1, self.num_nodes):
+                land = (1 / np.sqrt(2)) * np.sqrt(np.power(P_type_reg[:, i] - P_type_reg[:, j], 2).sum())
+                self.S_land[i][j] = self.S_chk[j][i] = land
+
     def get_data(self):
         return None, None, None
 
@@ -297,4 +448,4 @@ class HUGATDataset(AbstractDataset):
         """
         return {'num_nodes': self.num_nodes, 'g': self.g, 'feature': self.feature, 'meta_path': self.meta_path,
                 'P_org_dst': self.P_org_dst, 'P_dst_org': self.P_dst_org, 'S_chk': self.S_chk, 'S_land': self.S_land,
-                'crime_count_predict': self.crime_count}
+                'label':{'od_matrix_predict': self.od_label, 'crime_count_predict': self.crime_count}}
