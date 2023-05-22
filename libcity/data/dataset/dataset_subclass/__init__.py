@@ -26,6 +26,7 @@ from libcity.data.dataset.dataset_subclass.mgfn_dataset import MGFNDataset
 from libcity.data.dataset.dataset_subclass.line_region_dataset import LINERegionDataset
 from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 from libcity.data.dataset.dataset_subclass.mvure_dataset import MVUREDataset
+from libcity.data.dataset.dataset_subclass.hugat_dataset import HUGATDataset
 __all__ = [
     "ACFMDataset",
     "TGCLSTMDataset",
@@ -54,5 +55,6 @@ __all__ = [
     "MGFNDataset",
     "LINERegionDataset",
     "ZEMobDataset",
-    "MVUREDataset"
+    "MVUREDataset",
+    "HUGATDataset"
 ]
