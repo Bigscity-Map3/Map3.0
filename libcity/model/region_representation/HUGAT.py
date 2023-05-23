@@ -1,8 +1,11 @@
+import datetime
+
 import dgl
 import numpy as np
 
 import torch
 from dgl.utils import expand_as_pair
+from scipy.special import kl_div
 from torch import optim
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
@@ -13,6 +16,17 @@ from dgl.nn.pytorch import GATConv
 class HUGAT(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+        # 其他参数
+        self.model = config.get('model', '')
+        self.dataset = config.get('dataset', '')
+        self.exp_id = config.get('exp_id', None)
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.pkl'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self._logger = getLogger()
         # model param config
         self.device = config.get('device', torch.device('cpu'))
         self.lr=config.get('lr',0.005 )
@@ -35,28 +49,70 @@ class HUGAT(AbstractTraditionModel):
         self.crime_count_predict=data_feature.get('crime_count_predict')
         # model initialize
         self.han_model=HAN(
-            num_meta_paths=len(self.meta_path),
+            meta_paths=self.meta_path,
             in_size=self.feature.shape[1],
             hidden_size=self.hidden_units,
             num_heads=self.num_heads,
             dropout=self.dropout,
         ).to(self.device)
         self.g=self.g.to(self.device)
-        # 构建元路径下不同的同构图，等到看到了g的样子再修改
-        self.gs=[]
-        for mp in self.meta_path:
-            homogeneous_graph = dgl.metapath_reachable_graph(self.g, mp)
-            homogeneous_graph = dgl.to_homogeneous(homogeneous_graph)
-            self.gs.append(homogeneous_graph)
+        self.loss_fcn = self.loss
+        self.optimizer = torch.optim.Adam(
+            self.han_model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
+        # loss的超参数
+        self.loss_alpha=0.3
+        self.loss_beta=0.6
+        self.loss_gama=0.1
+
+    def loss(self,h):
+        # h是已经得到的表征(N,feaure_dim)
+        h=h.to(self.device)
+
+        # 计算loss_mob
+        tmp=torch.exp(torch.dot(h,h.T))
+        P_org_dst_hat=tmp/torch.sum(tmp,dim=0)
+
+        P_dst_org_hat=tmp/torch.sum(tmp.T,dim=0)
+        loss_mob=F.kl_div(P_org_dst_hat.log(), self.P_org_dst, reduction='sum')+F.kl_div(P_dst_org_hat.log(), self.P_dst_org, reduction='sum')
+        # 计算loss_chk
+        num_of_node=len(h)
+        P_cat_reg_hat=F.softmax(h,dim=1)
+        S_chk_hat=torch.zeros(num_of_node,num_of_node)
+        for i in range(num_of_node):
+            for j in range(i,num_of_node):
+                S_chk_hat[i][j]=torch.norm(P_cat_reg_hat[i]-P_cat_reg_hat[j])/torch.sqrt(torch.tensor(2.0))
+                S_chk_hat[j][i]=S_chk_hat[i][j]
+        loss_chk=torch.sum((S_chk_hat-self.S_chk)**2)
+        # 计算loss_land
+        loss_land=torch.sum((S_chk_hat-self.S_land)**2)
+        return self.loss_alpha*loss_chk+self.loss_beta*loss_land+self.loss_gama*loss_mob
+
 
 
     def run(self, data=None):
-        pass
+        for epoch in range(self.num_epochs):
+            self.han_model.train()
+            self.region_embedding_matrix = self.han_model(self.g, self.feature)
+            loss = self.loss_fcn(self.region_embedding_matrix)
 
-    # 训练
-    def train(self, epoch):
-        pass
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            self._logger.info('Epoch: {} \tTraining Loss: {:.6f}'.format(epoch, loss))
+        # 保存结果
+        with open(self.txt_cache_file, 'w', encoding='UTF-8') as f:
+            f.write('{} {}\n'.format(self.region_embedding_matrix.shape[0],self.region_embedding_matrix.shape[1]))
+            embeddings = self.region_embedding_matrix.numpy()
+            for i in range(self.num_nodes):
+                embedding = embeddings[i]
+                embedding = str(i) + ' ' + (' '.join(map((lambda x: str(x)), embedding)))
+                f.write('{}\n'.format(embedding))
+        np.save(self.npy_cache_file, embeddings)
+        torch.save(self.han_model.state_dict(), self.model_cache_file)
 
+        self._logger.info('词向量和模型保存完成')
+        self._logger.info('词向量维度：( {} , {} )'.format(self.region_embedding_matrix.shape[0],self.region_embedding_matrix.shape[1]))
 
 
 
@@ -86,7 +142,7 @@ class HANLayer(nn.Module):
 
     Arguments
     ---------
-    num_meta_paths : number of homogeneous graphs generated from the metapaths.
+    meta_paths : list of metapaths, each as a list of edge types
     in_size : input feature dimension
     out_size : output feature dimension
     layer_num_heads : number of attention heads
@@ -94,8 +150,8 @@ class HANLayer(nn.Module):
 
     Inputs
     ------
-    g : list[DGLGraph]
-        List of graphs
+    g : DGLGraph
+        The heterogeneous graph
     h : tensor
         Input features
 
@@ -105,14 +161,12 @@ class HANLayer(nn.Module):
         The output feature
     """
 
-    def __init__(
-        self, num_meta_paths, in_size, out_size, layer_num_heads, dropout
-    ):
+    def __init__(self, meta_paths, in_size, out_size, layer_num_heads, dropout):
         super(HANLayer, self).__init__()
 
         # One GAT layer for each meta path based adjacency matrix
         self.gat_layers = nn.ModuleList()
-        for i in range(num_meta_paths):
+        for i in range(len(meta_paths)):
             self.gat_layers.append(
                 GATConv(
                     in_size,
@@ -121,18 +175,31 @@ class HANLayer(nn.Module):
                     dropout,
                     dropout,
                     activation=F.elu,
+                    allow_zero_in_degree=True,
                 )
             )
         self.semantic_attention = SemanticAttention(
             in_size=out_size * layer_num_heads
         )
-        self.num_meta_paths = num_meta_paths
+        self.meta_paths = list(tuple(meta_path) for meta_path in meta_paths)
 
-    def forward(self, gs, h):
+        self._cached_graph = None
+        self._cached_coalesced_graph = {}
+
+    def forward(self, g, h):
         semantic_embeddings = []
 
-        for i, g in enumerate(gs):
-            semantic_embeddings.append(self.gat_layers[i](g, h).flatten(1))
+        if self._cached_graph is None or self._cached_graph is not g:
+            self._cached_graph = g
+            self._cached_coalesced_graph.clear()
+            for meta_path in self.meta_paths:
+                self._cached_coalesced_graph[
+                    meta_path
+                ] = dgl.metapath_reachable_graph(g, meta_path)
+
+        for i, meta_path in enumerate(self.meta_paths):
+            new_g = self._cached_coalesced_graph[meta_path]
+            semantic_embeddings.append(self.gat_layers[i](new_g, h).flatten(1))
         semantic_embeddings = torch.stack(
             semantic_embeddings, dim=1
         )  # (N, M, D * K)
@@ -142,20 +209,18 @@ class HANLayer(nn.Module):
 
 class HAN(nn.Module):
     def __init__(
-        self, num_meta_paths, in_size, hidden_size,  num_heads, dropout
+        self, meta_paths, in_size, hidden_size, num_heads, dropout
     ):
         super(HAN, self).__init__()
 
         self.layers = nn.ModuleList()
         self.layers.append(
-            HANLayer(
-                num_meta_paths, in_size, hidden_size, num_heads[0], dropout
-            )
+            HANLayer(meta_paths, in_size, hidden_size, num_heads[0], dropout)
         )
         for l in range(1, len(num_heads)):
             self.layers.append(
                 HANLayer(
-                    num_meta_paths,
+                    meta_paths,
                     hidden_size * num_heads[l - 1],
                     hidden_size,
                     num_heads[l],
@@ -163,9 +228,9 @@ class HAN(nn.Module):
                 )
             )
 
-
     def forward(self, g, h):
         for gnn in self.layers:
             h = gnn(g, h)
 
         return h
+

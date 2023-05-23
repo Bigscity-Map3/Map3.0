@@ -1,3 +1,4 @@
 {
-
+    "time_format": "weekday-type:hour",
+    "feature_dim": 256
 }
