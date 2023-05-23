@@ -59,7 +59,6 @@ class HUGAT(AbstractTraditionModel):
             num_heads=self.num_heads,
             dropout=self.dropout,
         ).to(self.device)
-        self.g = self.g.to(self.device)
         self.loss_fcn = self.loss
         self.optimizer = torch.optim.Adam(
             self.han_model.parameters(), lr=self.lr, weight_decay=self.weight_decay
