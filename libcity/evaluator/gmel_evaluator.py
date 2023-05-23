@@ -1,3 +1,4 @@
+import json
 from logging import getLogger
 
 import numpy as np
@@ -32,3 +33,7 @@ class GmelEvaluator(AbstractEvaluator):
         gbrt = GBRT_Predictor(self.config)
         gbrt.run(src_emb,dst_emb,self.data_feature["distm"],self.data_feature["train"],self.data_feature["valid"],self.data_feature["test"])
         return
+
+    def save_result(self, filename=None):
+        pass
+

@@ -119,9 +119,7 @@ def evaluate(model, g, trip_od, trip_volume):
         src_embedding = model(g)
         dst_embedding = model.forward2(g)
         # get prediction
-        scaled_prediction = model.predict_edge(src_embedding, dst_embedding, trip_od)
-        # transform back to the original scale
-        prediction = scale_back(scaled_prediction)
+        prediction = model.predict_edge(src_embedding, dst_embedding, trip_od)
         # get ground-truth label
         y = trip_volume.float().view(-1, 1)
         # get metric

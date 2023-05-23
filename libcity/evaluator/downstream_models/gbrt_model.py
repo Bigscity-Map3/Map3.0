@@ -4,6 +4,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 def construct_feat_from_srcemb_dstemb_dist(triplets, src_emb, dst_emb, dist):
+    triplets = triplets.astype(int)
     feat_src = src_emb[triplets[:, 0]]
     feat_dst = dst_emb[triplets[:, 1]]
     feat_dist = dist[triplets[:, 0], triplets[:, 1]].reshape(-1, 1)

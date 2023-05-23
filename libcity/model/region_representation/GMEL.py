@@ -32,7 +32,7 @@ class GMEL(AbstractTraditionModel):
         self.dst_npy_cache_file = './libcity/cache/{}/evaluate_cache/dst_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.num_hidden_layers = config.get('num_hidden_layers',3)
-        self.learning_rate = config.get('learning_rate', 1e-5)
+        self.learning_rate = config.get('learning_rate', 1e-3)
         self.multitask_ratio = config.get('multitask_ratio',[1,0,0])
         self.grad_norm = config.get('grad_norm',1.0)
 
@@ -50,8 +50,8 @@ class GMEL(AbstractTraditionModel):
             for mini_batch in mini_batch_gen:
                 optimizer.zero_grad()
                 trip_od = mini_batch[:, :2].long().to(self.device)
-                scaled_trip_volume = utils.scale(mini_batch[:, -1].float()).to(self.device)
-                loss = model.get_loss(trip_od, scaled_trip_volume, train_inflow, train_outflow, g, multitask_weights=self.multitask_ratio)
+                trip_volume = mini_batch[:, -1].float().to(self.device)
+                loss = model.get_loss(trip_od, trip_volume, train_inflow, train_outflow, g, multitask_weights=self.multitask_ratio)
                 #self._logger.info("Epoch {:04d} | mini batch Loss = {:.4f}".format(epoch, loss))
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_norm)
@@ -62,7 +62,7 @@ class GMEL(AbstractTraditionModel):
             if epoch % 5 == 0:
                 model.eval()
                 with torch.no_grad():
-                    loss = model.get_loss(trip_od_valid, utils.scale(trip_volume_valid), train_inflow, train_outflow, g,multitask_weights=self.multitask_ratio)
+                    loss = model.get_loss(trip_od_valid, trip_volume_valid, train_inflow, train_outflow, g,multitask_weights=self.multitask_ratio)
                 rmse, mae, mape, cpc, cpl = utils.evaluate(model, g, trip_od_valid, trip_volume_valid)
                 self._logger.info("-----------------------------------------")
                 #self._logger.info("Evaluation on valid dataset:")
@@ -398,7 +398,7 @@ class GMELModel(nn.Module):
         '''
         return self.gat2.forward(g)
 
-    def get_loss(self, trip_od, scaled_trip_volume, in_flows, out_flows, g, multitask_weights=[0.5, 0.25, 0.25]):
+    def get_loss(self, trip_od, trip_volume, in_flows, out_flows, g, multitask_weights=[0.5, 0.25, 0.25]):
         '''
         defines the procedure of evaluating loss function
 
@@ -414,13 +414,12 @@ class GMELModel(nn.Module):
         '''
         # calculate the in/out flow of nodes
         # scaled back trip volume
-        trip_volume = utils.scale_back(scaled_trip_volume)
         # get in/out nodes of this batch
         out_nodes, out_flows_idx = torch.unique(trip_od[:, 0], return_inverse=True)
         in_nodes, in_flows_idx = torch.unique(trip_od[:, 1], return_inverse=True)
         # scale the in/out flows of the nodes in this batch
-        scaled_out_flows = utils.scale(out_flows[out_nodes])
-        scaled_in_flows = utils.scale(in_flows[in_nodes])
+        out_flows = out_flows[out_nodes]
+        in_flows = in_flows[in_nodes]
         # get embeddings of each node from GNN
         src_embedding = self.forward(g)
         dst_embedding = self.forward2(g)
@@ -430,10 +429,10 @@ class GMELModel(nn.Module):
         in_flow_prediction = self.predict_inflow(dst_embedding, in_nodes)
         out_flow_prediction = self.predict_outflow(src_embedding, out_nodes)
         # get edge prediction loss
-        edge_predict_loss = MSE(edge_prediction, scaled_trip_volume)
+        edge_predict_loss = MSE(edge_prediction, trip_volume)
         # get in/out flow prediction loss
-        in_predict_loss = MSE(in_flow_prediction, scaled_in_flows)
-        out_predict_loss = MSE(out_flow_prediction, scaled_out_flows)
+        in_predict_loss = MSE(in_flow_prediction, in_flows)
+        out_predict_loss = MSE(out_flow_prediction, out_flows)
         # get regularization loss
         reg_loss = 0.5 * (self.regularization_loss(src_embedding) + self.regularization_loss(dst_embedding))
         # return the overall loss
