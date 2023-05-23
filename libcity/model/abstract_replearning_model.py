@@ -1,4 +1,4 @@
-class AbstractReprLearningModel:
+class AbstractRepLearningModel:
 
     def __init__(self, config, data_feature):
         self.config=config

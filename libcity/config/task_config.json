@@ -424,10 +424,10 @@
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE"
+            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL"
         ],
         "allowed_dataset": [
-            "bj_dataset","xa_dataset","bj_dataset_tiny"
+            "bj_dataset","xa_dataset","bj_dataset_tiny","nyc_dataset"
         ],
          "Node2Vec": {
             "dataset_class": "Node2VecDataset",
@@ -458,6 +458,11 @@
             "dataset_class": "MVUREDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "RepresentationEvaluator"
+        },
+        "GMEL": {
+            "dataset_class": "GMELDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "GmelEvaluator"
         }
     }
 }
