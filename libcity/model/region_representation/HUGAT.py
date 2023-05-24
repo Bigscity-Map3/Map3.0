@@ -18,6 +18,7 @@ from dgl.nn.pytorch import GATConv
 class HUGAT(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+
         # 其他参数
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
@@ -29,6 +30,7 @@ class HUGAT(AbstractTraditionModel):
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset)
         self._logger = getLogger()
+        self._logger.info("initilize HUGAT model: config:{}\ndata_feature:{}".format(config,data_feature))
         # model param config
         self.device = config.get('device', 'cpu')
         # self.device = 'cpu'
