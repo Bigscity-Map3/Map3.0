@@ -17,6 +17,8 @@ class RegressionModel(AbstractModel):
         self.exp_id = config.get('exp_id', None)
         self.result_path = './libcity/cache/{}/evaluate_cache/regression_{}_{}.npy'.\
             format(self.exp_id, self.alpha, self.n_split)
+        
+        self.regression_type = config.get('regression_type', 'Ridge')
 
     def run(self, x, label):
         kf = KFold(n_splits=self.n_split)
@@ -31,7 +33,12 @@ class RegressionModel(AbstractModel):
             X_train, X_test = x[train_index], x[test_index]
             y_train, y_test = label[train_index], label[test_index]
 
-            reg = linear_model.Ridge(alpha=self.alpha)
+            if self.regression_type == 'LinearRegression':
+                reg = linear_model.LinearRegression(alpha=self.alpha)
+            elif self.regression_type == 'Lasso':
+                reg = linear_model.Lasso(alpha=self.alpha)
+            else:
+                reg = linear_model.Ridge(alpha=self.alpha)
 
             X_train = np.array(X_train, dtype=float)
             y_train = np.array(y_train, dtype=float)

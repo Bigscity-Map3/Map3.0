@@ -7,7 +7,8 @@
     "num_epochs": 200,
     "patience": 100,
 
-    "output_dim": 128,
+    "output_dim": 64,
     "evaluate_tasks": ["crime_count_predict"],
-    "evaluate_model": ["RegressionModel"]
+    "evaluate_model": ["RegressionModel"],
+    "regression_type": "Lasso"
 }
