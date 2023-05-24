@@ -23,16 +23,20 @@ class HUGAT(AbstractTraditionModel):
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}.txt'. \
-            format(self.exp_id, self.model, self.dataset)
-        self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}.pkl'. \
-            format(self.exp_id, self.model, self.dataset)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}.npy'. \
-            format(self.exp_id, self.model, self.dataset)
+        # output_dim 当确定了hidden_unit和nums_head之后，可以确定为hidden_unit*nums_head[-1],这里因为
+        # 下游任务中基类已经固定，所以手动从config.json读出来
+        self.output_dim = config.get('output_dim', 64)
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+            format(self.exp_id, self.model, self.dataset,self.output_dim)
+        self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.pkl'. \
+            format(self.exp_id, self.model, self.dataset,self.output_dim)
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+            format(self.exp_id, self.model, self.dataset,self.output_dim)
         self._logger = getLogger()
-        self._logger.info("initilize HUGAT model: config:{}\ndata_feature:{}".format(config,data_feature))
+        self._logger.info("initilize HUGAT model: config and data_feature")
         # model param config
-        self.device = config.get('device', 'cpu')
+        self.device = config.get('device', "cuda:0" if torch.cuda.is_available() else "cpu")
+        self._logger.info("DGL run on {}".format(self.device))
         # self.device = 'cpu'
         self.lr = config.get('lr', 0.005)
         self.num_heads = config.get('num_heads', [8])  # 一个列表，里面是每层的注意力头数，一般只有一层，故只有一个整数；list(int)
@@ -44,7 +48,9 @@ class HUGAT(AbstractTraditionModel):
         # 读取预处理过的数据
         self.num_nodes = data_feature.get('num_nodes')  # region的数量，一个整数，int
         self.g = data_feature.get('g')  # 异构图，调用dgl的api生成的，DGLGraph
+        self.g=self.g.to(self.device)
         self.feature = data_feature.get('feature')  # 节点初始特征向量，一个n*m的Tensor，n代表region数量，m代表特征向量的维数
+        self.feature = self.feature.to(self.device)
         self.meta_path = data_feature.get('meta_path')  # 元路径，格式类似于源代码：[["pa", "ap"], ["pf", "fp"]]，
         # 论文中的分布，data_feature中是ndarray格式，需要变成tensor
         self.P_org_dst = torch.from_numpy(data_feature.get('P_org_dst'))
