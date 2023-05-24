@@ -5,5 +5,9 @@
     "dropout": 0.6,
     "weight_decay": 0.001,
     "num_epochs": 200,
-    "patience": 100
+    "patience": 100,
+
+    "output_dim": 128,
+    "evaluate_tasks": ["crime_count_predict"],
+    "evaluate_model": ["RegressionModel"]
 }

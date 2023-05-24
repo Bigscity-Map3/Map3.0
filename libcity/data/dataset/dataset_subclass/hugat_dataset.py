@@ -492,4 +492,4 @@ class HUGATDataset(AbstractDataset):
         """
         return {'num_nodes': self.num_nodes, 'g': self.g, 'feature': self.feature, 'meta_path': self.meta_path,
                 'P_org_dst': self.P_org_dst, 'P_dst_org': self.P_dst_org, 'S_chk': self.S_chk, 'S_land': self.S_land,
-                'label':{'crime_count_predict': self.crime_count}}
+                'label':{'crime_count_predict': np.array(self.crime_count, dtype=np.float64)}}
