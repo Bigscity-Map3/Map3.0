@@ -54,9 +54,13 @@ class HUGAT(AbstractTraditionModel):
         self.meta_path = data_feature.get('meta_path')  # 元路径，格式类似于源代码：[["pa", "ap"], ["pf", "fp"]]，
         # 论文中的分布，data_feature中是ndarray格式，需要变成tensor
         self.P_org_dst = torch.from_numpy(data_feature.get('P_org_dst'))
+        self.P_org_dst.to(self.device)
         self.P_dst_org = torch.from_numpy(data_feature.get('P_dst_org'))
+        self.P_dst_org.to(self.device)
         self.S_chk = torch.from_numpy(data_feature.get('S_chk'))
+        self.S_chk.to(self.device)
         self.S_land = torch.from_numpy(data_feature.get('S_land'))
+        self.S_land.to(self.device)
         # 没有使用到犯罪率，所以没有转化
         self.crime_count_predict = data_feature.get('crime_count_predict')
         # model initialize
