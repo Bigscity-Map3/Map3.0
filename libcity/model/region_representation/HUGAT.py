@@ -88,6 +88,8 @@ class HUGAT(AbstractTraditionModel):
         tmp = torch.exp(torch.mm(h, h.T))
         P_org_dst_hat = tmp / torch.sum(tmp, dim=0)
         P_dst_org_hat = tmp / torch.sum(tmp.T, dim=0)
+        self.P_org_dst=self.P_dst_org.to(self.device)
+        self.P_dst_org = self.P_dst_org.to(self.device)
         loss_mob = F.kl_div(P_org_dst_hat.log(), self.P_org_dst, reduction='sum') + F.kl_div(P_dst_org_hat.log(),
                                                                                              self.P_dst_org,
                                                                                              reduction='sum')
@@ -96,6 +98,8 @@ class HUGAT(AbstractTraditionModel):
         P_cat_reg_hat = F.softmax(h, dim=1)
         P_cat_reg_hat_sqrt = torch.sqrt(P_cat_reg_hat)
         S_chk_hat = torch.zeros(num_of_node, num_of_node)
+        self.S_chk=self.S_chk.to(self.device)
+        self.S_land = self.S_land.to(self.device)
         for i in range(num_of_node):
             for j in range(i, num_of_node):
                 S_chk_hat[i][j] = torch.norm(P_cat_reg_hat_sqrt[i] - P_cat_reg_hat_sqrt[j]) / torch.tensor(2.0)
