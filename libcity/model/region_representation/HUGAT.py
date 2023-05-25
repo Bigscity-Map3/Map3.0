@@ -117,6 +117,7 @@ class HUGAT(AbstractTraditionModel):
         #     for j in range(i+1,num_of_node):
         #         S_land_hat[i][j]=torch.norm(P_type_reg_hat_sqrt[i]-P_type_reg_hat_sqrt[j])/torch.sqrt(torch.tensor(2.0))
         #         S_land_hat[j][i]=S_land_hat[i][j]
+
         loss_land = torch.sum((S_chk_hat - self.S_land) ** 2)
         return self.loss_alpha * loss_chk + self.loss_beta * loss_land + self.loss_gama * loss_mob
 
