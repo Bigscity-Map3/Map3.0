@@ -291,7 +291,7 @@ class HUGATDataset(AbstractDataset):
             self._logger.info("Loaded file " + self.od_file + '.od' + " and finish construct od graph")
             return
 
-        odfile = pd.read_csv(self.data_path + self.od_file + '.od')
+        odfile = pd.read_csv(self.data_path + self.od_file + '.od',nrows=500)
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         pbar = tqdm(range(len(odfile)))
         pbar.set_description("construct od matrix")
