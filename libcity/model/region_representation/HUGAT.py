@@ -7,6 +7,7 @@ import torch
 from dgl.utils import expand_as_pair
 from scipy.special import kl_div
 from torch import optim
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 import torch.nn.functional as F
@@ -75,6 +76,7 @@ class HUGAT(AbstractTraditionModel):
         self.optimizer = torch.optim.Adam(
             self.han_model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1, patience=5, verbose=True)
         # loss的超参数
         self.loss_alpha = 0.3
         self.loss_beta = 0.6
@@ -104,6 +106,7 @@ class HUGAT(AbstractTraditionModel):
             for j in range(i, num_of_node):
                 S_chk_hat[i][j] = torch.norm(P_cat_reg_hat_sqrt[i] - P_cat_reg_hat_sqrt[j]) / torch.tensor(2.0)
                 S_chk_hat[j][i] = S_chk_hat[i][j]
+        S_chk_hat=S_chk_hat.to(self.device)
         loss_chk = torch.sum((S_chk_hat - self.S_chk) ** 2)
         # 计算loss_land,认为S_chk_hat的结果和S_land_hat相同
         # P_type_reg_hat=F.softmax(h,dim=1)
@@ -124,6 +127,7 @@ class HUGAT(AbstractTraditionModel):
             loss = self.loss_fcn(self.region_embedding_matrix)
             self.optimizer.zero_grad()
             loss.backward()
+            self.scheduler.step(loss)
             self.optimizer.step()
             if epoch < 10 or epoch % 10 == 0:
                 self._logger.info('Epoch: {} \tTraining Loss: {:.6f}'.format(epoch, loss))
