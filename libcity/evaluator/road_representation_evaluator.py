@@ -9,7 +9,7 @@ from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 
 class RoadRepresentationEvaluator(AbstractEvaluator):
 
-    def __init__(self, config):
+    def __init__(self, config, data_feature):
         self._logger = getLogger()
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
@@ -19,7 +19,7 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         self.output_dim = config.get('output_dim', 32)
         self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'\
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
-
+        self.data_feature = data_feature
     def collect(self, batch):
         pass
 

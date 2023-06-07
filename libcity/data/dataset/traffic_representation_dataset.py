@@ -3,6 +3,7 @@ from logging import getLogger
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm, trange
 
 from libcity.data.dataset import AbstractDataset
 from libcity.utils import ensure_dir
@@ -80,14 +81,14 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.region2poi = None
         self.poi2road = None
         self.road2poi = None
-        if os.path.exists(self.data_path + self.geo_file + '.geo'):
-            self._load_geo()
+
         if os.path.exists(self.data_path + self.geo_file + '.geo'):
             self._load_geo()
         else:
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary
-            self._load_rel()
+            pass
+            # self._load_rel()
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
@@ -145,7 +146,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         """
         dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
         traj_num = dynafile['total_traj_id'].max() + 1
-        for i in range(traj_num):
+        for i in trange(min(traj_num)):
             road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
             self.traj_road.append(road_list)
 

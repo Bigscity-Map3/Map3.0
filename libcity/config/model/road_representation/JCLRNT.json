@@ -1,11 +1,13 @@
 {
+  "model": "JCLRNT",
   "num_samples": 1000,
+  "output_dim": 64,
   "min_len": 10,
   "max_len": 100,
   "embed_size": 128,
   "hidden_size": 128,
   "drop_rate": 0.2,
-  "drop_edge_rate": 0.2,
+  "drop_edge_rate": 0.8,
   "drop_road_rate": 0.2,
   "activation": "relu",
   "loss_measure": "jsd",
@@ -15,6 +17,7 @@
   "batch_size": 16,
   "num_epochs": 5,
   "mode": "s",
+  "edge_threshold": 0.6,
   "representation_object":"road",
   "evaluate_task": ["speed_inference", "time_estimation"],
   "evaluate_model": ["SpeedInferenceModel","TimeEstimationModel"]
