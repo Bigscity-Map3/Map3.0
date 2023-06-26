@@ -459,5 +459,18 @@
             "executor": "TwoStepExecutor",
             "evaluator": "RepresentationEvaluator"
         }
+    },
+    "poi_representation": {
+        "allowed_model": [
+            "GeoTeaser"
+        ],
+        "allowed_dataset": [
+            "bj_dataset","xa_dataset","bj_dataset_tiny"
+        ],
+         "Geo-Teaser": {
+            "dataset_class": "GeoTeaserDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "PoiRepresentationEvaluator"
+        }
     }
 }

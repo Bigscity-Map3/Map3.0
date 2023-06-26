@@ -1,0 +1,12 @@
+{
+    "representation_object": "poi",
+    "device": "cuda:0",
+    "embed_size": 128,
+    "embed_epoch": 5,
+    "hidden_size": 512,
+    "teaser_num_ne": 0,
+    "teaser_num_nn": 0,
+    "teaser_indi_context": false,
+    "teaser_beta": 0.0,
+    "teaser_week_embed_size": 0
+}

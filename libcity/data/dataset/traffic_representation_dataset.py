@@ -92,12 +92,10 @@ class TrafficRepresentationDataset(AbstractDataset):
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary
             self._load_rel()
-            pass
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
-            # self._load_dyna()
-            pass
+            self._load_dyna()
         else:
             raise ValueError('Not found .dyna file!')
         if self.representation_object == "region":
@@ -120,7 +118,17 @@ class TrafficRepresentationDataset(AbstractDataset):
             self.geofile = geofile
             self.num_nodes = self.num_roads
             self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
+        elif self.representation_object == "poi":
+            self.geo_to_ind = {}
+            self.ind_to_geo = {}
+            for index, idx in enumerate(self.geo_ids):
+                self.geo_to_ind[idx] = index
+                self.ind_to_geo[index] = idx
 
+            geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
+            self.geofile = geofile
+            self.num_nodes = self.num_pois
+            self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
 
 
     def _load_geo(self):
@@ -183,7 +191,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             self._logger.info("Loaded file " + self.dyna_file + '.dyna')
         else:
             dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-            traj_num = dynafile['total_traj_id'].max() + 1
+            traj_num = min(dynafile['total_traj_id'].max() + 1, 6480)
             traj_road_str = ""
             traj_time_str = ""
             #将traj_road存成road0,road1...road(一行一条轨迹）的格式
