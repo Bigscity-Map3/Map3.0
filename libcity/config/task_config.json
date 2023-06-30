@@ -467,7 +467,7 @@
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
         ],
-         "Geo-Teaser": {
+         "GeoTeaser": {
             "dataset_class": "GeoTeaserDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "PoiRepresentationEvaluator"

@@ -163,10 +163,10 @@ class TrafficRepresentationDataset(AbstractDataset):
         后续可能会将两种实体之间的对应做成1-->n的映射
         """
         relfile = pd.read_csv(self.data_path + self.rel_file + '.rel')
-        self.road2region = relfile[relfile['rel_type'] == 'road2region']
-        self.region2road = relfile[relfile['rel_type'] == 'region2road']
-        self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
-        self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
+        # self.road2region = relfile[relfile['rel_type'] == 'road2region']
+        # self.region2road = relfile[relfile['rel_type'] == 'region2road']
+        # self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
+        # self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
         self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
         self._logger.info("Loaded file " + self.rel_file + '.rel')
@@ -190,8 +190,8 @@ class TrafficRepresentationDataset(AbstractDataset):
             f2.close()
             self._logger.info("Loaded file " + self.dyna_file + '.dyna')
         else:
-            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-            traj_num = min(dynafile['total_traj_id'].max() + 1, 6480)
+            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna',nrows=64)
+            traj_num = dynafile['total_traj_id'].max() + 1
             traj_road_str = ""
             traj_time_str = ""
             #将traj_road存成road0,road1...road(一行一条轨迹）的格式
@@ -217,6 +217,23 @@ class TrafficRepresentationDataset(AbstractDataset):
             f2.close()
             self._logger.info("Dyna file has been saved")
             self._logger.info("Loaded file " + self.dyna_file + '.dyna')
+        if self.representation_object == 'poi':
+
+            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna',nrows=64)
+            traj_df = dynafile[['time','entity_id','geo_id']]
+            def gen_map(x):
+                map = {row['origin_id']: row['destination_id'] for index, row in x.iterrows()}
+                return  map
+            traj_df['poi_id'] = traj_df['geo_id'].map(gen_map(self.road2poi))
+            traj_df.dropna(inplace=True)
+            self.pois_df = pd.DataFrame(self.geofile[self.geofile['traffic_type'] == 'poi'])
+            self.pois_df = self.pois_df[['geo_id', 'coordinates']]
+            self.pois_df.rename(columns={'geo_id':'poi_id'}, inplace=True)
+            self.traj_merge = pd.merge(traj_df, self.pois_df,on='poi_id', how='inner')
+
+
+
+
 
 
     def remove_0_degree_nodes(self):
@@ -436,6 +453,9 @@ class TrafficRepresentationDataset(AbstractDataset):
         np.save(self.ind_to_geo_path, region_array)
         np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
+
+        def gen_traj_sequence(self, split_days, min_len=0, select_days=None, include_deleta=False):
+            data = pd.DataFrame()
 
 
 

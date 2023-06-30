@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import pandas
+import pandas as pd
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
 
 
@@ -116,10 +116,16 @@ class GeoTeaserDataset(TrafficRepresentationDataset):
     def data_preprocess(self):
         assert self.representation_object == "poi"
 
-        traj_num = 1000
+        traj_num = self.dyna_file_raw['total_traj_id'].max()+1
         poi_list = []
         for i in range(traj_num):
-            poi_list.append(self.road2poi[self.dyna_file[i]['geo_id']])
+            poi_list.append(self.road2poi[self.dyna_file_raw[i]['geo_id']])
+        self.df_dyna_file_raw = pd.DataFrame(self.dyna_file_raw)
+        self.df_dyna_file_raw = self.dyna_file[['time', 'entity_id','traj_id','geo_id']]
+
+        self.df_dyna_file_raw['geo_id'] = pd.Series(poi_list)
+        print(self.df_dyna_file_raw.head())
+
 
 
 
