@@ -462,13 +462,38 @@
     },
     "poi_representation": {
         "allowed_model": [
-            "GeoTeaser"
+            "Word2Vec","Poi2Vec","CTLE","GeoTeaser","TALE","HIER"
         ],
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
         ],
+        "Word2Vec": {
+            "dataset_class": "Word2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "PoiRepresentationEvaluator"
+        },
+        "Poi2VecTeaser": {
+            "dataset_class": "Poi2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "PoiRepresentationEvaluator"
+        },
+        "CTLE": {
+            "dataset_class": "CTLEDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "PoiRepresentationEvaluator"
+        },
+        "TALE": {
+            "dataset_class": "TALEDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "PoiRepresentationEvaluator"
+        },
          "GeoTeaser": {
             "dataset_class": "GeoTeaserDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "PoiRepresentationEvaluator"
+        },
+        "HIER": {
+            "dataset_class": "HIERDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "PoiRepresentationEvaluator"
         }
