@@ -77,6 +77,12 @@ def get_model(config, data_feature):
                            config['model'])(config, data_feature)
         except AttributeError:
             raise AttributeError('model is not found')
+    elif config['task'] == 'poi_representation':
+        try:
+            return getattr(importlib.import_module('libcity.model.poi_representation'),
+                           config['model'])(config, data_feature)
+        except AttributeError:
+            raise AttributeError('model is not found')
     elif config['task'] == 'region_representation':
         try:
             return getattr(importlib.import_module('libcity.model.region_representation'),

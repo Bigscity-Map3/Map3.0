@@ -1,106 +1,9 @@
 import numpy as np
 import os
 import pandas as pd
-from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
+from libcity.data.dataset.poi_representation_dataset import PoiRepresentationDataset
 
-
-class Rec:
-    """
-    Rectangle class for calculating the size of overlapping areas.
-    """
-    def __init__(self, left, right, top, bottom):
-        self.__dict__.update(locals())
-
-    def overlap(self, other):
-        dx = min(self.top, other.top) - max(self.bottom, other.bottom)
-        dy = min(self.right, other.right) - max(self.left, other.left)
-        assert dx >= 0 and dy >= 0
-        return dx * dy
-
-
-class AreaNode:
-    """
-    One Area Node represent one rectangle area in POI2Vec,
-    and also serve as root node of the corresponding Huffman Tree.
-    """
-    total_count = 0
-    leaf_id2node = {}
-
-    def __init__(self, left, right, top, bottom, level, theta):
-        """
-        Initializer of tree node.
-        left, right, top, down are used to define the area this node represents.
-        """
-        # Left and right sub-nodes
-        self.ln = None
-        self.rn = None
-        AreaNode.total_count += 1
-        self.id = AreaNode.total_count
-
-        self.__dict__.update(locals())
-
-    def build(self):
-        """
-        Build this node's sub-nodes.
-        """
-        if self.level % 2 == 0:
-            # If level is even, split area horizontally.
-            if (self.right - (self.right + self.left) / 2) > 2 * self.theta:
-                self.ln = AreaNode(self.left, (self.left + self.right) / 2, self.top, self.bottom,
-                                   level=self.level + 1, theta=self.theta)
-                self.rn = AreaNode((self.left + self.right) / 2, self.right, self.top, self.bottom,
-                                   level=self.level + 1, theta=self.theta)
-                self.ln.build()
-                self.rn.build()
-            else:
-                AreaNode.leaf_id2node[self.id] = self
-        else:
-            # If level is odd, split area vertically.
-            if (self.top - (self.bottom + self.top) / 2) > 2 * self.theta:
-                self.ln = AreaNode(self.left, self.right, self.top, (self.bottom + self.top) / 2,
-                                   level=self.level + 1, theta=self.theta)
-                self.rn = AreaNode(self.left, self.right, (self.bottom + self.top) / 2, self.bottom,
-                                   level=self.level + 1, theta=self.theta)
-                self.ln.build()
-                self.rn.build()
-            else:
-                AreaNode.leaf_id2node[self.id] = self
-
-    def find_route(self, x, y):
-        """
-        Find route for given coordinate.
-        :return: route and left-right choices. 0 for left, 1 for right.
-        """
-        if self.ln is None:
-            route = [self.id]
-            code = []
-            return route, code
-
-        if self.level % 2 == 0:
-            # Left sub-node's right boundary can view as split boundary of this node.
-            if self.ln.right < x:
-                route, code = self.rn.find_route(x, y)
-                code.append(1)
-            else:
-                route, code = self.ln.find_route(x, y)
-                code.append(0)
-        else:
-            # Left sub-node's bottom boundary can view as split boundary of this node.
-            if self.ln.bottom < y:
-                route, code = self.ln.find_route(x, y)
-                code.append(0)
-            else:
-                route, code = self.rn.find_route(x, y)
-                code.append(1)
-
-        route.append(self.id)
-        return route, code
-
-    def __repr__(self):
-        return f'AreaNode [<-{self.left}, ^{self.top}, v{self.bottom}, ->{self.right}], #{self.id}, LV{self.level}'
-
-
-class GeoTeaserDataset(TrafficRepresentationDataset):
+class GeoTeaserDataset(PoiRepresentationDataset):
     def __init__(self, config):
         self.config = config
         self.dataset = self.config.get('dataset', '')
@@ -111,52 +14,67 @@ class GeoTeaserDataset(TrafficRepresentationDataset):
         if not os.path.exists('./libcity/cache/GEOTEASER_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/GEOTEASER_{}'.format(self.dataset))
         super().__init__(config)
-        self.data_preprocess()
-
-    def data_preprocess(self):
-        assert self.representation_object == "poi"
-
-        traj_num = self.dyna_file_raw['total_traj_id'].max()+1
-        poi_list = []
-        for i in range(traj_num):
-            poi_list.append(self.road2poi[self.dyna_file_raw[i]['geo_id']])
-        self.df_dyna_file_raw = pd.DataFrame(self.dyna_file_raw)
-        self.df_dyna_file_raw = self.dyna_file[['time', 'entity_id','traj_id','geo_id']]
-
-        self.df_dyna_file_raw['geo_id'] = pd.Series(poi_list)
-        print(self.df_dyna_file_raw.head())
 
 
+        self.teaser_num_ne = self.config.get('teaser_num_ne',0)
+        self.teaser_num_nn = self.config.get('teaser_num_nn',0)
+        self.teaser_indi_context = self.config.get('teaser_indi_context', False)
+        self.teaser_beta = self.config.get('teaser_beta', 0.0)
+        self.teaser_week_embed_size = self.config.get('teaser_week_embed_size', 0)
+        self.users = self.embed_train_entitys
+        self.distance_threshold = self.config.get("distance_threshold", 0.2)
+        self.sample = self.config.get("sample", 1e-3)
+
+        self.coordinates  = self.traj_poi[['poi_id','lat','lng']].drop_duplicates('poi_id').to_numpy()
+        self.all_locations = set(self.coordinates[:, 0].astype(int).tolist())
+        self.gen_non_neighbor()
+        self.gen_unvisited_loc()
 
 
+    def gen_non_neighbor(self):
+        self.non_neighbors = {}
+        for coor_row in self.coordinates:
+            loc_index = int(coor_row[0])
+            distance = coor_row[1:].reshape(1, 2) - self.coordinates[:, 1:]  # (num_loc, 2)
+            distance = np.sqrt(np.power(distance[:, 0], 2) + np.power(distance[:, 1], 2))  # (num_loc)
+            non_neighbor_indices = self.coordinates[:, 0][np.argwhere(distance > self.distance_threshold)].reshape(-1).astype(int)
+            if non_neighbor_indices.shape[0] == 0:
+                non_neighbor_indices = np.array([len(self.all_locations)], dtype=int)
+            self.non_neighbors[loc_index] = non_neighbor_indices
 
-    def gen_path_pairs(self, window_size):
-        path_pairs = []
-        for sentence in self.sentences:
-            for i in range(0, len(sentence) - (2 * window_size + 1) + 1):
+    def gen_unvisited_loc(self):
+        self.unvisited = {}
+        for user, visited in zip(self.users, self.sentences):
+            user_unvisited = self.all_locations - set(visited)
+            self.unvisited[user] = user_unvisited & self.unvisited.get(user, self.all_locations)
+
+
+    def gen_pos_pairs(self, window_size):
+        pos_pairs = []
+        for user, sentence, week in zip(self.users, self.sentences, self.embed_train_weekdays):
+            for i in range(0, len(sentence) - (2 * window_size + 1)):
                 target = sentence[i+window_size]
-                area_pos = self.id2area_pos[target]
-                area_neg = self.id2area_neg[target]
-                huffman_pos = [(np.array(self.leaf2huffman_tree[area_leaf].id2pos[target]) + self.leaf2offset[area_leaf]).tolist() + area_pos[i]
-                               for i, area_leaf in enumerate(self.id2area_leaf[target])]
-                huffman_neg = [(np.array(self.leaf2huffman_tree[area_leaf].id2neg[target]) + self.leaf2offset[area_leaf]).tolist() + area_neg[i]
-                               for i, area_leaf in enumerate(self.id2area_leaf[target])]
+                target_week = 0 if week[i+window_size] in range(5) else 1
                 context = sentence[i:i+window_size] + sentence[i+window_size+1:i+2*window_size+1]
-                prob = self.id2prob[target]
-                if self.indi_context:
-                    path_pairs += [[[c], huffman_pos, huffman_neg, prob] for c in context]
+                sample_ne = self.sample_unvisited(user, num_neg=self.teaser_num_ne)
+                sample_nn = self.sample_non_neighbor(target, num_neg=self.teaser_num_nn)
+                if self.teaser_indi_context:
+                    pos_pairs += [[user, target, target_week, [c], sample_ne, sample_nn] for c in context]
                 else:
-                    path_pairs.append([context, huffman_pos, huffman_neg, prob])
-        return path_pairs
+                    pos_pairs.append([user, target, target_week, context, sample_ne, sample_nn])
+        return pos_pairs
+
+    def sample_unvisited(self, user, num_neg):
+        return np.random.choice(np.array(list(self.unvisited[user])), size=(num_neg)).tolist()
+
+    def sample_non_neighbor(self, target, num_neg):
+        return np.random.choice(self.non_neighbors[target], size=(num_neg)).tolist()
 
     def get_data_feature(self):
-        """
-        返回一个 dict，包含数据集的相关特征
-
-        Returns:
-            dict: 包含数据集的相关特征的字典
-        """
-
-        return {
-
-        }
+        self.user_num = self.traj_poi['entity_id'].value_counts().count()
+        self.poi_num = self.traj_poi['poi_id'].value_counts().count()
+        self.pos_pairs = self.gen_pos_pairs(self.w2v_window_size)
+        return { "num_loc": self.poi_num,
+                "user_num": self.user_num,
+                "pos_pairs": self.pos_pairs,
+                "sample_table": self.sample_table}
