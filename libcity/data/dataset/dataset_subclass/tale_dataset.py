@@ -4,7 +4,7 @@ import pandas as pd
 from libcity.data.dataset.poi_representation_dataset import PoiRepresentationDataset
 
 
-class TaleDataset(PoiRepresentationDataset):
+class TALEDataset(PoiRepresentationDataset):
     def __init__(self, config):
         self.config = config
         self.dataset = self.config.get('dataset', '')

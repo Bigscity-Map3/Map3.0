@@ -483,7 +483,7 @@
             "evaluator": "PoiRepresentationEvaluator"
         },
         "Tale": {
-            "dataset_class": "TaleDataset",
+            "dataset_class": "TALEDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "PoiRepresentationEvaluator"
         },

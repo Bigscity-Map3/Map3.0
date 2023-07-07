@@ -26,7 +26,7 @@ from libcity.data.dataset.dataset_subclass.mgfn_dataset import MGFNDataset
 from libcity.data.dataset.dataset_subclass.line_region_dataset import LINERegionDataset
 from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 from libcity.data.dataset.dataset_subclass.mvure_dataset import MVUREDataset
-from libcity.data.dataset.dataset_subclass.tale_dataset import TaleDataset
+from libcity.data.dataset.dataset_subclass.tale_dataset import TALEDataset
 from libcity.data.dataset.dataset_subclass.geoteaser_dataset import GeoTeaserDataset
 from libcity.data.dataset.poi_representation_dataset import PoiRepresentationDataset
 

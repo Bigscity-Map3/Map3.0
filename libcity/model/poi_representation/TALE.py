@@ -61,7 +61,7 @@ class HS(nn.Module):
         else:
             return score, neg_score
 
-class Tale(AbstractTraditionModel):
+class TALE(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         self.config = config
         super().__init__(config, data_feature)
@@ -79,7 +79,7 @@ class Tale(AbstractTraditionModel):
 
     def run(self):
 
-        model = TaleModel(num_vocab=self.num_loc, num_temp_vocab=self.num_temp_vocab, embed_dimension=self.embed_size)
+        model = TALEModel(num_vocab=self.num_loc, num_temp_vocab=self.num_temp_vocab, embed_dimension=self.embed_size)
         model = model.to(self.device)
         init_lr = 1e-3
         optimizer = torch.optim.SGD(model.parameters(), lr=init_lr)
@@ -119,7 +119,7 @@ class Tale(AbstractTraditionModel):
         print(model.u_embeddings.weight.detach().cpu().numpy())
         return model.u_embeddings.weight.detach().cpu().numpy()
 
-class TaleModel(HS):
+class TALEModel(HS):
     def __init__(self, num_vocab, num_temp_vocab, embed_dimension):
         super().__init__(num_vocab, embed_dimension)
         self.w_embeddings = nn.Embedding(num_temp_vocab, embed_dimension, padding_idx=0, sparse=True)
