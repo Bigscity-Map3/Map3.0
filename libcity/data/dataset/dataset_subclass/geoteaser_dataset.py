@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from libcity.data.dataset.poi_representation_dataset import PoiRepresentationDataset
 
+
 class GeoTeaserDataset(PoiRepresentationDataset):
     def __init__(self, config):
         self.config = config

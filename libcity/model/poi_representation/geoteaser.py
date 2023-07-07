@@ -28,25 +28,23 @@ class GeoTeaser(AbstractTraditionModel):
         self.user_num = self.data_feature.get("user_num")
         self.pos_pairs = self.data_feature.get('pos_pairs')
         self.sample_table = self.data_feature.get('sample_table')
-        self.embed_size= self.config.get("embed_size",0)
+        self.embed_size= self.config.get("embed_size", 128)
         self.teaser_week_embed_size = self.config.get("teaser_week_embed_size", 0)
         self.teaser_beta = self.config.get('teaser_beta', 0.0)
         self.num_neg = self.config.get("num_neg", 5)
 
 
-        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
-        self.device = 'cpu'
-
         self.init_lr = 1e-3
         self.num_epochs = self.config.get('num_epoch', 5)
         self.batch_size = self.config.get('batch_size', 16)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 
     def get_neg_v_sampling(self, batch_size, num_neg):
         neg_v = np.random.choice(self.sample_table, size=(batch_size, num_neg))
         return neg_v
 
     def run(self):
-        model = Teaser(num_vocab=self.num_loc, num_user=self.user_num,
+        model = GeoTeaserModel(num_vocab=self.num_loc, num_user=self.user_num,
                               embed_dimension=self.embed_size,
                               week_embed_dimension=self.teaser_week_embed_size,
                               beta=self.teaser_beta)
@@ -85,7 +83,7 @@ class GeoTeaser(AbstractTraditionModel):
         return model.static_embed()
 
 
-class Teaser(nn.Module):
+class GeoTeaserModel(nn.Module):
     def __init__(self, num_vocab, num_user, embed_dimension, week_embed_dimension, beta=2.0):
         super().__init__()
         self.__dict__.update(locals())

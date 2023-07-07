@@ -462,7 +462,7 @@
     },
     "poi_representation": {
         "allowed_model": [
-            "Word2Vec","Poi2Vec","CTLE","GeoTeaser","TALE","HIER"
+            "Word2Vec","Poi2Vec","CTLE","GeoTeaser","Tale","HIER"
         ],
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
@@ -482,8 +482,8 @@
             "executor": "TwoStepExecutor",
             "evaluator": "PoiRepresentationEvaluator"
         },
-        "TALE": {
-            "dataset_class": "TALEDataset",
+        "Tale": {
+            "dataset_class": "TaleDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "PoiRepresentationEvaluator"
         },
