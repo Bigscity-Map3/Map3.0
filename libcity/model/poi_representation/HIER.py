@@ -6,7 +6,7 @@ from itertools import zip_longest
 import numpy as np
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn.utils.rnn import pack_padded_sequence
 from sklearn.utils import shuffle
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
 
@@ -19,124 +19,122 @@ def next_batch(data, batch_size):
         end_index = min((batch_index + 1) * batch_size, data_length)
         yield data[start_index:end_index]
 
-
-class HS(nn.Module):
-    def __init__(self, num_vocab, embed_dimension):
+class HIEREmbedding(nn.Module):
+    def __init__(self, token_embed_size, num_vocab, week_embed_size, hour_embed_size, duration_embed_size):
         super().__init__()
         self.num_vocab = num_vocab
-        self.embed_dimension = embed_dimension
+        self.token_embed_size = token_embed_size
+        self.embed_size = token_embed_size + week_embed_size + hour_embed_size + duration_embed_size
 
-        # Input embedding.
-        self.u_embeddings = nn.Embedding(num_vocab, embed_dimension, sparse=True)
-        # Output embedding. Here is actually the embedding of inner nodes.
-        self.w_embeddings = nn.Embedding(num_vocab, embed_dimension, padding_idx=0, sparse=True)
+        self.token_embed = nn.Embedding(num_vocab, token_embed_size)
+        self.token_embed.weight.data.uniform_(-0.5/token_embed_size, 0.5/token_embed_size)
+        self.week_embed = nn.Embedding(7, week_embed_size)
+        self.hour_embed = nn.Embedding(24, hour_embed_size)
+        self.duration_embed = nn.Embedding(24, duration_embed_size)
 
-        initrange = 0.5 / self.embed_dimension
-        self.u_embeddings.weight.data.uniform_(-initrange, initrange)
-        self.w_embeddings.weight.data.uniform_(-0, 0)
+        self.dropout = nn.Dropout(0.1)
 
-    def forward(self, pos_u, pos_w, neg_w, **kwargs):
-        """
-        @param pos_u: positive input tokens, shape (batch_size, window_size * 2)
-        @param pos_w: positive output tokens, shape (batch_size, num_pos)
-        @param neg_w: negative output tokens, shape (batch_size, num_neg)
-        @param sum: whether to sum up all scores.
-        """
-        pos_u_embed = self.u_embeddings(pos_u)  # (batch_size, window_size * 2, embed_size)
-        pos_u_embed = pos_u_embed.sum(1, keepdim=True)  # (batch_size, 1, embed_size)
+    def forward(self, token, week, hour, duration):
+        token = self.token_embed(token)
+        week = self.week_embed(week)
+        hour = self.hour_embed(hour)
+        duration = self.duration_embed(duration)
 
-        pos_w_mask = torch.where(pos_w == 0, torch.ones_like(pos_w), torch.zeros_like(pos_w)).bool()  # (batch_size, num_pos)
-        pos_w_embed = self.w_embeddings(pos_w)  # (batch_size, num_pos, embed_size)
-        score = torch.mul(pos_u_embed, pos_w_embed).sum(dim=-1)  # (batch_size, num_pos)
-        score = F.logsigmoid(-1 * score)  # (batch_size, num_pos)
-        score = score.masked_fill(pos_w_mask, torch.tensor(0.0).to(pos_u.device))
+        return self.dropout(torch.cat([token, week, hour, duration], dim=-1))
 
-        neg_w_mask = torch.where(neg_w == 0, torch.ones_like(neg_w), torch.zeros_like(neg_w)).bool()
-        neg_w_embed = self.w_embeddings(neg_w)
-        neg_score = torch.mul(pos_u_embed, neg_w_embed).sum(dim=-1)  # (batch_size, num_neg)
-        neg_score = F.logsigmoid(neg_score)
-        neg_score = neg_score.masked_fill(neg_w_mask, torch.tensor(0.0).to(pos_u.device))
-        if kwargs.get('sum', True):
-            return -1 * (torch.sum(score) + torch.sum(neg_score))
+class HIERModel(nn.Module):
+    def __init__(self, embed: HIEREmbedding, hidden_size, num_layers, share=True, dropout=0.1):
+        super().__init__()
+        self.embed = embed
+        self.add_module('embed', self.embed)
+        self.encoder = nn.LSTM(self.embed.embed_size, hidden_size, num_layers, dropout=dropout, batch_first=True)
+        if share:
+            self.out_linear = nn.Sequential(nn.Linear(hidden_size, self.embed.token_embed_size), nn.LeakyReLU())
         else:
-            return score, neg_score
+            self.out_linear = nn.Sequential(nn.Linear(hidden_size, self.embed.token_embed_size),
+                                            nn.LeakyReLU(),
+                                            nn.Linear(self.embed.token_embed_size, self.embed.num_vocab))
+        self.share = share
+
+    def forward(self, token, week, hour, duration, valid_len, **kwargs):
+        """
+        :param token: sequences of tokens, shape (batch, seq_len)
+        :param week: sequences of week indices, shape (batch, seq_len)
+        :param hour: sequences of visit time slot indices, shape (batch, seq_len)
+        :param duration: sequences of duration slot indices, shape (batch, seq_len)
+        :return: the output prediction of next vocab, shape (batch, seq_len, num_vocab)
+        """
+        embed = self.embed(token, week, hour, duration)  # (batch, seq_len, embed_size)
+        packed_embed = pack_padded_sequence(embed, valid_len, batch_first=True, enforce_sorted=False)
+        encoder_out, hc = self.encoder(packed_embed)  # (batch, seq_len, hidden_size)
+        out = self.out_linear(encoder_out.data)  # (batch, seq_len, token_embed_size)
+
+        if self.share:
+            out = torch.matmul(out, self.embed.token_embed.weight.transpose(0, 1))  # (total_valid_len, num_vocab)
+        return out
+
+    def static_embed(self):
+        return self.embed.token_embed.weight[:self.embed.num_vocab].detach().cpu().numpy()
 
 class HIER(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         self.config = config
         super().__init__(config, data_feature)
         self.num_loc = self.data_feature.get("num_loc")
-        self.path_pairs = self.data_feature.get('path_pairs')
-        self.num_temp_vocab = self.data_feature.get('num_temp_vocab')
+
+        self.hier_num_layers = self.config.get('hier_num_layer', 3)
+        self.hier_week_embed_size = self.config.get('hier_week_embed_size', 4)
+        self.hier_hour_embed_size = self.config.get('hier_hour_embed_size', 4)
+        self.hier_duration_embed_size = self.config.get('hier_duration_embed_size', 4)
+        self.hier_share = self.config.get('teaser_week_embed_size', False)
+
+        self.user_ids = self.data_feature.get("user_ids")
+        self.src_tokens=self.data_feature.get("src_tokens")
+        self.src_weekdays=self.data_feature.get("src_weekdays")
+        self.src_ts = self.data_feature.get("src_ts")
+        self.src_lens = self.data_feature.get("src_lens")
+
         self.embed_size = self.config.get("embed_size", 128)
-
-
+        self.hidden_size = 4 * self.embed_size
         self.num_epochs = self.config.get('num_epoch', 5)
-        self.batch_size = self.config.get('batch_size', 16)
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+        self.batch_size = self.config.get('batch_size', 64)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
         self.init_lr = 1e-3
 
     def run(self):
-
-        model = TALEModel(num_vocab=self.num_loc, num_temp_vocab=self.num_temp_vocab, embed_dimension=self.embed_size)
+        hier_embedding = HIEREmbedding(self.embed_size, self.num_loc,
+                                   self.hier_week_embed_size, self.hier_hour_embed_size, self.hier_duration_embed_size)
+        model = HIERModel(hier_embedding, self.hidden_size, self.hier_num_layers, share=self.hier_share)
         model = model.to(self.device)
-        init_lr = 1e-3
-        optimizer = torch.optim.SGD(model.parameters(), lr=init_lr)
 
-        train_set = self.path_pairs
-        trained_batches = 0
-        batch_count = math.ceil(self.num_epochs * len(train_set) / self.batch_size)
+        user_ids, src_tokens, src_weekdays, src_ts, src_lens = \
+            self.user_ids, self.src_tokens, self.src_weekdays, self.src_ts, self.src_lens
 
-        avg_loss = 0.
+        loss_func = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(model.parameters())
         for epoch in range(self.num_epochs):
-            for pair_batch in next_batch(shuffle(train_set), self.batch_size):
-                flatten_batch = []
-                for row in pair_batch:
-                    flatten_batch += [[row[0], p, n, pr] for p, n, pr in zip(*row[1:])]
+            for batch in next_batch(shuffle(list(zip(src_tokens, src_weekdays, src_ts, src_lens))), batch_size=self.batch_size):
+                src_token, src_weekday, src_t, src_len = zip(*batch)
+                src_token, src_weekday = [
+                    torch.from_numpy(np.transpose(np.array(list(zip_longest(*item, fillvalue=0))))).long().to(self.device)
+                    for item in (src_token, src_weekday)]
+                src_t = torch.from_numpy(np.transpose(np.array(list(zip_longest(*src_t, fillvalue=0))))).float().to(self.device)
+                src_len = torch.tensor(src_len).int()
 
-                context, pos_pairs, neg_pairs, prop = zip(*flatten_batch)
-                context = torch.tensor(context).long().to(self.device)
-                pos_pairs, neg_pairs = (
-                    torch.tensor(list(zip_longest(*item, fillvalue=0))).long().to(self.device).transpose(0, 1)
-                    for item in (pos_pairs, neg_pairs))  # (batch_size, longest)
-                prop = torch.tensor(prop).float().to(self.device)
+                src_hour = (src_t % (24 * 60 * 60) / 60 / 60).long()
+                src_duration = ((src_t[:, 1:] - src_t[:, :-1]) % (24 * 60 * 60) / 60 / 60).long()
+                src_duration = torch.clamp(src_duration, 0, 23)
+
+                hier_out = model(token=src_token[:, :-1], week=src_weekday[:, :-1], hour=src_hour[:, :-1],
+                                      duration=src_duration, valid_len=src_len.to('cpu') - 1)  # (batch, seq_len, num_vocab)
+                trg_token = pack_padded_sequence(src_token[:, 1:], src_len - 1, batch_first=True, enforce_sorted=False).data
+                loss = loss_func(hier_out, trg_token)
 
                 optimizer.zero_grad()
-                loss = model(context, pos_pairs, neg_pairs, prop=prop)
                 loss.backward()
                 optimizer.step()
-                trained_batches += 1
-                loss_val = loss.detach().cpu().numpy().tolist()
-                avg_loss += loss_val
-
-                if trained_batches % 1000 == 0:
-                    lr = init_lr * (1.0 - trained_batches / batch_count)
-                    for param_group in optimizer.param_groups:
-                        param_group['lr'] = lr
-                    print('Avg loss: %.5f' % (avg_loss / 1000))
-                    avg_loss = 0.
-        print(model.u_embeddings.weight.detach().cpu().numpy())
-        return model.u_embeddings.weight.detach().cpu().numpy()
-
-class HIERModel(HS):
-    def __init__(self, num_vocab, num_temp_vocab, embed_dimension):
-        super().__init__(num_vocab, embed_dimension)
-        self.w_embeddings = nn.Embedding(num_temp_vocab, embed_dimension, padding_idx=0, sparse=True)
-
-
-
-    def forward(self, pos_u, pos_w, neg_w, **kwargs):
-        """
-        @param pos_u: positive input tokens, shape (batch_size, window_size * 2)
-        @param pos_w: positive output tokens, shape (batch_size, pos_path_len)
-        @param neg_w: negative output tokens, shape (batch_size, neg_path_len)
-        """
-        pos_score, neg_score = super().forward(pos_u, pos_w, neg_w, sum=False)  # (batch_size, pos_path_len)
-        prop = kwargs['prop']
-        pos_score, neg_score = (-1 * (item.sum(axis=1) * prop).sum() for item in (pos_score, neg_score))
-        return pos_score + neg_score
-
+        return model.static_embed()
 
 
 

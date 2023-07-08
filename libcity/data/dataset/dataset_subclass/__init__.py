@@ -28,6 +28,7 @@ from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 from libcity.data.dataset.dataset_subclass.mvure_dataset import MVUREDataset
 from libcity.data.dataset.dataset_subclass.tale_dataset import TALEDataset
 from libcity.data.dataset.dataset_subclass.geoteaser_dataset import GeoTeaserDataset
+from libcity.data.dataset.dataset_subclass.hier_dataset import HIERDataset
 from libcity.data.dataset.poi_representation_dataset import PoiRepresentationDataset
 
 __all__ = [
@@ -60,6 +61,7 @@ __all__ = [
     "ZEMobDataset",
     "MVUREDataset",
     "GeoTeaserDataset",
-    "TaleDataset"
+    "TALEDataset",
+    "hier_dataset.py",
     "PoiRepresentationDataset"
 ]

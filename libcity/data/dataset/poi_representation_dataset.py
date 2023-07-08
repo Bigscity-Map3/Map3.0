@@ -35,6 +35,7 @@ class PoiRepresentationDataset(TrafficRepresentationDataset):
 
 
 
+
     def traj_process_poi(self):
         dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna',nrows=64)
         traj_df = dynafile[['time', 'entity_id', 'geo_id']]
