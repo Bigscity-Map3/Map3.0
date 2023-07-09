@@ -14,8 +14,8 @@ class PoiRepresentationEvaluator(AbstractEvaluator):
     def __init__(self, config, data_feature):
         self._logger = getLogger()
         self.config = config
-        self.evaluate_tasks = self.config.get('evaluate_tasks', ["function_cluster"])
-        self.evaluate_model = self.config.get('evaluate_model', ["KmeansModel"])
+        self.evaluate_tasks = self.config.get('evaluate_tasks', ["loc_classification"])
+        self.evaluate_model = self.config.get('evaluate_model', ["LocClassificationModel"])
         self.all_result = []
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')

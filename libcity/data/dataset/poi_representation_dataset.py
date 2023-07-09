@@ -31,6 +31,7 @@ class PoiRepresentationDataset(TrafficRepresentationDataset):
         self.word_freq = self.get_token_freq(self.embed_train_sentences)
         self.sentences = self.embed_train_sentences
         self.sample_table = self.gen_neg_sample_table(self.word_freq)
+        self.max_seq_len = Counter(self.traj_poi['entity_id'].to_list()).most_common(1)[0][1]
 
 
 

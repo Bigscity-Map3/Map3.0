@@ -462,7 +462,7 @@
     },
     "poi_representation": {
         "allowed_model": [
-            "Word2Vec","Poi2Vec","CTLE","GeoTeaser","Tale","HIER"
+            "Word2Vec","Poi2Vec","CTLE","GeoTeaser","TALE","HIER"
         ],
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
