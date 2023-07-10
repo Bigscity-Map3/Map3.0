@@ -9,15 +9,7 @@ from torch import nn
 from torch.nn import functional as F
 from sklearn.utils import shuffle
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
-
-
-def next_batch(data, batch_size):
-    data_length = len(data)
-    num_batches = math.ceil(data_length / batch_size)
-    for batch_index in range(num_batches):
-        start_index = batch_index * batch_size
-        end_index = min((batch_index + 1) * batch_size, data_length)
-        yield data[start_index:end_index]
+from libcity.model.utils import next_batch
 
 
 class GeoTeaser(AbstractTraditionModel):
@@ -38,6 +30,13 @@ class GeoTeaser(AbstractTraditionModel):
         self.num_epochs = self.config.get('num_epoch', 5)
         self.batch_size = self.config.get('batch_size', 16)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+
+        self.model = config.get('model', '')
+        self.dataset = config.get('dataset', '')
+        self.exp_id = config.get('exp_id', None)
+        self.output_dim = config.get('output_dim', 128)
+        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy' \
+            .format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def get_neg_v_sampling(self, batch_size, num_neg):
         neg_v = np.random.choice(self.sample_table, size=(batch_size, num_neg))
@@ -80,6 +79,7 @@ class GeoTeaser(AbstractTraditionModel):
                         param_group['lr'] = lr
                     print('Avg loss: %.5f' % (avg_loss / 100), flush=True)
                     avg_loss = 0.
+        np.save(self.embedding_path, model.static_embed())
         return model.static_embed()
 
 

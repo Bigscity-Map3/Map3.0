@@ -10,7 +10,7 @@ from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
-
+from libcity.evaluator.utils import next_batch
 
 def weight_init(m):
     """
@@ -86,11 +86,11 @@ def weight_init(m):
 
 
 class FCClassifier(nn.Module):
-    def __init__(self, embed_layer, input_size, output_size, hidden_size):
+    def __init__(self,  input_size, output_size, hidden_size):
         super().__init__()
 
-        self.embed_layer = embed_layer
-        self.add_module('embed_layer', self.embed_layer)
+        # self.embed_layer = embed_layer
+        # self.add_module('embed_layer', self.embed_layer)
 
         self.input_linear = nn.Linear(input_size, hidden_size)
         self.hidden_linear = nn.Linear(hidden_size, hidden_size)
@@ -105,8 +105,8 @@ class FCClassifier(nn.Module):
         :param x: input batch of location tokens, shape (batch_size)
         :return: prediction of the corresponding location categories, shape (batch_size, output_size)
         """
-        h = self.dropout(self.embed_layer(x))  # (batch_size, input_size)
-        h = self.dropout(self.act(self.input_linear(h)))
+          # (batch_size, input_size)
+        h = self.dropout(self.act(self.input_linear(x)))
         h = self.dropout(self.act(self.hidden_linear(h)))
         out = self.output_linear(h)
         return out
@@ -136,29 +136,64 @@ def cal_classify_metric(pre_dists, pres, labels, top_n_list):
 
 class LocClassificationModel(AbstractModel):
     def __init__(self, config):
-        super().__init__()
         self._logger = getLogger()
         self.input_size = config.get('input_size', 128)
-        self.output_size = config.get('output_size', 1)
+        self.output_size = config.get('output_size', 20)
         self.hidden_size = config.get('hidden_size', 128)
         self.exp_id = config.get('exp_id', None)
+        self.epoch = 100
+        self.batch_size = 64
+        self.embed_size = 128
+        self.device = 'cuda'
+
 
         self.result_path = './libcity/cache/{}/evaluate_cache/loc_classification_{}_{}_{}.json'. \
             format(self.exp_id, self.input_size, self.output_size, self.hidden_size)
 
     def run(self, x, labels):
-        fc_classifier = FCClassifier(self.input_size, self.output_size, self.hidden_size)
-        predicts = fc_classifier(x)
+        x = torch.from_numpy(x).to(self.device)
+        train_size = int(len(labels) * 0.8)
+        train_set, test_set = labels[:train_size], labels[train_size:]
+
+        fc_classifier = FCClassifier(self.input_size, self.output_size, self.hidden_size).to(self.device)
+        opt = torch.optim.Adam(fc_classifier.parameters())
+
+        loss_func = nn.CrossEntropyLoss()
+
+        for epoch in range(self.epoch):
+            for _, batch in enumerate(next_batch(shuffle(train_set),self.batch_size)):
+                fc_classifier.train()
+                poi_id, label = batch[:,0], batch[:,1]
+                out = fc_classifier(self.id2embed(poi_id,  x))
+                label = torch.tensor(label).to(self.device)
+
+                opt.zero_grad()
+                loss = loss_func(out, label)
+                loss.backward()
+                opt.step()
+
+
+
+        test_poi_id, test_label = test_set[:,0], test_set[:,1]
+        predicts = fc_classifier(self.id2embed(test_poi_id, x))
         pres = predicts.argmax(-1)
         top_n_list = list(range(1, 11)) + [15, 20]
-        score_series = cal_classify_metric(predicts, pres, labels, top_n_list)
+
+        score_series = cal_classify_metric(predicts.cpu().detach().numpy(), pres.cpu().detach().numpy(), np.array(test_label), top_n_list)
         result = {'macro-f1': score_series['macro-f1'], 'acc@1': score_series['acc@1']}
         self._logger.info("finish Location Classification {macro-f1=" + str(score_series['macro-f1'])
                           + ",acc@1=" + str(score_series['acc@1']) + "}")
         return result
 
+    def id2embed(self, ids, x):
+        embed = torch.zeros([len(ids), self.embed_size]).to(self.device)
+        for i in range(len(ids)):
+            embed[i, :] = x[ids[i], :]
+        return embed
+
+
     def clear(self):
         pass
 
-    def save_result(self):
+    def save_result(self, save_path, filename=None):
         pass

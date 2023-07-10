@@ -95,7 +95,11 @@ class TALEDataset(PoiRepresentationDataset):
         self.path_pairs = self.get_path_pairs(self.w2v_window_size)
         return {"num_loc": self.poi_num,
                 "path_pairs": self.path_pairs,
-                "num_temp_vocab":self.num_temp_vocab}
+                "num_temp_vocab":self.num_temp_vocab,
+                "label":{
+                     "loc_classification": self.poi_func_label
+                 }
+                }
 
 
 class HuffmanNode:

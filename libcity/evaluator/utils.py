@@ -7,6 +7,7 @@ from geopy.distance import geodesic
 from datetime import datetime
 import os
 import pandas as pd
+import math
 
 def output(method, value, field):
     """
@@ -219,6 +220,8 @@ def generate_road_representaion_downstream_data(dataset_name='bj_dataset'):
 
 
 
+
+
     # speed.csv and time.csv for speed inference and time estimation task
     if not os.path.exists(save_data_path + "/time.csv") or not os.path.exists(save_data_path + "/speed.csv"):
         geo2lengthdf = pd.read_csv(save_data_path + './length.csv')
@@ -249,3 +252,12 @@ def generate_road_representaion_downstream_data(dataset_name='bj_dataset'):
         geo2speeddf.to_csv(save_data_path + './speed.csv', index=False)
         geo2timedf = pd.DataFrame(data=trajAndtime, columns=['trajs', 'time'])
         geo2timedf.to_csv(save_data_path + './time.csv', index=True)
+
+
+def next_batch(data, batch_size):
+    data_length = len(data)
+    num_batches = math.ceil(data_length / batch_size)
+    for batch_index in range(num_batches):
+        start_index = batch_index * batch_size
+        end_index = min((batch_index + 1) * batch_size, data_length)
+        yield data[start_index:end_index]

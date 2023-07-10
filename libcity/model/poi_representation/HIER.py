@@ -9,15 +9,7 @@ from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from sklearn.utils import shuffle
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
-
-
-def next_batch(data, batch_size):
-    data_length = len(data)
-    num_batches = math.ceil(data_length / batch_size)
-    for batch_index in range(num_batches):
-        start_index = batch_index * batch_size
-        end_index = min((batch_index + 1) * batch_size, data_length)
-        yield data[start_index:end_index]
+from libcity.model.utils import next_batch
 
 class HIEREmbedding(nn.Module):
     def __init__(self, token_embed_size, num_vocab, week_embed_size, hour_embed_size, duration_embed_size):
@@ -102,6 +94,13 @@ class HIER(AbstractTraditionModel):
 
         self.init_lr = 1e-3
 
+        self.model = config.get('model', '')
+        self.dataset = config.get('dataset', '')
+        self.exp_id = config.get('exp_id', None)
+        self.output_dim = config.get('output_dim', 128)
+        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy' \
+            .format(self.exp_id, self.model, self.dataset, self.output_dim)
+
     def run(self):
         hier_embedding = HIEREmbedding(self.embed_size, self.num_loc,
                                    self.hier_week_embed_size, self.hier_hour_embed_size, self.hier_duration_embed_size)
@@ -134,6 +133,7 @@ class HIER(AbstractTraditionModel):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+        np.save(self.embedding_path, model.static_embed())
         return model.static_embed()
 
 

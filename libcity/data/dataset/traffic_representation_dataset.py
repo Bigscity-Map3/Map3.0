@@ -152,9 +152,9 @@ class TrafficRepresentationDataset(AbstractDataset):
         elif self.representation_object == "road":
             self.num_nodes = self.num_roads
             #self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
-        else:
+        elif self.representation_object == "poi":
             self.num_nodes = self.num_pois
-            #self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
+            self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
         self._logger.info("Loaded file " + self.geo_file + '.geo' + ',num_regions='+str(self.num_regions) +',num_roads='+str(self.num_roads)+',num_pois='+str(self.num_pois)+', num_nodes=' + str(self.num_nodes))
 
     def _load_rel(self):

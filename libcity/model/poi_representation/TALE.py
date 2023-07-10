@@ -9,15 +9,7 @@ from torch import nn
 from torch.nn import functional as F
 from sklearn.utils import shuffle
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
-
-
-def next_batch(data, batch_size):
-    data_length = len(data)
-    num_batches = math.ceil(data_length / batch_size)
-    for batch_index in range(num_batches):
-        start_index = batch_index * batch_size
-        end_index = min((batch_index + 1) * batch_size, data_length)
-        yield data[start_index:end_index]
+from libcity.model.utils import next_batch
 
 
 class HS(nn.Module):
@@ -77,6 +69,13 @@ class TALE(AbstractTraditionModel):
 
         self.init_lr = 1e-3
 
+        self.model = config.get('model', '')
+        self.dataset = config.get('dataset', '')
+        self.exp_id = config.get('exp_id', None)
+        self.output_dim = config.get('output_dim', 128)
+        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy' \
+            .format(self.exp_id, self.model, self.dataset, self.output_dim)
+
     def run(self):
 
         model = TALEModel(num_vocab=self.num_loc, num_temp_vocab=self.num_temp_vocab, embed_dimension=self.embed_size)
@@ -116,8 +115,10 @@ class TALE(AbstractTraditionModel):
                         param_group['lr'] = lr
                     print('Avg loss: %.5f' % (avg_loss / 1000))
                     avg_loss = 0.
-        print(model.u_embeddings.weight.detach().cpu().numpy())
+
+        np.save(self.embedding_path, model.static_embed())
         return model.u_embeddings.weight.detach().cpu().numpy()
+
 
 class TALEModel(HS):
     def __init__(self, num_vocab, num_temp_vocab, embed_dimension):
@@ -137,6 +138,8 @@ class TALEModel(HS):
         pos_score, neg_score = (-1 * (item.sum(axis=1) * prop).sum() for item in (pos_score, neg_score))
         return pos_score + neg_score
 
+    def static_embed(self):
+        return self.w_embeddings.weight[:self.num_vocab].detach().cpu().numpy()
 
 
 

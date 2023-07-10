@@ -153,6 +153,7 @@ class NextLocPreModel(AbstractModel):
             format(self.exp_id, self.loc_embed_size, self.num_loc, self.hidden_size)
 
     def run(self, current_poi_seq, labels):
+
         lstm_loc_predictor = LstmLocPredictor(self.loc_embed_size, self.num_loc, self.hidden_size)
         predicts = lstm_loc_predictor(current_poi_seq)
         pres = predicts.argmax(-1)

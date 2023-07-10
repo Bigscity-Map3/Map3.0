@@ -35,5 +35,8 @@ class HIERDataset(PoiRepresentationDataset):
                  "src_tokens":self.src_tokens,
                 "src_weekdays":self.src_weekdays,
                 "src_ts":self.src_ts,
-                 "src_lens":self.src_lens
+                 "src_lens":self.src_lens,
+                 "label": {
+                     "loc_classification": self.poi_func_label
+                 }
                 }

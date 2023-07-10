@@ -36,5 +36,8 @@ class CTLEDataset(PoiRepresentationDataset):
                 "src_weekdays":self.src_weekdays,
                 "src_ts":self.src_ts,
                  "src_lens":self.src_lens,
-                 "max_seq_len":self.max_seq_len
+                 "max_seq_len":self.max_seq_len,
+                 "label":{
+                     "loc_classification": self.poi_func_label
+                 }
                 }

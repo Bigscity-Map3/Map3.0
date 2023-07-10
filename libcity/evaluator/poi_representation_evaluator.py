@@ -5,8 +5,9 @@ from logging import getLogger
 import importlib
 
 from tqdm import tqdm
-
+from sklearn.utils import shuffle
 from libcity.evaluator.abstract_evaluator import AbstractEvaluator
+
 
 
 class PoiRepresentationEvaluator(AbstractEvaluator):
@@ -20,7 +21,7 @@ class PoiRepresentationEvaluator(AbstractEvaluator):
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
-        self.output_dim = config.get('output_dim', 32)
+        self.output_dim = config.get('output_dim', 128)
         self.data_path = './raw_data/' + self.dataset + '/'
         self.data_feature = data_feature
         self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy' \
@@ -38,30 +39,23 @@ class PoiRepresentationEvaluator(AbstractEvaluator):
         pass
 
     def evaluate(self):
-
-        node_emb = np.load(self.embedding_path)  # (N, F)
+        poi_emb = np.load(self.embedding_path)  # (N, F)
         for task, model in zip(self.evaluate_tasks, self.evaluate_model):
             downstream_model = self.get_downstream_model(model)
             label = self.data_feature["label"][task]
-            x = node_emb
-            if task == "od_matrix_predict":
-                # 将起止点的向量拼接作为x
-                l = []
-                num_node = node_emb.shape[0]
-                for i in tqdm(range(num_node)):
-                    for j in range(num_node):
-                        o_embs = node_emb[i]
-                        d_embs = node_emb[j]
-                        l.append(np.concatenate((o_embs, d_embs), axis=0))
-                x = np.stack(l, axis=0)
-            result = downstream_model.run(x, label)
-            result = {task: result}
+            x = poi_emb
+            if task == "loc_classification":
+                result = downstream_model.run(x, label)
+                result = {task: result}
             self.all_result.append(result)
 
         self._logger.info('result {}'.format(self.all_result))
-        self.save_result()
+        self.save_result(self.result_path)
 
-    def save_result(self, filename=None):
+
+
+
+    def save_result(self, save_path,filename=None):
         json.dump(self.all_result, open(self.result_path, 'w'))
         self._logger.info('result save in {}'.format(self.result_path))
 

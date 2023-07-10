@@ -78,4 +78,8 @@ class GeoTeaserDataset(PoiRepresentationDataset):
         return { "num_loc": self.poi_num,
                 "user_num": self.user_num,
                 "pos_pairs": self.pos_pairs,
-                "sample_table": self.sample_table}
+                "sample_table": self.sample_table,
+                 "label": {
+                     "loc_classification": self.poi_func_label
+                 }
+                 }

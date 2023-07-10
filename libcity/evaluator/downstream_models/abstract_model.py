@@ -9,7 +9,7 @@ class AbstractModel(object):
         """
         raise NotImplementedError('evaluator evaluate not implemented')
 
-    def save_result(self, save_path, filename=None):
+    def save_result(self):
         """
         将评估结果保存到 save_path 文件夹下的 filename 文件中
 
