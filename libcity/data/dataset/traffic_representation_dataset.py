@@ -176,6 +176,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         目前将轨迹数据整理成若干[road0,road1...road]的集合,以及[time0,time1.....,time]的集合
         构造图在模型的dataset子类中实现
         """
+        self.dyna_process_row_num = 12800
         if os.path.exists(self.traj_road_path) and os.path.exists(self.traj_time_path):
             f1 = open(self.traj_road_path,'r')
             f2 = open(self.traj_time_path,'r')
@@ -190,7 +191,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             f2.close()
             self._logger.info("Loaded file " + self.dyna_file + '.dyna')
         else:
-            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna', nrows=6400)
+            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna', nrows=self.dyna_process_row_num )
             traj_num = dynafile['total_traj_id'].max() + 1
             traj_road_str = ""
             traj_time_str = ""

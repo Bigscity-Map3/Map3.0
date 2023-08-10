@@ -73,7 +73,7 @@ class GeoTeaser(AbstractTraditionModel):
                 loss_val = loss.detach().cpu().numpy().tolist()
                 avg_loss += loss_val
 
-                if trained_batches % 100 == 0:
+                if trained_batches % 10000 == 0:
                     lr = init_lr * (1.0 - trained_batches / batch_count)
                     for param_group in optimizer.param_groups:
                         param_group['lr'] = lr

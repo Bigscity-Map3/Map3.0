@@ -94,7 +94,7 @@ class LstmLocPredictor(nn.Module):
         self.loc_embed_layer = loc_embed_layer
         self.add_module('loc_embed_layer', self.loc_embed_layer)
 
-        # self.rnn = nn.LSTM(loc_embed_size, hidden_size, num_layers=1, batch_first=True)
+        # self.lstm = nn.LSTM(loc_embed_size, hidden_size, num_layers=2, batch_first=True)
         self.rnn = nn.GRU(loc_embed_size, hidden_size, num_layers=1, batch_first=True)
         self.dropout = nn.Dropout(0.1)
         self.out_linear = nn.Sequential(nn.Tanh(), nn.Linear(hidden_size, num_loc))
@@ -142,18 +142,19 @@ def cal_classify_metric(pre_dists, pres, labels, top_n_list):
 
 class NextLocPreModel(AbstractModel):
     def __init__(self, config):
-        super().__init__()
         self._logger = getLogger()
         self.loc_embed_size = config.get('loc_embed_size', 128)
         self.num_loc = config.get('num_loc', 2)
-        self.hidden_size = config.get('hidden_size', 128)
+        self.hidden_size = config.get('hidden_size', 512)
         self.exp_id = config.get('exp_id', None)
+        self.epoch = 200
+        self.lr = 1e-4
+        self.optimizer = torch.optim.Adam()
 
         self.result_path = './libcity/cache/{}/evaluate_cache/nextloc_pre_{}_{}_{}.json'. \
             format(self.exp_id, self.loc_embed_size, self.num_loc, self.hidden_size)
 
     def run(self, current_poi_seq, labels):
-
         lstm_loc_predictor = LstmLocPredictor(self.loc_embed_size, self.num_loc, self.hidden_size)
         predicts = lstm_loc_predictor(current_poi_seq)
         pres = predicts.argmax(-1)

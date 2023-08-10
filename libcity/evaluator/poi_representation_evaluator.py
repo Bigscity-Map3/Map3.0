@@ -15,8 +15,8 @@ class PoiRepresentationEvaluator(AbstractEvaluator):
     def __init__(self, config, data_feature):
         self._logger = getLogger()
         self.config = config
-        self.evaluate_tasks = self.config.get('evaluate_tasks', ["loc_classification"])
-        self.evaluate_model = self.config.get('evaluate_model', ["LocClassificationModel"])
+        self.evaluate_tasks = self.config.get('evaluate_tasks', ['loc_classification'])
+        self.evaluate_model = self.config.get('evaluate_model', [ "LocClassificationModel"])
         self.all_result = []
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
@@ -45,6 +45,9 @@ class PoiRepresentationEvaluator(AbstractEvaluator):
             label = self.data_feature["label"][task]
             x = poi_emb
             if task == "loc_classification":
+                result = downstream_model.run(x, label)
+                result = {task: result}
+            elif task == 'next_loc_prediction':
                 result = downstream_model.run(x, label)
                 result = {task: result}
             self.all_result.append(result)

@@ -20,8 +20,9 @@ class PoiRepresentationDataset(TrafficRepresentationDataset):
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
         super().__init__(config)
-        self.row = self.config.get('row',12800)
-        self.poi_func_label_path = './libcity/cache/dataset_cache/{}/poi_func_label_{}.npy'.format(self.dataset, self.row)
+        self.label_num = 640000
+        self.poi_func_label_path = './libcity/cache/dataset_cache/{}/poi_func_label_{}.npy'.format(self.dataset, self.label_num)
+        self.poi_traj_label_path = './libcity/cache/dataset_cache/{}/poi_traj_label_{}.npy'.format(self.dataset, self.label_num)
         self.traj_process_poi()
         if not os.path.exists(self.poi_func_label_path):
             self.poi_func_label = pd.DataFrame([self.poi_ids, self.function]).T
@@ -41,10 +42,34 @@ class PoiRepresentationDataset(TrafficRepresentationDataset):
         else:
             self.poi_func_label = np.load(self.poi_func_label_path, allow_pickle=True)
 
-        self.poi_traj_label_path = './libcity/cache/dataset_cache/{}/poi_func_label.npy'.format(self.dataset)
+        if not os.path.exists(self.poi_traj_label_path):
+            traj_road = []
+            with open(self.traj_road_path,'r') as f:
+                for traj in f:
+                    traj_temp = traj.split(",")
+                    traj_temp = [eval(x) for x in traj_temp]
+                    traj_road.append(traj_temp)
 
 
 
+
+
+            self.poi_func_label = pd.DataFrame([self.poi_ids, self.function]).T
+            self.poi_func_label.columns = ['poi_id', 'function']
+
+            self.poi_func_label['poi_id'] = self.poi_func_label['poi_id'].map(self.poi2index)
+
+            self.poi_func_label['function'] = self.poi_func_label['function'].apply(lambda x: int(x[1:])-1)
+
+            self.poi_func_label.dropna(inplace=True)
+            self.poi_func_label['poi_id'] = self.poi_func_label['poi_id'].apply(lambda x: int(x))
+            self.poi_func_label = pd.merge(self.poi_func_label, self.pois_df, on='poi_id', how='inner')
+            self.poi_func_label = np.array(self.poi_func_label[['poi_id', 'function']])
+
+            np.save(self.poi_func_label_path, self.poi_func_label)
+
+        else:
+            self.poi_func_label = np.load(self.poi_traj_label_path, allow_pickle=True)
 
 
         self.embed_train_entitys, self.embed_train_sentences, self.embed_train_weekdays, \
@@ -58,7 +83,7 @@ class PoiRepresentationDataset(TrafficRepresentationDataset):
 
 
     def traj_process_poi(self):
-        dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna', nrows=self.row)
+        dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna',  nrows=self.label_num)
         traj_df = dynafile[['time', 'entity_id', 'geo_id']]
 
         def gen_map_index(df, column, offset=0):

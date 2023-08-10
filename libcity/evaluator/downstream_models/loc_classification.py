@@ -141,7 +141,7 @@ class LocClassificationModel(AbstractModel):
         self.output_size = config.get('output_size', 20)
         self.hidden_size = config.get('hidden_size', 128)
         self.exp_id = config.get('exp_id', None)
-        self.epoch = 100
+        self.epoch = 500
         self.batch_size = 64
         self.embed_size = 128
         self.device = 'cuda'
@@ -182,7 +182,8 @@ class LocClassificationModel(AbstractModel):
         score_series = cal_classify_metric(predicts.cpu().detach().numpy(), pres.cpu().detach().numpy(), np.array(test_label), top_n_list)
         result = {'macro-f1': score_series['macro-f1'], 'acc@1': score_series['acc@1']}
         self._logger.info("finish Location Classification {macro-f1=" + str(score_series['macro-f1'])
-                          + ",acc@1=" + str(score_series['acc@1']) + "}")
+                          + ",acc@1=" + str(score_series['acc@1'])
+                          + ",acc@5=" + str(score_series['acc@5']) + "}")
         return result
 
     def id2embed(self, ids, x):
