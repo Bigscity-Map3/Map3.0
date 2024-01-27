@@ -386,7 +386,7 @@
     },
     "road_representation": {
         "allowed_model": [
-            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN"
+            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec"
         ],
         "allowed_dataset": [
             "BJ_roadmap"
@@ -420,11 +420,21 @@
             "dataset_class": "RoadNetWorkDataset",
             "executor": "GensimExecutor",
             "evaluator": "RoadRepresentationEvaluator"
+        },
+        "SRN2Vec": {
+            "dataset_class": "SRN2VecDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "HHGCLEvaluator"
+        },
+        "JCLRNT": {
+            "dataset_class": "JCLRNTDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "HHGCLEvaluator"
         }
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE"
+            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL"
         ],
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
@@ -437,12 +447,12 @@
         "HDGE": {
             "dataset_class": "HDGEDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "MGFN": {
             "dataset_class": "MGFNDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "LINE": {
             "dataset_class": "LINERegionDataset",
@@ -452,12 +462,65 @@
         "ZEMob": {
             "dataset_class": "ZEMobDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "MVURE": {
             "dataset_class": "MVUREDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
+        },
+        "GMEL": {
+            "dataset_class": "GMELDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "GmelEvaluator"
+        }
+    },
+    "poi_representation": {
+        "allowed_model": [
+            "CTLE", "DownstreamEmbed", "SkipGram", "CBOW", "Tale", "Teaser", "POI2Vec", "Hier"
+        ],
+        "allowed_dataset": [
+            "foursquare_nyc", "foursquare_tky", "brightkite", "gowalla"
+        ],
+        "CTLE": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "DownstreamEmbed": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "SkipGram": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "CBOW": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "Tale": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "Teaser": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "POI2Vec": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "Hier": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
         }
     }
 }

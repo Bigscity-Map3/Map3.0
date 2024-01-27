@@ -9,7 +9,7 @@ class MGFN(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.mob_patterns = data_feature.get("mob_patterns")
-        self.mob_adj = data_feature.get("od_matrix")
+        self.mob_adj = data_feature.get("mob_adj")
         self.time_slice = data_feature.get("time_slice")
         self.num_nodes = data_feature.get("num_nodes")
         self.geo_to_ind = data_feature.get('geo_to_ind', None)

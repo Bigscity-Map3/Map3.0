@@ -63,9 +63,8 @@ class HDGE(AbstractTraditionModel):
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(node_embedding)) + ',' + str(len(node_embedding[0])) + ')')
 
-    def learn_embeddings(self,walks, dimensions, window_size, workers, iters, min_count=0, sg=1, hs=0):
-        model = Word2Vec(
-            walks, vector_size=dimensions, window=window_size, min_count=min_count, sg=sg, hs=hs,
+    def learn_embeddings(self,walks, dimensions, window_size, workers, iters, min_count=1, sg=1, hs=0):
+        model = Word2Vec(walks, vector_size=dimensions, window=window_size, min_count=min_count, sg=sg, hs=hs,
             workers=workers, epochs=iters)
         return model
 

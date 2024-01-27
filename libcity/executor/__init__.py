@@ -12,6 +12,7 @@ from libcity.executor.chebconv_executor import ChebConvExecutor
 from libcity.executor.eta_executor import ETAExecutor
 from libcity.executor.gensim_executor import GensimExecutor
 from libcity.executor.twostep_executor import TwoStepExecutor
+from libcity.executor.poi_representation_executor import POIRepresentationExecutor
 __all__ = [
     "TrajLocPredExecutor",
     "TrafficStateExecutor",
@@ -26,5 +27,6 @@ __all__ = [
     "LINEExecutor",
     "ETAExecutor",
     "GensimExecutor",
-    "TwoStepExecutor"
+    "TwoStepExecutor",
+    "POIRepresentationExecutor"
 ]

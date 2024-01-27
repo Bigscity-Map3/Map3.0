@@ -240,12 +240,12 @@ class MVURE_Layer(nn.Module):
         :param mob_adj: np.array[num_nodes,num_nodes]
         :return:
         """
-        mob_adj = torch.tensor(mob_adj_np)
+        mob_adj = torch.tensor(mob_adj_np).to(torch.float32)
         inner_prod = self.pairwise_inner_product(s_embeddings,t_embeddings)
-        phat = torch.softmax(inner_prod,dim = -1)
+        phat = torch.softmax(inner_prod,dim = -1).to(torch.float32)
         loss = torch.sum(-torch.mm(mob_adj,torch.log(phat)))
         inner_prod = self.pairwise_inner_product(t_embeddings, s_embeddings)
-        phat = torch.softmax(inner_prod,dim = -1)
+        phat = torch.softmax(inner_prod,dim = -1).to(torch.float32)
         loss += torch.sum(-torch.mm(mob_adj.T,torch.log(phat)))
         return loss
 

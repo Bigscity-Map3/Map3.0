@@ -1,21 +1,23 @@
 from datetime import datetime
 import os
+from logging import getLogger
+
 import numpy
 import numpy as np
-from libcity.data.dataset import TrafficRepresentationDataset
+import pandas as pd
+
+from libcity.data.dataset import AbstractDataset
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from tqdm import  *
 
-class MGFNDataset(TrafficRepresentationDataset):
+class MGFNDataset(AbstractDataset):
     def __init__(self,config):
         self.config = config
+        self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
-        self.geo_file = self.config.get('geo_file', self.dataset)
-        self.rel_file = self.config.get('rel_file', self.dataset)
-        self.dyna_file = self.config.get('dyna_file', self.dataset)
         self.time_slice = self.config.get('time_slice',24)
         self.n_cluster = self.config.get('n_cluster',7)
         assert (24 % self.time_slice == 0)
@@ -23,12 +25,11 @@ class MGFNDataset(TrafficRepresentationDataset):
             os.mkdir('./libcity/cache/MGFN_{}'.format(self.dataset))
         self.multi_graph = None
         self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
-        assert os.path.exists(self.data_path + self.geo_file + '.geo')
-        assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
-        super().__init__(config)
-        self.od_label_path = './libcity/cache/MGFN_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
-        self.construct_od_matrix()
+        self.od_label_path = self.data_path + "region_od_flow_" + self.dataset + "_11_train.npy"
+        self.mob_adj = np.load(self.od_label_path)
+        self.num_regions = self.mob_adj.shape[0]
+        self.num_nodes = self.num_regions
+
         if os.path.exists(self.mob_patterns_path):
             self.mob_patterns = np.load(self.mob_patterns_path)
             self._logger.info("finish get Mobility Pattern")
@@ -39,37 +40,20 @@ class MGFNDataset(TrafficRepresentationDataset):
     def get_data(self):
         return None, None, None
 
-    def construct_od_matrix(self):
-        if os.path.exists(self.od_label_path):
-            self.od_label = np.load(self.od_label_path)
-            self._logger.info("finish construct od graph")
-            return
-        assert self.representation_object == "region"
-        self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_road:
-            origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-            destination_region_geo_id = \
-                list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
-                origin_region = self.geo_to_ind[origin_region_geo_id]
-                destination_region = self.geo_to_ind[destination_region_geo_id]
-                self.od_label[origin_region][destination_region] += 1
-        np.save(self.od_label_path, self.od_label)
-        self._logger.info("finish construct od graph")
-        return self.od_label
-
     def construct_multi_graph(self):
         time_each_slice = 24 // self.time_slice
+        traj_file = pd.read_csv(self.data_path+"traj_region_"+self.dataset+"_11.csv",delimiter=';')
         self.multi_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
-        for traj, time_list in zip(self.traj_road, self.traj_time):
-            origin_region_geo_id = int(list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0])
-            destination_region_geo_id = int(
-                list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0])
-            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
-                origin_region = self.geo_to_ind[origin_region_geo_id]
-                destination_region = self.geo_to_ind[destination_region_geo_id]
-                origin_hour = datetime.strptime(time_list[0], '%Y-%m-%d %H:%M:%S').hour
-                self.multi_graph[origin_hour // time_each_slice][origin_region][destination_region] += 1
+        for i in tqdm(range(len(traj_file))):
+            path = traj_file.loc[i, 'path']
+            path = path[1:len(path) - 1].split(',')
+            origin_region = int(path[0])
+            destination_region = int(path[-1])
+            t_list = traj_file.loc[i, 'tlist']
+            t_list = t_list[1:len(t_list) - 1].split(',')
+            t_list = [int(s) for s in t_list]
+            time = datetime.utcfromtimestamp(t_list[-1])
+            self.multi_graph[time.hour//time_each_slice][origin_region][destination_region] += 1
         return self.multi_graph
 
     def propertyFunc_var(self,adj_matrix):
@@ -237,6 +221,5 @@ class MGFNDataset(TrafficRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"n_cluster":self.n_cluster,"od_matrix":self.od_label,"mob_patterns":self.mob_patterns,"num_nodes": self.num_nodes,"geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
-            "label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}
+        return {"n_cluster":self.n_cluster,"mob_adj":self.mob_adj,"mob_patterns":self.mob_patterns,"num_nodes": self.num_nodes}
 

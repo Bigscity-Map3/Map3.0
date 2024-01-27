@@ -127,3 +127,25 @@ def generate_dataloader_pad(train_data, eval_data, test_data, feature_name,
                                  num_workers=num_workers, collate_fn=collator,
                                  shuffle=shuffle)
     return train_dataloader, eval_dataloader, test_dataloader
+
+def split_list(lst, ratios, num_splits):
+    """
+    将列表按照指定比例和数量拆分成子列表
+    :param lst: 待拆分列表
+    :param ratios: 每个子列表的元素占比，由小数表示的列表
+    :param num_splits: 子列表的数量
+    :return: 拆分后的子列表组成的列表
+    """
+    if len(ratios) != num_splits:
+        raise ValueError("The length of ratios must equal to num_splits.")
+    total_ratio = sum(ratios)
+    if total_ratio != 1:
+        raise ValueError("The sum of ratios must be equal to 1.")
+    n = len(lst)
+    result = []
+    start = 0
+    for i in range(num_splits):
+        end = start + int(n * ratios[i])
+        result.append(lst[start:end])
+        start = end
+    return result

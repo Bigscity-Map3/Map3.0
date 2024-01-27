@@ -1,0 +1,9 @@
+{
+  "encoding_type": "positional",
+  "num_layers": 4,
+  "num_heads": 8,
+  "mask_prop": 0.2,
+  "detach": false,
+  "objective": "mlm",
+  "static": false
+}

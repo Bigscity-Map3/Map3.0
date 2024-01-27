@@ -1,5 +1,5 @@
 {
-  "C": 1,
+  "C": 10,
   "time_slice": 8,
   "remove_node_type": "non_zero"
 }

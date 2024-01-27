@@ -21,7 +21,37 @@ class LayerType:
     IMP2 = 1,
     IMP3 = 2
 
-class GAT(AbstractTrafficStateModel):
+class GAT(nn.Module):
+    def __init__(self, nfeat, nhid, nout, nhead, nlayer = 1):
+        super(GAT, self).__init__()
+        assert nlayer >= 1
+
+        self.nlayer = nlayer
+        self.layers = nn.ModuleList()
+        self.layers.append(GATConv(nfeat, nhid, heads = nhead, 
+                                    dropout = 0.2, negative_slope = 0.2))
+        for _ in range(nlayer - 1):
+            self.layers.append(GATConv(nhid * nhead, nhid, heads = nhead, 
+                                    dropout = 0.2, negative_slope = 0.2))
+        self.layer_out = GATConv(nhead * nhid, nout, heads = 1, concat=False,
+                            dropout = 0.2, negative_slope = 0.2)
+
+    # x = [2708, 1433]
+    # edge_index = [2, 10556], pair-wise adj edges
+    def forward(self, x, edge_index):
+
+        for l in range(self.nlayer):
+            x = F.dropout(x, p = 0.2, training = self.training)
+            x = self.layers[l](x, edge_index)
+            x = F.elu(x)
+        # output projection
+        x = F.dropout(x, p = 0.2, training = self.training)
+        x = self.layer_out(x, edge_index)
+
+        return x
+
+
+class GAT_imp(AbstractTrafficStateModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.adj_mx = data_feature.get('adj_mx')

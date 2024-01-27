@@ -96,7 +96,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
-            # self._load_dyna()
+            self._load_dyna()
             pass
         else:
             raise ValueError('Not found .dyna file!')
@@ -319,11 +319,16 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.geo_to_ind = {}
         self.ind_to_geo = {}
         od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        # for road_list in self.traj_road:
+        #     road = road_list[0]
+        #     origin = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+        #     road = road_list[-1]
+        #     destination = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+        #     od_label[origin][destination] += 1
+
         for road_list in self.traj_road:
-            road = road_list[0]
-            origin = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
-            road = road_list[-1]
-            destination = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
+            origin = road_list[0]
+            destination = road_list[-1]
             od_label[origin][destination] += 1
 
         # 首先筛除没有自己到自己的轨迹的区域，这部分区域一定不在最后的结果中

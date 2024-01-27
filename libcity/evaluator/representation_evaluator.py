@@ -27,8 +27,6 @@ class RepresentationEvaluator(AbstractEvaluator):
         self.result_path = './libcity/cache/{}/evaluate_cache/result_{}_{}_{}.json'\
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
 
-
-
     def get_downstream_model(self,model):
         try:
             return getattr(importlib.import_module('libcity.evaluator.downstream_models'),model)(self.config)

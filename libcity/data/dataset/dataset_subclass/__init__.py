@@ -26,6 +26,7 @@ from libcity.data.dataset.dataset_subclass.mgfn_dataset import MGFNDataset
 from libcity.data.dataset.dataset_subclass.line_region_dataset import LINERegionDataset
 from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 from libcity.data.dataset.dataset_subclass.mvure_dataset import MVUREDataset
+from libcity.data.dataset.dataset_subclass.gmel_dataset import GMELDataset
 __all__ = [
     "ACFMDataset",
     "TGCLSTMDataset",
@@ -52,7 +53,9 @@ __all__ = [
     "LINEDataset",
     "HDGEDataset",
     "MGFNDataset",
-    "LINERegionDataset",
     "ZEMobDataset",
-    "MVUREDataset"
+    "MVUREDataset",
+    "GMELDataset",
+    "SRN2VecDataset",
+    "JCLRNTDataset"
 ]
