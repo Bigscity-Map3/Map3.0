@@ -1,5 +1,6 @@
 {
   "indi_context": true,
   "slice": 60,
-  "span": 0
+  "span": 0,
+  "learner": "sgd"
 }

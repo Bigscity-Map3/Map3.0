@@ -40,7 +40,7 @@ class Hier(AbstractModel):
         hier_week_embed_size = config.get('week_embed_size', 4)
         hier_hour_embed_size = config.get('hour_embed_size', 4)
         hier_duration_embed_size = config.get('duration_embed_size', 5)
-        share = config.get('share', True)
+        share = config.get('share', False)
         dropout = config.get('dropout', 0.1)
         num_layers = config.get('num_layers', 4)
         embed_size = config.get('embed_size', 128)
@@ -81,37 +81,8 @@ class Hier(AbstractModel):
     def calculate_loss(self, batch):
         src_token, src_weekday, src_hour, src_duration, src_len = batch
         hier_out = self.forward(token=src_token[:, :-1], week=src_weekday[:, :-1], hour=src_hour[:, :-1],
-                              duration=src_duration, valid_len=src_len - 1)  # (batch, seq_len, num_vocab)
+                                duration=src_duration, valid_len=src_len - 1)  # (batch, seq_len, num_vocab)
         trg_token = pack_padded_sequence(src_token[:, 1:], src_len - 1, batch_first=True,
                                          enforce_sorted=False).data
         loss_func = nn.CrossEntropyLoss()
         return loss_func(hier_out, trg_token)
-
-
-def train_hier(train_data, hier_model, num_epoch, batch_size, device):
-    user_ids, src_tokens, src_weekdays, src_ts, src_lens = zip(*train_data)
-    hier_model = hier_model.to(device)
-
-    loss_func = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(hier_model.parameters())
-    for epoch in range(num_epoch):
-        for batch in next_batch(shuffle(list(zip(src_tokens, src_weekdays, src_ts, src_lens))), batch_size=batch_size):
-            src_token, src_weekday, src_t, src_len = zip(*batch)
-            src_token, src_weekday = [
-                torch.from_numpy(np.transpose(np.array(list(zip_longest(*item, fillvalue=0))))).long().to(device)
-                for item in (src_token, src_weekday)]
-            src_t = torch.from_numpy(np.transpose(np.array(list(zip_longest(*src_t, fillvalue=0))))).float().to(device)
-            src_len = torch.tensor(src_len).long().to(device)
-
-            src_hour = (src_t % (24 * 60 * 60) / 60 / 60).long()
-            src_duration = ((src_t[:, 1:] - src_t[:, :-1]) % (24 * 60 * 60) / 60 / 60).long()
-            src_duration = torch.clamp(src_duration, 0, 23)
-            hier_out = hier_model(token=src_token[:, :-1], week=src_weekday[:, :-1], hour=src_hour[:, :-1],
-                                  duration=src_duration, valid_len=src_len - 1)  # (batch, seq_len, num_vocab)
-            trg_token = pack_padded_sequence(src_token[:, 1:], src_len - 1, batch_first=True, enforce_sorted=False).data
-            loss = loss_func(hier_out, trg_token)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-    return hier_model.static_embed()

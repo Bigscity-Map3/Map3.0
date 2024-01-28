@@ -24,7 +24,6 @@ class POIRepresentationExecutor(AbstractExecutor):
         ensure_dir(self.cache_dir)
         ensure_dir(self.evaluate_res_dir)
         ensure_dir(self.summary_writer_dir)
-
         self._writer = SummaryWriter(self.summary_writer_dir)
         self._logger = getLogger()
         self._scaler = self.data_feature.get('scaler')
@@ -68,7 +67,7 @@ class POIRepresentationExecutor(AbstractExecutor):
 
         self.optimizer = self._build_optimizer()
         self.lr_scheduler = self._build_lr_scheduler()
-        
+
         # if self.model_name == 'CTLE':
         #     self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.learning_rate)
         # elif self.model_name == 'Hier':
@@ -135,7 +134,6 @@ class POIRepresentationExecutor(AbstractExecutor):
         else:
             lr_scheduler = None
         return lr_scheduler
-    
 
     def train(self, train_dataloader, eval_dataloader):
         self._logger.info('Start training ...')
@@ -143,8 +141,8 @@ class POIRepresentationExecutor(AbstractExecutor):
             embed_layer = DownstreamEmbed(self.config, self.data_feature)
             self.data_feature['embed_layer'] = embed_layer
             return
-        trained_batches = 0
-        avg_loss = 0.
+        # trained_batches = 0
+        # avg_loss = 0.
         for epoch in range(self.embed_epoch):
             losses = []
             for batch in train_dataloader.next_batch():
@@ -158,7 +156,7 @@ class POIRepresentationExecutor(AbstractExecutor):
                 # trained_batches += 1
                 # loss_val = loss.detach().cpu().numpy().tolist()
                 # avg_loss += loss_val
- 
+
             if self.lr_scheduler is not None:
                 if self.lr_scheduler_type.lower() == 'reducelronplateau':
                     val_loss = loss.detach().cpu().numpy().tolist()
@@ -167,7 +165,7 @@ class POIRepresentationExecutor(AbstractExecutor):
                     self.lr_scheduler.step()
 
             self._writer.add_scalar('training loss', np.mean(losses), epoch)
-            self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch,np.mean(losses)))
+            self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, np.mean(losses)))
 
             if self.is_static:
                 embed_mat = self.model.static_embed()

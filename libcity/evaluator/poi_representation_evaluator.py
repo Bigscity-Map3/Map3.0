@@ -32,6 +32,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         task_epoch = self.config.get('task_epoch', 5)
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
+        downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
         if self.model_name == 'erpp':
             pre_model = ErppLocPredictor(embed_layer, input_size=embed_size, lstm_hidden_size=hidden_size,
                                          fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
@@ -57,8 +58,8 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         else:
             pre_model = Seq2SeqLocPredictor(embed_layer, input_size=embed_size, hidden_size=hidden_size,
                                             output_size=num_loc, num_layers=2)
-        loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len, num_epoch=task_epoch, batch_size=64,
-                       device=self.device)
+        loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
+                       num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
 
     def evaluate(self):
         self._logger.info('Start evaluating ...')

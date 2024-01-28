@@ -362,8 +362,8 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
                 pres_raw, labels = np.concatenate(pres_raw), np.concatenate(labels)
                 pres = pres_raw.argmax(-1)
 
-                pre = precision_score(labels, pres, average='macro')
-                acc, recall = accuracy_score(labels, pres), recall_score(labels, pres, average='macro')
+                pre = precision_score(labels, pres, average='macro', zero_division=0.0)
+                acc, recall = accuracy_score(labels, pres), recall_score(labels, pres, average='macro', zero_division=0.0)
                 f1_micro, f1_macro = f1_score(labels, pres, average='micro'), f1_score(labels, pres, average='macro')
                 score_log.append([acc, pre, recall, f1_micro, f1_macro])
                 best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)

@@ -1,7 +1,9 @@
 {
-  "num_layers": 3,
+  "num_layers": 4,
   "week_embed_size": 4,
   "hour_embed_size": 4,
   "duration_embed_size": 5,
-  "share": false
+  "share": false,
+  "learner": "adam",
+  "learning_rate": 0.001
 }

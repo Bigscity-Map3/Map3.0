@@ -1,4 +1,5 @@
 {
   "theta": 0.1,
-  "indi_context": false
+  "indi_context": false,
+  "learner": "sgd"
 }
