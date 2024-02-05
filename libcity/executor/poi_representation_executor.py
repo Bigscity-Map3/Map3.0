@@ -12,9 +12,11 @@ from libcity.model.poi_representation.static import StaticEmbed, DownstreamEmbed
 
 class POIRepresentationExecutor(AbstractExecutor):
     def __init__(self, config, model, data_feature):
+        self._logger = getLogger()
         self.config = config
         self.data_feature = data_feature
         self.device = self.config.get('device', torch.device('cpu'))
+        self._logger.info(self.device)
         self.model = model.to(self.device)
         self.exp_id = self.config.get('exp_id', None)
 
@@ -25,7 +27,6 @@ class POIRepresentationExecutor(AbstractExecutor):
         ensure_dir(self.evaluate_res_dir)
         ensure_dir(self.summary_writer_dir)
         self._writer = SummaryWriter(self.summary_writer_dir)
-        self._logger = getLogger()
         self._scaler = self.data_feature.get('scaler')
         self._logger.info(self.model)
         for name, param in self.model.named_parameters():
@@ -67,13 +68,6 @@ class POIRepresentationExecutor(AbstractExecutor):
 
         self.optimizer = self._build_optimizer()
         self.lr_scheduler = self._build_lr_scheduler()
-
-        # if self.model_name == 'CTLE':
-        #     self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.learning_rate)
-        # elif self.model_name == 'Hier':
-        #     self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        # else:
-        #     self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
 
     def _build_optimizer(self):
         """
@@ -141,8 +135,7 @@ class POIRepresentationExecutor(AbstractExecutor):
             embed_layer = DownstreamEmbed(self.config, self.data_feature)
             self.data_feature['embed_layer'] = embed_layer
             return
-        # trained_batches = 0
-        # avg_loss = 0.
+
         for epoch in range(self.embed_epoch):
             losses = []
             for batch in train_dataloader.next_batch():
@@ -151,11 +144,6 @@ class POIRepresentationExecutor(AbstractExecutor):
                 loss.backward()
                 self.optimizer.step()
                 losses.append(loss.item())
-
-                # if self.model_name in ['Tale', 'POI2Vec', 'Teaser', 'SkipGram', 'CBOW']:
-                # trained_batches += 1
-                # loss_val = loss.detach().cpu().numpy().tolist()
-                # avg_loss += loss_val
 
             if self.lr_scheduler is not None:
                 if self.lr_scheduler_type.lower() == 'reducelronplateau':

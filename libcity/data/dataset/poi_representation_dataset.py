@@ -146,13 +146,12 @@ class TaleDataLoader(POIRepresentationDataLoader):
             id2coor_df = data_feature.get('id2coor_df')
             self.dataset = P2VData(self.embed_train_sentences, id2coor_df, theta=poi2vec_theta,
                                    indi_context=poi2vec_indi_context)
+        self.train_set = self.dataset.get_path_pairs(self.w2v_window_size)
 
     def next_batch(self):
         embed_epoch = self.config.get('embed_epoch', 5)
-        train_set = self.dataset.get_path_pairs(self.w2v_window_size)
-        batch_count = math.ceil(embed_epoch * len(train_set) / self.batch_size)
-
-        for pair_batch in next_batch(sklearn.utils.shuffle(train_set), self.batch_size):
+        batch_count = math.ceil(embed_epoch * len(self.train_set) / self.batch_size)
+        for pair_batch in next_batch(sklearn.utils.shuffle(self.train_set), self.batch_size):
             flatten_batch = []
             for row in pair_batch:
                 flatten_batch += [[row[0], p, n, pr] for p, n, pr in zip(*row[1:])]
@@ -179,14 +178,13 @@ class TeaserDataLoader(POIRepresentationDataLoader):
                                   coor_mat,
                                   num_ne=teaser_num_ne, num_nn=teaser_num_nn,
                                   indi_context=teaser_indi_context)
+        self.pos_pairs = self.dataset.gen_pos_pairs(self.w2v_window_size)
 
     def next_batch(self):
-        window_size = self.w2v_window_size
         num_neg = self.skipgram_neg
         embed_epoch = self.config.get('embed_epoch', 5)
-        pos_pairs = self.dataset.gen_pos_pairs(window_size)
-        batch_count = math.ceil(embed_epoch * len(pos_pairs) / self.batch_size)
-        for pair_batch in next_batch(sklearn.utils.shuffle(pos_pairs), self.batch_size):
+        batch_count = math.ceil(embed_epoch * len(self.pos_pairs) / self.batch_size)
+        for pair_batch in next_batch(sklearn.utils.shuffle(self.pos_pairs), self.batch_size):
             neg_v = self.dataset.get_neg_v_sampling(len(pair_batch), num_neg)
             neg_v = torch.tensor(neg_v).long().to(self.device)
 
@@ -201,14 +199,14 @@ class SkipGramDataLoader(POIRepresentationDataLoader):
     def __init__(self, config, data_feature, data):
         super().__init__(config, data_feature, data)
         self.dataset = SkipGramData(self.embed_train_sentences)
+        window_size = self.w2v_window_size
+        self.pos_pairs = self.dataset.gen_pos_pairs(window_size)
 
     def next_batch(self):
-        window_size = self.w2v_window_size
         num_neg = self.skipgram_neg
         embed_epoch = self.config.get('embed_epoch', 5)
-        pos_pairs = self.dataset.gen_pos_pairs(window_size)
-        batch_count = math.ceil(embed_epoch * len(pos_pairs) / self.batch_size)
-        for pair_batch in next_batch(sklearn.utils.shuffle(pos_pairs), self.batch_size):
+        batch_count = math.ceil(embed_epoch * len(self.pos_pairs) / self.batch_size)
+        for pair_batch in next_batch(sklearn.utils.shuffle(self.pos_pairs), self.batch_size):
             neg_v = self.dataset.get_neg_v_sampling(len(pair_batch), num_neg)
             neg_v = torch.tensor(neg_v).long().to(self.device)
 
@@ -304,9 +302,12 @@ class POIRepresentationDataset(AbstractDataset):
         loc_counts = self.df['loc_index'].value_counts()
         self.coor_df = self.coor_df[self.coor_df['geo_id'].isin(loc_counts.index[loc_counts >= self.min_frequency])]
         self.df = self.df[self.df['loc_index'].isin(loc_counts.index[loc_counts >= self.min_frequency])]
-        index_map = self.gen_index_map(self.coor_df, 'geo_id')
-        self.coor_df['geo_id'] = self.coor_df['geo_id'].map(index_map)
-        self.df['loc_index'] = self.df['loc_index'].map(index_map)
+        loc_index_map = self.gen_index_map(self.coor_df, 'geo_id')
+        self.coor_df['geo_id'] = self.coor_df['geo_id'].map(loc_index_map)
+        self.df['loc_index'] = self.df['loc_index'].map(loc_index_map)
+        user_index_map = self.gen_index_map(self.df, 'user_index')
+        self.df['user_index'] = self.df['user_index'].map(user_index_map)
+        self.num_user = len(user_index_map)
         self.num_loc = self.coor_df.shape[0]
 
     def _split_days(self):
@@ -322,8 +323,7 @@ class POIRepresentationDataset(AbstractDataset):
         self._logger.info('Days for test: {}'.format(self.split_days[1]))
 
     def _load_usr(self):
-        usr_df = pd.read_csv(os.path.join(self.data_path, self.usr_file + '.usr'))
-        self.num_user = usr_df.shape[0]
+        pass
 
     def gen_index_map(self, df, column, offset=0):
         index_map = {origin: index + offset

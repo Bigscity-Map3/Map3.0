@@ -1,5 +1,6 @@
 from collections import Counter
 import math
+import heapq
 from itertools import zip_longest
 
 import numpy as np
@@ -102,6 +103,12 @@ class HuffmanNode:
     def __str__(self):
         return 'HuffmanNode#{},freq{}'.format(self.id, self.frequency)
 
+    def __lt__(self, other):
+        return self.frequency < other.frequency
+
+    def __eq__(self, other):
+        return self.frequency == other.frequency
+
 
 class HuffmanTree:
     def __init__(self, freq_array):
@@ -142,26 +149,33 @@ class HuffmanTree:
         self.num_inner_nodes += 1
         return father_node
 
-    def _build_tree(self, node_list):
-        while len(node_list) > 1:
-            i1, i2 = 0, 1
-            if node_list[i2].frequency < node_list[i1].frequency:
-                i1, i2 = i2, i1
-            for i in range(2, len(node_list)):
-                if node_list[i].frequency < node_list[i2].frequency:
-                    i2 = i
-                    if node_list[i2].frequency < node_list[i1].frequency:
-                        i1, i2 = i2, i1
-            father_node = self._merge_node(node_list[i1], node_list[i2])
-            assert not i1 == i2
-            if i1 < i2:
-                node_list.pop(i2)
-                node_list.pop(i1)
-            else:
-                node_list.pop(i1)
-                node_list.pop(i2)
-            node_list.insert(0, father_node)
-        self.root = node_list[0]
+    def _build_tree(self, node_heap):
+        heapq.heapify(node_heap)
+        while len(node_heap) > 1:
+            n1 = heapq.heappop(node_heap)
+            n2 = heapq.heappop(node_heap)
+            father_node = self._merge_node(n1, n2)
+            heapq.heappush(node_heap, father_node)
+        self.root = heapq.heappop(node_heap)
+        # while len(node_list) > 1:
+        #     i1, i2 = 0, 1
+        #     if node_list[i2].frequency < node_list[i1].frequency:
+        #         i1, i2 = i2, i1
+        #     for i in range(2, len(node_list)):
+        #         if node_list[i].frequency < node_list[i2].frequency:
+        #             i2 = i
+        #             if node_list[i2].frequency < node_list[i1].frequency:
+        #                 i1, i2 = i2, i1
+        #     father_node = self._merge_node(node_list[i1], node_list[i2])
+        #     assert not i1 == i2
+        #     if i1 < i2:
+        #         node_list.pop(i2)
+        #         node_list.pop(i1)
+        #     else:
+        #         node_list.pop(i1)
+        #         node_list.pop(i2)
+        #     node_list.insert(0, father_node)
+        # self.root = node_list[0]
 
     def _gen_path(self):
         stack = [self.root]
@@ -188,8 +202,8 @@ class HuffmanTree:
             neg_id = []
             for i, code in enumerate(self.tree[id].huffman_code):
                 if code == 1:
-                    pos_id.append(self.tree[id].path[
-                                      i] - self.id_offset)  # This will make the generated inner node IDs starting from 1.
+                    pos_id.append(self.tree[id].path[i] - self.id_offset)
+                    # This will make the generated inner node IDs starting from 1.
                 else:
                     neg_id.append(self.tree[id].path[i] - self.id_offset)
             self.id2pos[id] = pos_id
@@ -291,4 +305,3 @@ class SkipGram(AbstractModel):
     def calculate_loss(self, batch):
         batch_count, pos_u, pos_v, neg_v = batch
         return self.forward(pos_u, pos_v, neg_v)
-

@@ -1,5 +1,5 @@
 {
-  "num_layers": 4,
+  "num_layers": 3,
   "week_embed_size": 4,
   "hour_embed_size": 4,
   "duration_embed_size": 5,

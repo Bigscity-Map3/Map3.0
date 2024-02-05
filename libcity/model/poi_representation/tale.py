@@ -8,6 +8,7 @@ def gen_all_slots(minute, time_slice_length, influence_span_length):
     @param time_slice_length: length of one slot in seconds.
     @param influence_span_length: length of influence span in seconds.
     """
+
     def _cal_slice(x):
         return int((x % (24 * 60)) / time_slice_length)
 
@@ -17,7 +18,8 @@ def gen_all_slots(minute, time_slice_length, influence_span_length):
 
     else:
         minute_floors = list({minute - influence_span_length / 2, minute + influence_span_length / 2} |
-                             set(range((int((minute - influence_span_length/2) / time_slice_length) + 1) * time_slice_length,
+                             set(range((int((
+                                                        minute - influence_span_length / 2) / time_slice_length) + 1) * time_slice_length,
                                        int(minute + influence_span_length / 2), time_slice_length)))
         minute_floors.sort()
 
@@ -30,6 +32,9 @@ def gen_all_slots(minute, time_slice_length, influence_span_length):
         # props += [0.0] * mask_length
 
     return slices, props
+
+
+num_temp_vocab = 0
 
 
 class TaleData(W2VData):
@@ -55,6 +60,8 @@ class TaleData(W2VData):
         super().__init__([temp_sentence])
 
         self.id2index = {id: index for index, id in enumerate(self.word_freq[:, 0])}
+        global num_temp_vocab
+        num_temp_vocab = len(self.id2index)
         self.word_freq[:, 0] = np.array([self.id2index[x] for x in self.word_freq[:, 0]])
         self.word_freq = self.word_freq.astype(int)
         self.huffman_tree = HuffmanTree(self.word_freq)
@@ -68,32 +75,22 @@ class TaleData(W2VData):
         path_pairs = []
         for sentence, slice, prop in zip(self.sentences, self.slices, self.props):
             for i in range(0, len(sentence) - (2 * window_size + 1)):
-                temp_targets = ['{}-{}'.format(sentence[i+window_size], s) for s in slice[i+window_size]]
+                temp_targets = ['{}-{}'.format(sentence[i + window_size], s) for s in slice[i + window_size]]
                 target_indices = [self.id2index[t] for t in temp_targets]  # (num_overlapping_slices)
                 pos_paths = [self.huffman_tree.id2pos[t] for t in target_indices]
                 neg_paths = [self.huffman_tree.id2neg[t] for t in target_indices]
-                context = sentence[i:i+window_size] + sentence[i+window_size+1:i+2*window_size+1]
+                context = sentence[i:i + window_size] + sentence[i + window_size + 1:i + 2 * window_size + 1]
                 if self.indi_context:
-                    path_pairs += [[[c], pos_paths, neg_paths, prop[i+window_size]] for c in context]
+                    path_pairs += [[[c], pos_paths, neg_paths, prop[i + window_size]] for c in context]
                 else:
-                    path_pairs.append([context, pos_paths, neg_paths, prop[i+window_size]])
+                    path_pairs.append([context, pos_paths, neg_paths, prop[i + window_size]])
         return path_pairs
 
 
 class Tale(HS):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
-        tale_slice = config.get('slice', 60)
-        tale_span = config.get('span', 0)
-        tale_indi_context = config.get('indi_context', True)
-        w2v_data = data_feature.get('w2v_data')
         embed_dimension = config.get('embed_size', 128)
-        embed_train_users, embed_train_sentences, embed_train_weekdays, \
-        embed_train_timestamp, _length = zip(*w2v_data)
-        tale_dataset = TaleData(embed_train_sentences, embed_train_timestamp, tale_slice, tale_span,
-                                indi_context=tale_indi_context)
-        self.tale_dataset = tale_dataset
-        num_temp_vocab = len(tale_dataset.id2index)
         self.w_embeddings = nn.Embedding(num_temp_vocab, embed_dimension, padding_idx=0, sparse=True)
 
     def forward(self, pos_u, pos_w, neg_w, **kwargs):
@@ -113,43 +110,3 @@ class Tale(HS):
     def calculate_loss(self, batch):
         batch_count, context, pos_pairs, neg_pairs, prop = batch
         return self.forward(context, pos_pairs, neg_pairs, prop=prop)
-
-
-def train_tale(tale_model: Tale, dataset: TaleData, window_size, batch_size, num_epoch, init_lr, device):
-    logger = getLogger()
-    tale_model = tale_model.to(device)
-    optimizer = torch.optim.SGD(tale_model.parameters(), lr=init_lr)
-
-    train_set = dataset.get_path_pairs(window_size)
-    trained_batches = 0
-    batch_count = math.ceil(num_epoch * len(train_set) / batch_size)
-
-    avg_loss = 0.
-    for epoch in range(num_epoch):
-        logger.info('epoch: {}'.format(epoch))
-        for pair_batch in next_batch(shuffle(train_set), batch_size):
-            flatten_batch = []
-            for row in pair_batch:
-                flatten_batch += [[row[0], p, n, pr] for p, n, pr in zip(*row[1:])]
-
-            context, pos_pairs, neg_pairs, prop = zip(*flatten_batch)
-            context = torch.tensor(context).long().to(device)
-            pos_pairs, neg_pairs = (torch.tensor(list(zip_longest(*item, fillvalue=0))).long().to(device).transpose(0, 1)
-                                    for item in (pos_pairs, neg_pairs))  # (batch_size, longest)
-            prop = torch.tensor(prop).float().to(device)
-
-            optimizer.zero_grad()
-            loss = tale_model(context, pos_pairs, neg_pairs, prop=prop)
-            loss.backward()
-            optimizer.step()
-            trained_batches += 1
-            loss_val = loss.detach().cpu().numpy().tolist()
-            avg_loss += loss_val
-
-            if trained_batches % 1000 == 0:
-                lr = init_lr * (1.0 - trained_batches / batch_count)
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = lr
-                logger.info('Avg loss: %.5f' % (avg_loss / 1000))
-                avg_loss = 0.
-    return tale_model.u_embeddings.weight.detach().cpu().numpy()

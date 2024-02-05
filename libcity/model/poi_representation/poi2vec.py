@@ -94,6 +94,9 @@ class AreaNode:
         return f'AreaNode [<-{self.left}, ^{self.top}, v{self.bottom}, ->{self.right}], #{self.id}, LV{self.level}'
 
 
+num_inner_nodes = 0
+
+
 class P2VData(W2VData):
     def __init__(self, sentences, coor_df, theta=0.01, indi_context=False):
         super().__init__(sentences)
@@ -169,6 +172,8 @@ class P2VData(W2VData):
                 self.leaf2offset[leaf_id] = _total_offset
                 _total_offset += sub_huffman_tree.num_inner_nodes
         self.total_offset = _total_offset + 1
+        global num_inner_nodes
+        num_inner_nodes = self.total_offset
 
     def get_path_pairs(self, window_size):
         path_pairs = []
@@ -202,9 +207,9 @@ class POI2Vec(HS):
         num_vocab = data_feature.get('num_loc')
         embed_dimension = config.get('embed_size', 128)
         id2coor_df = data_feature.get('id2coor_df')
-        self.poi2vec_data = P2VData(embed_train_sentences, id2coor_df, theta=poi2vec_theta,
-                               indi_context=poi2vec_indi_context)
-        num_inner_nodes = self.poi2vec_data.total_offset
+        # self.poi2vec_data = P2VData(embed_train_sentences, id2coor_df, theta=poi2vec_theta,
+        #                        indi_context=poi2vec_indi_context)
+        # num_inner_nodes = self.poi2vec_data.total_offset
 
         self.w_embeddings = nn.Embedding(num_inner_nodes, embed_dimension, padding_idx=0, sparse=True)
         self.w_embeddings.weight.data.uniform_(-0, 0)

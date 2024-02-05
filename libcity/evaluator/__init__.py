@@ -8,6 +8,7 @@ from libcity.evaluator.eta_evaluator import ETAEvaluator
 from libcity.evaluator.traffic_accident_evaluator import TrafficAccidentEvaluator
 from libcity.evaluator.representation_evaluator import RepresentationEvaluator
 from libcity.evaluator.poi_representation_evaluator import POIRepresentationEvaluator
+from libcity.evaluator.hhgcl_evaluator import HHGCLEvaluator
 __all__ = [
     "TrajLocPredEvaluator",
     "TrafficStateEvaluator",
@@ -18,5 +19,6 @@ __all__ = [
     "ETAEvaluator",
     "TrafficAccidentEvaluator",
     "RepresentationEvaluator",
-    "POIRepresentationEvaluator"
+    "POIRepresentationEvaluator",
+    "HHGCLEvaluator"
 ]
