@@ -17,11 +17,11 @@ class GMELDataset(ODRegionRepresentationDataset):
         self.construct_node_feats()
 
     def construct_trip_data(self):
-        #根据od 6：2：2将数据分成训练集，测试集和验证集（org,dst,vol)
-        total_trip = [[i,j,self.od_label[i][j]] for i in range(self.num_regions) for j in range(self.num_regions)]
+        # 根据od 6：2：2将数据分成训练集，测试集和验证集（org,dst,vol)
+        total_trip = [[i, j, self.od_label[i][j]] for i in range(self.num_regions) for j in range(self.num_regions)]
         random.shuffle(total_trip)
-        split_ratio = [0.6,0.2,0.2]
-        result = split_list(total_trip,split_ratio,3)
+        split_ratio = [0.6, 0.2, 0.2]
+        result = split_list(total_trip, split_ratio, 3)
         self.train_trip = np.array(result[0])
         self.test_trip = np.array(result[1])
         self.valid_trip = np.array(result[2])
@@ -37,9 +37,8 @@ class GMELDataset(ODRegionRepresentationDataset):
     def construct_node_feats(self):
         self.feature = np.random.uniform(-1, 1, size=(self.num_nodes, 250))
 
-
     def construct_geo_adj(self):
-        self.adj_mx = self.adj_mx/self.adj_mx.max().max()
+        self.adj_mx = self.adj_mx / self.adj_mx.max().max()
 
     def construct_distance_mx(self):
         self.distance_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -54,15 +53,11 @@ class GMELDataset(ODRegionRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"train":self.train_trip,"valid":self.valid_trip,"test":self.test_trip,"train_inflow":self.train_inflow,"train_outflow":self.train_outflow,
-                "num_nodes":self.num_nodes,"node_feats":self.feature,"ct_adjacency_withweight":self.adj_mx,"distm":self.distance_mx,
-            "label":{"od_matrix_predict":self.od_label,"crime_count_predict":self.crime_count}}
+        return {"train": self.train_trip, "valid": self.valid_trip, "test": self.test_trip,
+                "train_inflow": self.train_inflow, "train_outflow": self.train_outflow,
+                "num_nodes": self.num_nodes, "node_feats": self.feature, "ct_adjacency_withweight": self.adj_mx,
+                "distm": self.distance_mx,
+                "label": {"od_matrix_predict": self.od_label}}
 
     def get_data(self):
         return None, None, None
-
-
-
-
-
-

@@ -8,8 +8,10 @@ from libcity.utils import ensure_dir
 from libcity.utils import geojson2geometry
 from tqdm import tqdm
 import copy
+
+
 class TrafficRepresentationDataset(AbstractDataset):
-    def __init__(self,config):
+    def __init__(self, config):
         self.config = config
         self.dataset = self.config.get('dataset', '')
         self.batch_size = self.config.get('batch_size', 64)
@@ -24,7 +26,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.normal_external = self.config.get('normal_external', False)
         self.add_time_in_day = self.config.get('add_time_in_day', False)
         self.add_day_in_week = self.config.get('add_day_in_week', False)
-        self.representation_object = self.config.get('representation_object','region')#####
+        self.representation_object = self.config.get('representation_object', 'region')  #####
         self.input_window = self.config.get('input_window', 12)
         self.output_window = self.config.get('output_window', 12)
         self.region_geometry = None
@@ -44,13 +46,13 @@ class TrafficRepresentationDataset(AbstractDataset):
         ensure_dir('./libcity/cache/dataset_cache/{}'.format(self.dataset))
         self.traj_road_path = './libcity/cache/dataset_cache/{}/traj_road.txt'.format(self.dataset)
         self.traj_time_path = './libcity/cache/dataset_cache/{}/traj_time.txt'.format(self.dataset)
-        #加载数据集的config.json文件
+        # 加载数据集的config.json文件
         self.weight_col = self.config.get('weight_col', '')
         self.data_col = self.config.get('data_col', '')
         self.ext_col = self.config.get('ext_col', '')
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
-        self.dyna_file = self.config.get('dyna_file',self.dataset)
+        self.dyna_file = self.config.get('dyna_file', self.dataset)
         self.data_files = self.config.get('data_files', self.dataset)
         self.ext_file = self.config.get('ext_file', self.dataset)
         self.output_dim = self.config.get('output_dim', 1)
@@ -61,10 +63,12 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.calculate_weight_adj = self.config.get('calculate_weight_adj', False)
         self.weight_adj_epsilon = self.config.get('weight_adj_epsilon', 0.1)
         self.distance_inverse = self.config.get('distance_inverse', False)
-        self.remove_node_type = self.config.get("remove_node_type","od")
-        self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo_{}.npy'.format(self.dataset,self.remove_node_type)
-        self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,self.remove_node_type)
-        #初始化
+        self.remove_node_type = self.config.get("remove_node_type", "od")
+        self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo_{}.npy'.format(self.dataset,
+                                                                                           self.remove_node_type)
+        self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,
+                                                                                           self.remove_node_type)
+        # 初始化
         self.data = None
         self.feature_name = {'X': 'float', 'y': 'float'}  # 此类的输入只有X和y
         self.adj_mx = None
@@ -121,13 +125,11 @@ class TrafficRepresentationDataset(AbstractDataset):
             self.num_nodes = self.num_roads
             self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
 
-
-
     def _load_geo(self):
         """
         加载.geo文件，格式[geo_id, type, coordinates, function,traffic_type]
         """
-        geofile = pd.read_csv(self.data_path+self.geo_file+'.geo')
+        geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         self.geofile = geofile
         l = [geojson2geometry(coordinate) for coordinate in geofile[geofile['traffic_type'] == 'region']['coordinates']]
         self.region_geometry = gpd.GeoSeries.from_wkt(l)
@@ -140,14 +142,16 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_pois = len(self.poi_ids)
         if self.representation_object == "region":
             self.num_nodes = self.num_regions
-            #self.function = list(geofile[geofile['traffic_type'] == 'region']['function'])
+            # self.function = list(geofile[geofile['traffic_type'] == 'region']['function'])
         elif self.representation_object == "road":
             self.num_nodes = self.num_roads
-            #self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
+            # self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
         else:
             self.num_nodes = self.num_pois
-            #self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
-        self._logger.info("Loaded file " + self.geo_file + '.geo' + ',num_regions='+str(self.num_regions) +',num_roads='+str(self.num_roads)+',num_pois='+str(self.num_pois)+', num_nodes=' + str(self.num_nodes))
+            # self.function = list(geofile[geofile['traffic_type'] == 'poi']['function'])
+        self._logger.info(
+            "Loaded file " + self.geo_file + '.geo' + ',num_regions=' + str(self.num_regions) + ',num_roads=' + str(
+                self.num_roads) + ',num_pois=' + str(self.num_pois) + ', num_nodes=' + str(self.num_nodes))
 
     def _load_rel(self):
         """
@@ -162,6 +166,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
         self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
         self._logger.info("Loaded file " + self.rel_file + '.rel')
+
     def _load_dyna(self):
         """
         加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
@@ -169,8 +174,8 @@ class TrafficRepresentationDataset(AbstractDataset):
         构造图在模型的dataset子类中实现
         """
         if os.path.exists(self.traj_road_path) and os.path.exists(self.traj_time_path):
-            f1 = open(self.traj_road_path,'r')
-            f2 = open(self.traj_time_path,'r')
+            f1 = open(self.traj_road_path, 'r')
+            f2 = open(self.traj_time_path, 'r')
             road_lines = f1.readlines()
             time_lines = f2.readlines()
             for line in road_lines:
@@ -186,33 +191,32 @@ class TrafficRepresentationDataset(AbstractDataset):
             traj_num = dynafile['total_traj_id'].max() + 1
             traj_road_str = ""
             traj_time_str = ""
-            #将traj_road存成road0,road1...road(一行一条轨迹）的格式
-            #将traj_time存成time0,time1.....,time（一行一条轨迹）的格式
+            # 将traj_road存成road0,road1...road(一行一条轨迹）的格式
+            # 将traj_time存成time0,time1.....,time（一行一条轨迹）的格式
             for i in tqdm(range(traj_num)):
                 road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
                 time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
                 self.traj_road.append(road_list)
                 self.traj_time.append(time_list)
                 for road in road_list:
-                    traj_road_str += (str(road)+',')
+                    traj_road_str += (str(road) + ',')
                 traj_road_str = traj_road_str[:-1]
                 traj_road_str += '\n'
                 for time in time_list:
                     traj_time_str += (time + ',')
                 traj_time_str = traj_time_str[:-1]
                 traj_time_str += '\n'
-            f1 = open(self.traj_road_path,'w')
+            f1 = open(self.traj_road_path, 'w')
             f1.write(traj_road_str)
             f1.close()
-            f2 = open(self.traj_time_path,'w')
+            f2 = open(self.traj_time_path, 'w')
             f2.write(traj_time_str)
             f2.close()
             self._logger.info("Dyna file has been saved")
             self._logger.info("Loaded file " + self.dyna_file + '.dyna')
 
-
     def remove_0_degree_nodes(self):
-        #dict保存为
+        # dict保存为
         if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
             region_list = np.load(self.ind_to_geo_path)
             self.geo_to_ind = {}
@@ -225,12 +229,12 @@ class TrafficRepresentationDataset(AbstractDataset):
             self.num_nodes = index
             self.num_regions = index
             self.function = np.load(self.func_label_path)
-            self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index,index))
+            self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
-        #去除在轨迹中不出现的节点，使用geo_to_ind,ind_to_geo来对节点重新编号
+        # 去除在轨迹中不出现的节点，使用geo_to_ind,ind_to_geo来对节点重新编号
         self.geo_to_ind = {}
         self.ind_to_geo = {}
-        region_set = set()#记录所有在轨迹中出现过的区域
+        region_set = set()  # 记录所有在轨迹中出现过的区域
         for road_list in self.traj_road:
             for road in road_list:
                 region = list(self.road2region[self.road2region['origin_id'] == road]['destination_id'])[0]
@@ -242,17 +246,15 @@ class TrafficRepresentationDataset(AbstractDataset):
             index += 1
         self.num_nodes = index
         self.num_regions = index
-        #对 function_label进行映射
+        # 对 function_label进行映射
         self.function = np.zeros(self.num_regions)
         for i in range(index):
-            self.function[i] =  self.geofile.loc[self.ind_to_geo[i],"function"]
+            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
         region_list = list(region_set)
         region_array = np.array(region_list)
-        np.save(self.ind_to_geo_path,region_array)
-        np.save(self.func_label_path,self.function)
-        self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index,index))
-
-
+        np.save(self.ind_to_geo_path, region_array)
+        np.save(self.func_label_path, self.function)
+        self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
 
     def keep_od_nodes(self):
         # dict保存为
@@ -270,7 +272,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             self.function = np.load(self.func_label_path)
             self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
-    #去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
+        # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
         self.geo_to_ind = {}
         self.ind_to_geo = {}
         region_set = set()  # 记录所有在od中出现过的区域
@@ -395,7 +397,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
         # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
-        #计算全量的od矩阵
+        # 计算全量的od矩阵
         od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for traj in self.traj_road:
             origin_region = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
@@ -412,9 +414,9 @@ class TrafficRepresentationDataset(AbstractDataset):
         while not stop:
             stop = True
             for region in region_set.copy():
-                if  (sum(od_label[region,:]) == 0) or (sum(od_label[:,region]) == 0):
+                if (sum(od_label[region, :]) == 0) or (sum(od_label[:, region]) == 0):
                     region_set.remove(region)
-                    #修改od_label
+                    # 修改od_label
                     od_label[region, :] = 0
                     od_label[:, region] = 0
                     stop = False
@@ -433,8 +435,3 @@ class TrafficRepresentationDataset(AbstractDataset):
         np.save(self.ind_to_geo_path, region_array)
         np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
-
-
-
-
-
