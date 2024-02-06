@@ -27,6 +27,7 @@ from libcity.data.dataset.dataset_subclass.line_region_dataset import LINERegion
 from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 from libcity.data.dataset.dataset_subclass.mvure_dataset import MVUREDataset
 from libcity.data.dataset.dataset_subclass.gmel_dataset import GMELDataset
+from libcity.data.dataset.dataset_subclass.remvc_dataset import ReMVCDataset
 __all__ = [
     "ACFMDataset",
     "TGCLSTMDataset",
@@ -57,5 +58,6 @@ __all__ = [
     "MVUREDataset",
     "GMELDataset",
     "SRN2VecDataset",
-    "JCLRNTDataset"
+    "JCLRNTDataset",
+    "ReMVCDataset"
 ]
