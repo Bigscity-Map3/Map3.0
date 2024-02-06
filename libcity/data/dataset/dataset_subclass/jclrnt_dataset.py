@@ -49,16 +49,16 @@ class JCLRNTDataset(AbstractDataset):
         self.min_len=config.get('min_len',10)
         self.max_len = config.get('max_len', 64)
         self.construct_road_adj()
-        self.train_path = '../TrajFormer_Baselines-master/data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
+        self.train_path = 'raw_data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
         self.traj_arr = self.prepare_traj_data()
-        train_path = '../TrajFormer_Baselines-master/data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
-        eval_path = '../TrajFormer_Baselines-master/data/{}/traj_{}_11_val.csv'.format(
+        train_path = 'raw_data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
+        eval_path = 'raw_data/{}/traj_{}_11_val.csv'.format(
             self.dataset, self.dataset)
-        test_path = '../TrajFormer_Baselines-master/data/{}/traj_{}_11_test.csv'.format(
+        test_path = 'raw_data/{}/traj_{}_11_test.csv'.format(
             self.dataset, self.dataset)
-        path1 = '../TrajFormer_Baselines-master/data/{}/downstream_eval/{}_decup_detoured_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
-        path2 = '../TrajFormer_Baselines-master/data/{}/downstream_eval/{}_decup_othersdetour_test_topk0.2_0.2_1.0_3000_30000.csv'.format(self.dataset,self.dataset)
-        path3 = '../TrajFormer_Baselines-master/data/{}/downstream_eval/{}_decup_origin_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
+        path1 = 'raw_data/{}/downstream_eval/{}_decup_detoured_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
+        path2 = 'raw_data/{}/downstream_eval/{}_decup_othersdetour_test_topk0.2_0.2_1.0_3000_30000.csv'.format(self.dataset,self.dataset)
+        path3 = 'raw_data/{}/downstream_eval/{}_decup_origin_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
         self.traj_arr_detour_test = self.prepare_traj_test_data(path1)
         self.traj_arr_detour_others = self.prepare_traj_test_data(path2)
         self.traj_arr_origin_test = self.prepare_traj_test_data(path3)
@@ -108,6 +108,7 @@ class JCLRNTDataset(AbstractDataset):
         self.edge_index_aug = np.array(self.edge_index_aug, dtype=np.int32).transpose()
         self.edge_index_aug = torch.Tensor(self.edge_index_aug).int().to(self.device)
         return arr
+    
     def prepare_traj_test_data(self,traj_path):
         traj_df = pd.read_csv(traj_path,delimiter=';')
         traj_list = []
@@ -123,9 +124,11 @@ class JCLRNTDataset(AbstractDataset):
             arr[i,:traj_len]=path_arr[:traj_len]
         self._logger.info('test_set_shape='+str(arr.shape))
         return arr
+    
     def generate_train_data(self):
         train_dataset=TrajRoadDataset(self.traj_arr)
         self.train_dataloader=DataLoader(train_dataset,batch_size=self.batch_size,shuffle=True, num_workers=4)
+
     def get_data(self):
         """
         返回数据的DataLoader，包括训练数据、测试数据、验证数据

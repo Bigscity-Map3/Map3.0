@@ -1,14 +1,84 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-from torch.optim import SGD, Adam, ASGD, RMSprop
-from torch.utils.data import DataLoader
-from torch.nn.functional import log_softmax, softmax
+from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
 import torch.nn.functional as F
-from configparser import ConfigParser
 import numpy as np
 import math
 from torch.nn.parameter import Parameter
+import time
+
+class HyperRoad(AbstractTraditionModel):
+    def __init__(self, config, data_feature):
+        super().__init__(config, data_feature)
+        self.device = config.get('device')
+        self.dataloader = data_feature.get('dataloader')
+        self.num_nodes = data_feature.get("num_nodes")
+        self.num_class = data_feature.num_classes
+        self.emb_size = config.get('emb_size')
+        self.agg = config.get('agg')
+        self.layer_num = config.get('layer_num')
+        self.lamb = config.get('lamb')
+        self.gama = config.get('gama')
+        self.with_p = config.get('with_p')
+        self.one_hot_dim = data_feature.get('one_hot_dim')
+        self.lane_cls_num = data_feature.get('lane_cls_num')
+        self.speed_cls_num = data_feature.get('speed_cls')
+        self.oneway_cls_num = data_feature.get('oneway_cls')
+        self.epoches = config.get('epoches')
+        self.lr = config.get('learning_rate')
+        self.weight_decay = config.get('weight_decay')
+
+        self.network = PEHyper(num_nodes=self.num_roads, num_classes=self.num_class,out_emb_dim=self.emb_size, device=self.device, agg_method=self.agg,
+                layer_num=self.layer_num, lamb=self.lamb, gama=self.gama, with_p=self.with_p,one_hot_dim=self.one_hot_dim,lane_cls_num=self.lanes_cls,speed_cls_num=self.speed_cls,oneway_cls_num=self.oneway_cls)
+        
+        self.network.set_paras(data_feature.input_x,data_feature.coords,data_feature.onehot_input_feats,data_feature.norm_GG,data_feature.norm_HG,data_feature.norm_HH)
+
+        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
+    def forward(self, batch):
+        return self.network(batch)
+    
+    def run(self, data):
+        start_time = time.time()
+        for epoch in range(self.epoches):
+            loss_data = 0.0
+            gnn_loss_data = 0.0
+            hgnn_loss_data = 0.0
+            tag_loss_data = 0.0
+            for i_batch, sample_batched in enumerate(data):
+                anchor = sample_batched['anchor'].to(self.device)
+                pos_edge = sample_batched['pos_edge'].to(self.device)
+                neg_edges = sample_batched['neg_edges'].to(self.device)
+                pos_hyper = sample_batched['pos_hyper'].to(self.device)
+                neg_hypers = sample_batched['neg_hypers'].to(self.device)
+                hyper_class = sample_batched['hyper_class'].to(self.device)
+
+                l_lanes = sample_batched['l_lanes'].to(self.device)
+                l_maxspeed = sample_batched['l_maxspeed'].to(self.device)
+                l_oneway = sample_batched['l_oneway'].to(self.device)
+                batch_data = anchor, pos_edge, neg_edges, pos_hyper, neg_hypers, hyper_class, l_lanes, l_maxspeed, l_oneway
+
+                self.optimizer.zero_grad()
+                loss, gnn_loss, hgnn_loss, tag_loss = self.network(batch_data)
+                loss_data += loss.data.cpu().numpy()
+                gnn_loss_data += gnn_loss.data.cpu().numpy()
+                hgnn_loss_data += hgnn_loss.data.cpu().numpy()
+                tag_loss_data += tag_loss.data.cpu().numpy() 
+
+                loss.backward()
+                self.optimizer.step()
+            
+            print("epoch num:", epoch, "loss:", loss_data)
+            loss_res = "epoch num: " + str(epoch) + "loss: " + str(loss_data) + "\n"
+            
+        t1 = time.time()-start_time
+        print('cost time is '+str(t1/self.epoches))
+    
+    def static_embedding(self):
+        road_emb, hyper_emb=self.update()
+        return road_emb
+    
+
 
 class LayerNorm(nn.Module):
     """
@@ -610,3 +680,10 @@ class POS(nn.Module):
         pe_emb = self.spenc(c.detach().cpu().numpy())
         pe_emb = pe_emb.reshape(pe_emb.shape[1], pe_emb.shape[2])
         return pe_emb
+    
+        
+
+
+        
+
+        

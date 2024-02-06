@@ -212,9 +212,9 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.output_dim = config.get('output_dim', 128)
         self.roadid = config.get('roadid', None)
         self.regionid = config.get('regionid', None)
-        self.region_embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'\
+        self.region_embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'\
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.road_embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'\
+        self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'\
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def collect(self, batch):
@@ -381,8 +381,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae, region_rmse, region_r2, region_mape))
         return region_mae, region_rmse, region_mape, region_r2
     def evaluate_road_embedding(self):
-        road_emb = np.load(self.region_embedding_path)
-        self._logger.info('Load road emb {}, shape = {}'.format(self.region_embedding_path, road_emb.shape))
+        road_emb = np.load(self.road_embedding_path)
+        self._logger.info('Load road emb {}, shape = {}'.format(self.road_embedding_path, road_emb.shape))
         self._logger.warning('Evaluating Road Classification')
         y_truth,useful_index,road_micro_f1, road_macro_f1 = self._valid_road_clf(road_emb)
         road_mae, road_rmse, road_r2, road_mape = self._valid_road_flow(road_emb)
