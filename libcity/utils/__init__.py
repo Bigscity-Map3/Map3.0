@@ -7,9 +7,10 @@ from libcity.utils.argument_list import general_arguments, str2bool, \
     str2float, hyper_arguments, add_general_args, add_hyper_args
 from libcity.utils.normalization import Scaler, NoneScaler, NormalScaler, \
     StandardScaler, MinMax01Scaler, MinMax11Scaler, LogScaler
-# from libcity.utils.osm_loader import OSMLoader
-# from libcity.utils import tool_funcs
-# from libcity.utils import edge_index, Config
+from libcity.utils.osm_loader import OSMLoader
+from libcity.utils import tool_funcs
+from libcity.utils.edge_index import EdgeIndex
+from libcity.utils.Config import Config
 
 
 __all__ = [
@@ -44,8 +45,8 @@ __all__ = [
     "add_general_args",
     "add_hyper_args",
     "geojson2geometry",
-    # "OSMLoader",
-    # "tool_funcs",
-    # "edge_index",
-    # "Config"
+    "OSMLoader",
+    "tool_funcs",
+    "EdgeIndex",
+    "Config"
 ]

@@ -386,7 +386,7 @@
     },
     "road_representation": {
         "allowed_model": [
-            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad"
+            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad","SARN"
         ],
         "allowed_dataset": [
             "BJ_roadmap","xa"
@@ -432,6 +432,11 @@
             "evaluator": "HHGCLEvaluator"
         },
         "HyperRoad": {
+            "dataset_class": "HyperRoadDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "HHGCLEvaluator"
+        },
+        "SARN": {
             "dataset_class": "HyperRoadDataset",
             "executor": "TwoStepExecutor",
             "evaluator": "HHGCLEvaluator"

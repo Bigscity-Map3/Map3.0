@@ -1,7 +1,7 @@
 import sys
 sys.path.append('..')
 import math
-from tool_funcs import haversine
+from libcity.utils import tool_funcs
 
 class CellSpace:
 
@@ -51,7 +51,7 @@ class CellSpace:
         lon_mid_2 = (lon_lo_2 + lon_hi_2) / 2
         lat_mid_2 = (lat_lo_2 + lat_hi_2) / 2
 
-        return haversine(lon_mid_1, lat_mid_1, lon_mid_2, lat_mid_2)
+        return tool_funcs.haversine(lon_mid_1, lat_mid_1, lon_mid_2, lat_mid_2)
 
 
     def get_cell_id_by_point(self, lon, lat):

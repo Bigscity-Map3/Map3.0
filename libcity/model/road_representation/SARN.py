@@ -1,68 +1,353 @@
 import sys
 sys.path.append('..')
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+import logging
+import torch
+import torch.nn as nn
+from torch_geometric.nn import GATConv
+
 import logging
 import time
 import copy
 import random
 import typing
-import math
 import torch
 import torch.nn.functional as F
-import networkx as nx
 import numpy as np
 import pickle
-from scipy.sparse import coo_matrix
 
-from config import Config as Config
 from libcity.utils import tool_funcs
 from libcity.utils import OSMLoader
 from libcity.utils import EdgeIndex
 
-'''
-Basic trainer class for encoders.
-The detailed encoder definition should not be here.
-'''
+class FeatEmbedding(nn.Module):
+    def __init__(self, nsegid_code, nhighway_code,
+            nlength_code, nradian_code, nlon_code, nlat_code, hd=16,ld=16,rd=16,lld=32):
+        super(FeatEmbedding, self).__init__()
+        self.sarn_seg_feat_highwaycode_dim=hd
+        self.sarn_seg_feat_lengthcode_dim=ld
+        self.sarn_seg_feat_radiancode_dim=rd
+        self.sarn_seg_feat_lonlatcode_dim=lld
 
-from abc import ABC, abstractmethod
+        logging.debug('FeatEmbedding args. {}, {}, {}, {}, {}, {}'.format(nsegid_code, nhighway_code, nlength_code, \
+                        nradian_code, nlon_code, nlat_code))
+        
+        self.emb_highway = nn.Embedding(nhighway_code, self.sarn_seg_feat_highwaycode_dim)
+        self.emb_length = nn.Embedding(nlength_code, self.sarn_seg_feat_lengthcode_dim)
+        self.emb_radian = nn.Embedding(nradian_code, self.sarn_seg_feat_radiancode_dim)
+        self.emb_lon = nn.Embedding(nlon_code, self.sarn_seg_feat_lonlatcode_dim)
+        self.emb_lat = nn.Embedding(nlat_code, self.sarn_seg_feat_lonlatcode_dim)
 
-class BaseEncoder(ABC):
+    # inputs = [N, nfeat]
+    def forward(self, inputs):
+        return torch.cat( (
+                self.emb_highway(inputs[: , 1]),
+                self.emb_length(inputs[: , 2]),
+                self.emb_radian(inputs[: , 3]),
+                self.emb_lon(inputs[: , 4]),
+                self.emb_lat(inputs[: , 5]),
+                self.emb_lon(inputs[: , 6]),
+                self.emb_lat(inputs[: , 7])), dim = 1)
 
-    @abstractmethod
-    def train(self):
-        pass
+class SARN(nn.Module):
+    def __init__(self,config,data_feature):
+        super(SARN, self).__init__()
+        self.dataset_path=config.get("data_path","")
+        self.exp_id = config.get('exp_id', None)
+        self.dataset = config.get('dataset', '')
+        self.device = config.get('device')
+        self.osm_data = OSMLoader(self.dataset_path, schema = 'SARN')
+        self.osm_data.load_cikm_data(self.dataset)
+        self.model='SARN'
+       
+        self.sarn_seg_feat_dim = config.get("sarn_seg_feat_dim", 176)
+        self.sarn_embedding_dim = config.get("sarn_embedding_dim", 128)
+        self.sarn_out_dim = config.get("sarn_out_dim", 32)
+        self.sarn_moco_each_queue_size = self.osm_data.sarn_moco_each_queue_size
+        self.sarn_moco_temperature = config.get("sarn_moco_temperature", 0.05)
+        self.sarn_moco_total_queue_size = config.get("sarn_moco_total_queue_size", 1000)
+        self.sarn_moco_multi_queue_cellsidelen = config.get("sarn_moco_multi_queue_cellsidelen", 0)
+        self.sarn_moco_loss_local_weight = config.get("sarn_moco_loss_local_weight", 0.4)
+        self.sarn_learning_rate = config.get("sarn_learning_rate", 0.005)
+        self.sarn_learning_weight_decay = config.get("sarn_learning_weight_decay", 0.0001)
+        self.sarn_training_bad_patience = config.get("sarn_training_bad_patience", 20)
+        self.sarn_epochs = config.get("sarn_epochs", 5)
+        self.sarn_moco_loss_global_weight=config.get("sarn_moco_loss_global_weight", 1-self.sarn_moco_loss_local_weight)
+        self.sarn_batch_size = config.get("sarn_batch_size", 128)
+        self.sarn_learning_rated_adjusted=config.get("sarn_learning_rated_adjusted", True)
 
-    @abstractmethod
+        self.seg_feats = self.osm_data.seg_feats
+        self.checkpoint_path = './libcity/cache/{}/model_cache/{}_SARN_best.pkl'.format(self.exp_id, self.dataset)
+        self.embs_path = './libcity/cache/{}/model_cache/{}_SARN_best_embs.pickle'.format(self.exp_id, self.dataset)
+        self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
+            format(self.exp_id, self.model, self.dataset, self.sarn_embedding_dim)
+        
+        self.feat_emb = FeatEmbedding(self.osm_data.count_segid_code,
+                                    self.osm_data.count_highway_cls,
+                                    self.osm_data.count_length_code,
+                                    self.osm_data.count_radian_code,
+                                    self.osm_data.count_s_lon_code,
+                                    self.osm_data.count_s_lat_code).to(self.device)
+
+        self.model = MoCo(nfeat = self.sarn_seg_feat_dim,
+                                nemb = self.sarn_embedding_dim, 
+                                nout = self.sarn_out_dim,
+                                queue_size = self.sarn_moco_each_queue_size,
+                                nqueue = self.osm_data.cellspace.lon_size * self.osm_data.cellspace.lat_size,
+                                temperature = self.sarn_moco_temperature).to(self.device)
+
+        logging.info('[Moco] total_queue_size={:.0f}, multi_side_length={:.0f}, '
+                        'multi_nqueues={}*{}, each_queue_size={}, real_total={}, local_weight={:.2f}' \
+                    .format(self.sarn_moco_total_queue_size, \
+                            self.sarn_moco_multi_queue_cellsidelen, \
+                            self.osm_data.cellspace.lon_size, \
+                            self.osm_data.cellspace.lat_size, \
+                            self.sarn_moco_each_queue_size, \
+                            self.sarn_moco_each_queue_size * self.osm_data.cellspace.lon_size * self.osm_data.cellspace.lat_size, \
+                            self.sarn_moco_loss_local_weight))
+        
+        # if Config.task_encoder_mode == 'finetune':
+        #     self.t_edge_index = copy.deepcopy(self.osm_data.edge_index.edges.T)
+        #     self.t_edge_index = torch.tensor(self.t_edge_index, dtype = torch.long, device = Config.device)
+
+        self.seg_id_to_idx = self.osm_data.seg_id_to_idx_in_adj_seg_graph
+        self.seg_idx_to_id = self.osm_data.seg_idx_to_id_in_adj_seg_graph
+        self.seg_id_to_cellid = dict(self.osm_data.segments.reset_index()[['inc_id','c_cellid']].values.tolist()) # contains those not legal segments
+        self.seg_idx_to_cellid = [-1] * len(self.seg_idx_to_id)
+        for _id, _cellid in self.seg_id_to_cellid.items():
+            _idx = self.seg_id_to_idx.get(_id, -1)
+            if _idx >= 0:
+                self.seg_idx_to_cellid[_idx] = _cellid
+        assert sum(filter(lambda x: x < 0, self.seg_idx_to_cellid)) == 0
+
+
+    def run(self,data=None):
+        training_starttime = time.time()
+        training_gpu_usage = training_ram_usage = 0.0
+        logging.info("[Training] START! timestamp={:.0f}".format(training_starttime))
+        torch.autograd.set_detect_anomaly(True)
+        
+        optimizer = torch.optim.Adam(list(self.model.parameters()) + list(self.feat_emb.parameters()), 
+                                        lr = self.sarn_learning_rate,
+                                        weight_decay = self.sarn_learning_weight_decay)
+        
+        best_loss_train = 100000
+        best_epoch = 0
+        bad_counter = 0
+        bad_patience = self.sarn_training_bad_patience
+        start_time = time.time()
+        for i_ep in range(self.sarn_epochs):
+            _time_ep = time.time()
+            loss_ep = []
+            train_gpu = []
+            train_ram = []
+
+            self.feat_emb.train()
+            self.model.train()
+
+            if self.sarn_learning_rated_adjusted:
+                tool_funcs.adjust_learning_rate(optimizer, self.sarn_learning_rate, i_ep, self.sarn_epochs)
+            
+            # drop edges from edge_index
+            edge_index_1 = copy.deepcopy(self.osm_data.edge_index)
+            edge_index_1 = graph_aug_edgeindex(edge_index_1)
+
+            edge_index_2 = copy.deepcopy(self.osm_data.edge_index)
+            edge_index_2 = graph_aug_edgeindex(edge_index_2)
+
+            for i_batch, batch in enumerate(self.__train_data_generator_batchi(edge_index_1, edge_index_2, shuffle = True)):
+                _time_batch = time.time()
+                
+                optimizer.zero_grad()
+                (sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1), \
+                        (sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2), \
+                        sub_seg_ids, sub_cellids = batch
+
+                sub_seg_feats_1 = self.feat_emb(sub_seg_feats_1)
+                sub_seg_feats_2 = self.feat_emb(sub_seg_feats_2)
+
+                model_rtn = self.model(sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1, \
+                                        sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2, \
+                                        sub_cellids, sub_seg_ids)
+                loss = self.model.loss_mtl(*model_rtn, self.sarn_moco_loss_local_weight, self.sarn_moco_loss_global_weight)
+
+                loss.backward()
+                optimizer.step()
+                loss_ep.append(loss.item())
+                train_gpu.append(tool_funcs.GPUInfo.mem()[0])
+                train_ram.append(tool_funcs.RAMInfo.mem())
+
+                if i_batch % 50 == 0:
+                    logging.debug("[Training] ep-batch={}-{}, loss={:.3f}, @={:.3f}, gpu={}, ram={}" \
+                            .format(i_ep, i_batch, loss.item(), time.time() - _time_batch, \
+                                    tool_funcs.GPUInfo.mem(), tool_funcs.RAMInfo.mem()))
+
+
+            loss_ep_avg = tool_funcs.mean(loss_ep)
+            logging.info("[Training] ep={}: avg_loss={:.3f}, @={:.3f}, gpu={}, ram={}" \
+                    .format(i_ep, loss_ep_avg, time.time() - _time_ep, tool_funcs.GPUInfo.mem(), tool_funcs.RAMInfo.mem()))
+            
+            training_gpu_usage = tool_funcs.mean(train_gpu)
+            training_ram_usage = tool_funcs.mean(train_ram)
+
+            # early stopping
+            if loss_ep_avg < best_loss_train:
+                best_epoch = i_ep
+                best_loss_train = loss_ep_avg
+                bad_counter = 0
+                torch.save({'model_state_dict': self.model.state_dict(),
+                            'feat_emb_state_dict': self.feat_emb.state_dict()},
+                            self.checkpoint_path)
+                node_embedding=self.get_embeddings(False)
+                np.save(self.road_embedding_path,node_embedding.cpu().detach().numpy())
+            else:
+                bad_counter += 1
+
+            if bad_counter == bad_patience or (i_ep + 1) == self.sarn_epochs:
+                logging.info("[Training] END! best_epoch={}, best_loss_train={:.6f}" \
+                            .format(best_epoch, best_loss_train))
+                break
+        t1 = time.time()-start_time
+        logging.info('cost time is '+str(t1/self.sarn_epochs))
+        
+        logging.info("enc_train_time:{} \n enc_train_gpu:{} \n enc_train_ram:{} \n".format(time.time()-training_starttime, training_gpu_usage, training_ram_usage))
+        # return {'enc_train_time': time.time()-training_starttime, \
+        #         'enc_train_gpu': training_gpu_usage, \
+        #         'enc_train_ram': training_ram_usage}
+
+
     def test(self):
         pass
 
-    @abstractmethod
-    def get_embeddings(self, from_checkpoint):
-        pass
 
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# https://github.com/facebookresearch/moco
-# https://arxiv.org/abs/1911.05722
+    def finetune_forward(self, sub_seg_idxs, is_training: bool):
+        if is_training:
+            self.feat_emb.train()
+            self.model.train()
+            embs = self.model.encoder_q(self.feat_emb(self.seg_feats), self.t_edge_index)[sub_seg_idxs]
 
-# Modified by yc - 2021
-# version 3:
-#   add multiple negative sampling queues
-#   add local-global loss
-#   optimise the process of pos/neg pair computation - speedup 3x
-#   adapted for GAT
-
-from json import encoder
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-from GAT import GAT
+        else:
+            with torch.no_grad():
+                self.feat_emb.eval()
+                self.model.eval()
+                embs = self.model.encoder_q(self.feat_emb(self.seg_feats), self.t_edge_index)[sub_seg_idxs]
+        return embs
 
 
-class MoCoMultiQ(nn.Module):
+    def __train_data_generator_batchi(self, edge_index_1: EdgeIndex, \
+                                            edge_index_2: typing.Union[EdgeIndex, None], \
+                                            shuffle = True):
+        cur_index = 0
+        n_segs = len(self.seg_idx_to_id)
+        seg_idxs = list(range(n_segs))
+
+        if shuffle: # for training
+            random.shuffle(seg_idxs)
+
+        while cur_index < n_segs:
+            end_index = cur_index + self.sarn_batch_size \
+                            if cur_index + self.sarn_batch_size < n_segs \
+                            else n_segs
+            sub_seg_idx = seg_idxs[cur_index: end_index]
+
+            sub_edge_index_1, new_x_idx_1, mapping_to_origin_idx_1 = \
+                                edge_index_1.sub_edge_index(sub_seg_idx)
+            sub_seg_feats_1 = self.seg_feats[new_x_idx_1]
+            sub_edge_index_1 = torch.tensor(sub_edge_index_1, dtype = torch.long, device = self.device)
+            
+            if edge_index_2 != None:
+                sub_edge_index_2, new_x_idx_2, mapping_to_origin_idx_2 = \
+                                    edge_index_2.sub_edge_index(sub_seg_idx)
+                sub_seg_feats_2 = self.seg_feats[new_x_idx_2]
+                sub_edge_index_2 = torch.tensor(sub_edge_index_2, dtype = torch.long, device = self.device)
+
+                sub_seg_ids = [self.seg_idx_to_id[idx] for idx in sub_seg_idx]
+                sub_cellids = [self.seg_idx_to_cellid[idx] for idx in sub_seg_idx]
+                sub_seg_ids = torch.tensor(sub_seg_ids, dtype = torch.long, device = self.device)
+                sub_cellids = torch.tensor(sub_cellids, dtype = torch.long, device = self.device)
+                
+                yield (sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1), \
+                        (sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2), \
+                        sub_seg_ids, sub_cellids
+            else:
+                yield sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1
+
+            cur_index = end_index
+    
+
+    @torch.no_grad()
+    def load_model_state(self, f_path):
+        checkpoint = torch.load(f_path)
+        self.feat_emb.load_state_dict(checkpoint['feat_emb_state_dict'])
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.feat_emb.to(self.device)
+        self.model.to(self.device)
+
+
+    @torch.no_grad()
+    def get_embeddings(self, from_checkpoint): # return embs on cpu!
+        if from_checkpoint:
+            self.load_model_state(self.checkpoint_path)
+
+        edge_index_1 = copy.deepcopy(self.osm_data.edge_index)
+
+        self.feat_emb.eval()
+        self.model.eval()
+        embs = torch.empty((0), device = self.device)
+
+        with torch.no_grad():
+            for i_batch, batch in enumerate(self.__train_data_generator_batchi(edge_index_1, None, shuffle = False)):
+                    
+                sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1 = batch
+                sub_seg_feats_1 = self.feat_emb(sub_seg_feats_1)
+
+                emb = self.model.encoder_q(sub_seg_feats_1, sub_edge_index_1)
+                emb = emb[mapping_to_origin_idx_1]
+                embs = torch.cat((embs, emb), 0)
+
+            embs = F.normalize(embs, dim = 1) # dim=0 feature norm, dim=1 obj norm
+            return embs
+        return None
+
+
+    @torch.no_grad()
+    def dump_embeddings(self, embs = None):
+        if embs == None:
+            embs = self.get_embeddings(True)
+        with open(self.embs_path, 'wb') as fh:
+            pickle.dump(embs, fh, protocol = pickle.HIGHEST_PROTOCOL)
+        logging.info('[dump embedding] done.')
+        return
+
+class Projector(nn.Module):
+    def __init__(self, nin, nhid, nout):
+        super(Projector, self).__init__()
+        self.mlp = nn.Sequential(nn.Linear(nin, nhid), 
+                                nn.ReLU(), 
+                                nn.Linear(nhid, nout))
+        self.reset_parameter()
+
+    def forward(self, x):
+        return self.mlp(x)
+
+    def reset_parameter(self):
+        def _weights_init(m):
+            if isinstance(m, nn.Linear):
+                torch.nn.init.xavier_normal_(m.weight, gain=1.414)
+                torch.nn.init.zeros_(m.bias)
+        
+        self.mlp.apply(_weights_init)
+    
+    
+# multi queue
+class MoCo(nn.Module):
     def __init__(self, nfeat, nemb, nout,
                 queue_size, nqueue, mmt = 0.999, temperature = 0.07):
-        super(MoCoMultiQ, self).__init__()
+        super(MoCo, self).__init__()
 
         self.queue_size = queue_size
         self.nqueue = nqueue
@@ -123,8 +408,7 @@ class MoCoMultiQ(nn.Module):
         neg_local = self.queues.queue[q_ids].clone().detach() # [batch, nfeat, queue_size]
         l_neg_local = torch.einsum('nc,nck->nk', q, neg_local) # [batch, queue_size]
 
-        neg_local_ids = self.queues.ids[q_ids].clone().detach() # [batch, queue_size]  同一个队列内的负样本，queues.ids存的就是elem_ids
-        # 可能当前elem_ids也在同一个队列内，但是这个是正样本，所以把这个去掉。
+        neg_local_ids = self.queues.ids[q_ids].clone().detach() # [batch, queue_size]
         l_neg_local[neg_local_ids == elem_ids.unsqueeze(1).repeat(1, neg_local_ids.shape[1])] = -9e15  # [batch, queue_size]
 
         neg_global = torch.mean(self.queues.queue.clone().detach(), dim = 2) # [nqueue, nfeat], readout
@@ -139,7 +423,7 @@ class MoCoMultiQ(nn.Module):
         logits_global /= self.temperature
 
         # labels: positive key indicators
-        labels_local = torch.zeros_like(l_pos_local, dtype = torch.long).squeeze(1) # [batch, ]
+        labels_local = torch.zeros_like(l_pos_local, dtype = torch.long).squeeze(1)
         labels_global = q_ids.clone().detach()
 
         # dequeue and enqueue
@@ -162,65 +446,10 @@ class MoCoMultiQ(nn.Module):
                     sfmax_global.gather(1, labels_global.view(-1,1))) # [batch, 1]
 
         loss_local = F.nll_loss(p_local, torch.zeros_like(labels_local))
-        loss_global = F.nll_loss(p_global, torch.zeros_like(labels_local))  # TODO: 是不是写错了
+        loss_global = F.nll_loss(p_global, torch.zeros_like(labels_local)) 
 
         return loss_local * w_local + loss_global * w_global
 
-
-class Projector(nn.Module):
-    def __init__(self, nin, nhid, nout):
-        super(Projector, self).__init__()
-        self.mlp = nn.Sequential(nn.Linear(nin, nhid), 
-                                nn.ReLU(), 
-                                nn.Linear(nhid, nout))
-        self.reset_parameter()
-
-    def forward(self, x):
-        return self.mlp(x)
-
-    def reset_parameter(self):
-        def _weights_init(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_normal_(m.weight, gain=1.414)
-                torch.nn.init.zeros_(m.bias)
-        
-        self.mlp.apply(_weights_init)
-
-import logging
-import torch
-import torch.nn as nn
-
-from config import Config as Config
-
-class FeatEmbedding(nn.Module):
-    def __init__(self, nwayid_code, nsegid_code, nhighway_code, 
-            nlength_code, nradian_code, nlon_code, nlat_code):
-            
-        super(FeatEmbedding, self).__init__()
-
-        logging.debug('FeatEmbedding args. {}, {}, {}, {}, {}, {}, {}'.format( \
-                        nwayid_code, nsegid_code, nhighway_code, nlength_code, \
-                        nradian_code, nlon_code, nlat_code))
-        
-        self.emb_highway = nn.Embedding(nhighway_code, Config.sarn_seg_feat_highwaycode_dim)
-        self.emb_length = nn.Embedding(nlength_code, Config.sarn_seg_feat_lengthcode_dim)
-        self.emb_radian = nn.Embedding(nradian_code, Config.sarn_seg_feat_radiancode_dim)
-        self.emb_lon = nn.Embedding(nlon_code, Config.sarn_seg_feat_lonlatcode_dim)
-        self.emb_lat = nn.Embedding(nlat_code, Config.sarn_seg_feat_lonlatcode_dim)
-
-    # inputs = [N, nfeat]
-    def forward(self, inputs):
-        return torch.cat( (
-                self.emb_highway(inputs[: , 2]),
-                self.emb_length(inputs[: , 3]),
-                self.emb_radian(inputs[: , 4]),
-                self.emb_lon(inputs[: , 5]),
-                self.emb_lat(inputs[: , 6]),
-                self.emb_lon(inputs[: , 7]),
-                self.emb_lat(inputs[: , 8])), dim = 1)
-        
-
-# multi queue
 class MomentumQueue(nn.Module):
 
     def __init__(self, nhid, queue_size, nqueue):
@@ -248,265 +477,10 @@ class MomentumQueue(nn.Module):
         ptr = (ptr + 1) % self.queue_size
         self.queue_ptr[q_id] = ptr
 
-
-
-
-
-class SARN(BaseEncoder):
-    def __init__(self):
-        self.osm_data = OSMLoader(Config.dataset_path, schema = 'SARN')
-        self.osm_data.load_data()
-        
-        self.seg_feats = self.osm_data.seg_feats
-        self.checkpoint_path = '{}/exp/snapshots/{}_SARN_best{}.pkl'.format(Config.root_dir, Config.dataset_prefix, Config.dumpfile_uniqueid)
-        self.embs_path = '{}/exp/snapshots/{}_SARN_best_embs{}.pickle'.format(Config.root_dir, Config.dataset_prefix, Config.dumpfile_uniqueid)
-        
-        self.feat_emb = FeatEmbedding(self.osm_data.count_wayid_code,
-                                    self.osm_data.count_segid_code,
-                                    self.osm_data.count_highway_cls,
-                                    self.osm_data.count_length_code,
-                                    self.osm_data.count_radian_code,
-                                    self.osm_data.count_s_lon_code,
-                                    self.osm_data.count_s_lat_code).to(Config.device)
-
-        self.model = MoCoMultiQ(nfeat = Config.sarn_seg_feat_dim,
-                                nemb = Config.sarn_embedding_dim, 
-                                nout = Config.sarn_out_dim,
-                                queue_size = Config.sarn_moco_each_queue_size,
-                                nqueue = self.osm_data.cellspace.lon_size * self.osm_data.cellspace.lat_size,
-                                temperature = Config.sarn_moco_temperature).to(Config.device)
-
-        logging.info('[Moco] total_queue_size={:.0f}, multi_side_length={:.0f}, '
-                        'multi_nqueues={}*{}, each_queue_size={}, real_total={}, local_weight={:.2f}' \
-                    .format(Config.sarn_moco_total_queue_size, \
-                            Config.sarn_moco_multi_queue_cellsidelen, \
-                            self.osm_data.cellspace.lon_size, \
-                            self.osm_data.cellspace.lat_size, \
-                            Config.sarn_moco_each_queue_size, \
-                            Config.sarn_moco_each_queue_size * self.osm_data.cellspace.lon_size * self.osm_data.cellspace.lat_size, \
-                            Config.sarn_moco_loss_local_weight))
-        
-        if Config.task_encoder_mode == 'finetune':
-            self.t_edge_index = copy.deepcopy(self.osm_data.edge_index.edges.T)
-            self.t_edge_index = torch.tensor(self.t_edge_index, dtype = torch.long, device = Config.device)
-
-        self.seg_id_to_idx = self.osm_data.seg_id_to_idx_in_adj_seg_graph
-        self.seg_idx_to_id = self.osm_data.seg_idx_to_id_in_adj_seg_graph
-        self.seg_id_to_cellid = dict(self.osm_data.segments.reset_index()[['inc_id','c_cellid']].values.tolist()) # contains those not legal segments
-        self.seg_idx_to_cellid = [-1] * len(self.seg_idx_to_id)
-        for _id, _cellid in self.seg_id_to_cellid.items():
-            _idx = self.seg_id_to_idx.get(_id, -1)
-            if _idx >= 0:
-                self.seg_idx_to_cellid[_idx] = _cellid
-        assert sum(filter(lambda x: x < 0, self.seg_idx_to_cellid)) == 0
-
-
-    def train(self):
-        # init model, loss, ...
-        # create adj
-        # 1. each epoch
-        #   generate augmented graph (adj) 
-        # 2. each batch
-        #   select a batch nodes in whole graph
-        #   generate sub_adj, then sub_adj -> sub_edge_index
-        #   train
-
-        training_starttime = time.time()
-        training_gpu_usage = training_ram_usage = 0.0
-        logging.info("[Training] START! timestamp={:.0f}".format(training_starttime))
-        torch.autograd.set_detect_anomaly(True)
-        
-        optimizer = torch.optim.Adam(list(self.model.parameters()) + list(self.feat_emb.parameters()), 
-                                        lr = Config.sarn_learning_rate,
-                                        weight_decay = Config.sarn_learning_weight_decay)
-        
-        best_loss_train = 100000
-        best_epoch = 0
-        bad_counter = 0
-        bad_patience = Config.sarn_training_bad_patience
-
-        for i_ep in range(Config.sarn_epochs):
-            _time_ep = time.time()
-            loss_ep = []
-            train_gpu = []
-            train_ram = []
-
-            self.feat_emb.train()
-            self.model.train()
-
-            if Config.sarn_learning_rated_adjusted:
-                tool_funcs.adjust_learning_rate(optimizer, Config.sarn_learning_rate, i_ep, Config.sarn_epochs)
-            
-            # drop edges from edge_index
-            edge_index_1 = copy.deepcopy(self.osm_data.edge_index)
-            edge_index_1 = graph_aug_edgeindex(edge_index_1)
-
-            edge_index_2 = copy.deepcopy(self.osm_data.edge_index)
-            edge_index_2 = graph_aug_edgeindex(edge_index_2)
-
-            for i_batch, batch in enumerate(self.__train_data_generator_batchi(edge_index_1, edge_index_2, shuffle = True)):
-                _time_batch = time.time()
-                
-                optimizer.zero_grad()
-                (sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1), \
-                        (sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2), \
-                        sub_seg_ids, sub_cellids = batch
-
-                sub_seg_feats_1 = self.feat_emb(sub_seg_feats_1)
-                sub_seg_feats_2 = self.feat_emb(sub_seg_feats_2)
-
-                model_rtn = self.model(sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1, \
-                                        sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2, \
-                                        sub_cellids, sub_seg_ids)
-                loss = self.model.loss_mtl(*model_rtn, Config.sarn_moco_loss_local_weight, Config.sarn_moco_loss_global_weight)
-
-                loss.backward()
-                optimizer.step()
-                loss_ep.append(loss.item())
-                train_gpu.append(tool_funcs.GPUInfo.mem()[0])
-                train_ram.append(tool_funcs.RAMInfo.mem())
-
-                if i_batch % 50 == 0:
-                    logging.debug("[Training] ep-batch={}-{}, loss={:.3f}, @={:.3f}, gpu={}, ram={}" \
-                            .format(i_ep, i_batch, loss.item(), time.time() - _time_batch, \
-                                    tool_funcs.GPUInfo.mem(), tool_funcs.RAMInfo.mem()))
-
-
-            loss_ep_avg = tool_funcs.mean(loss_ep)
-            logging.info("[Training] ep={}: avg_loss={:.3f}, @={:.3f}, gpu={}, ram={}" \
-                    .format(i_ep, loss_ep_avg, time.time() - _time_ep, tool_funcs.GPUInfo.mem(), tool_funcs.RAMInfo.mem()))
-            
-            training_gpu_usage = tool_funcs.mean(train_gpu)
-            training_ram_usage = tool_funcs.mean(train_ram)
-
-            # early stopping
-            if loss_ep_avg < best_loss_train:
-                best_epoch = i_ep
-                best_loss_train = loss_ep_avg
-                bad_counter = 0
-                torch.save({'model_state_dict': self.model.state_dict(),
-                            'feat_emb_state_dict': self.feat_emb.state_dict()},
-                            self.checkpoint_path)
-            else:
-                bad_counter += 1
-
-            if bad_counter == bad_patience or (i_ep + 1) == Config.sarn_epochs:
-                logging.info("[Training] END! best_epoch={}, best_loss_train={:.6f}" \
-                            .format(best_epoch, best_loss_train))
-                break
-        
-        return {'enc_train_time': time.time()-training_starttime, \
-                'enc_train_gpu': training_gpu_usage, \
-                'enc_train_ram': training_ram_usage}
-
-
-    def test(self):
-        pass
-
-
-    def finetune_forward(self, sub_seg_idxs, is_training: bool):
-        if is_training:
-            self.feat_emb.train()
-            self.model.train()
-            embs = self.model.encoder_q(self.feat_emb(self.seg_feats), self.t_edge_index)[sub_seg_idxs]
-
-        else:
-            with torch.no_grad():
-                self.feat_emb.eval()
-                self.model.eval()
-                embs = self.model.encoder_q(self.feat_emb(self.seg_feats), self.t_edge_index)[sub_seg_idxs]
-        return embs
-
-
-    def __train_data_generator_batchi(self, edge_index_1: EdgeIndex, \
-                                            edge_index_2: typing.Union[EdgeIndex, None], \
-                                            shuffle = True):
-        cur_index = 0
-        n_segs = len(self.seg_idx_to_id)
-        seg_idxs = list(range(n_segs))
-
-        if shuffle: # for training
-            random.shuffle(seg_idxs)
-
-        while cur_index < n_segs:
-            end_index = cur_index + Config.sarn_batch_size \
-                            if cur_index + Config.sarn_batch_size < n_segs \
-                            else n_segs
-            sub_seg_idx = seg_idxs[cur_index: end_index]
-
-            sub_edge_index_1, new_x_idx_1, mapping_to_origin_idx_1 = \
-                                edge_index_1.sub_edge_index(sub_seg_idx)
-            sub_seg_feats_1 = self.seg_feats[new_x_idx_1]
-            sub_edge_index_1 = torch.tensor(sub_edge_index_1, dtype = torch.long, device = Config.device)
-            
-            if edge_index_2 != None:
-                sub_edge_index_2, new_x_idx_2, mapping_to_origin_idx_2 = \
-                                    edge_index_2.sub_edge_index(sub_seg_idx)
-                sub_seg_feats_2 = self.seg_feats[new_x_idx_2]
-                sub_edge_index_2 = torch.tensor(sub_edge_index_2, dtype = torch.long, device = Config.device)
-
-                sub_seg_ids = [self.seg_idx_to_id[idx] for idx in sub_seg_idx]
-                sub_cellids = [self.seg_idx_to_cellid[idx] for idx in sub_seg_idx]
-                sub_seg_ids = torch.tensor(sub_seg_ids, dtype = torch.long, device = Config.device)
-                sub_cellids = torch.tensor(sub_cellids, dtype = torch.long, device = Config.device)
-                
-                yield (sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1), \
-                        (sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2), \
-                        sub_seg_ids, sub_cellids
-            else:
-                yield sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1
-
-            cur_index = end_index
-    
-
-    @torch.no_grad()
-    def load_model_state(self, f_path):
-        checkpoint = torch.load(f_path)
-        self.feat_emb.load_state_dict(checkpoint['feat_emb_state_dict'])
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.feat_emb.to(Config.device)
-        self.model.to(Config.device)
-
-
-    @torch.no_grad()
-    def get_embeddings(self, from_checkpoint): # return embs on cpu!
-        if from_checkpoint:
-            self.load_model_state(self.checkpoint_path)
-
-        edge_index_1 = copy.deepcopy(self.osm_data.edge_index)
-
-        self.feat_emb.eval()
-        self.model.eval()
-        embs = torch.empty((0), device = Config.device)
-
-        with torch.no_grad():
-            for i_batch, batch in enumerate(self.__train_data_generator_batchi(edge_index_1, None, shuffle = False)):
-                    
-                sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1 = batch
-                sub_seg_feats_1 = self.feat_emb(sub_seg_feats_1)
-
-                emb = self.model.encoder_q(sub_seg_feats_1, sub_edge_index_1)
-                emb = emb[mapping_to_origin_idx_1]
-                embs = torch.cat((embs, emb), 0)
-
-            embs = F.normalize(embs, dim = 1) # dim=0 feature norm, dim=1 obj norm
-            return embs
-        return None
-
-
-    @torch.no_grad()
-    def dump_embeddings(self, embs = None):
-        if embs == None:
-            embs = self.get_embeddings(True)
-        with open(self.embs_path, 'wb') as fh:
-            pickle.dump(embs, fh, protocol = pickle.HIGHEST_PROTOCOL)
-        logging.info('[dump embedding] done.')
-        return
-
-
 def graph_aug_edgeindex(edge_index: EdgeIndex):
     # 1. sample to-be-removed edges by weights respectively
     # 2. union all these to-be-removed edges in one set
+    sarn_break_edge_topo_prob = 0.4
 
     _time = time.time()
     n_ori_edges = edge_index.length()
@@ -524,7 +498,7 @@ def graph_aug_edgeindex(edge_index: EdgeIndex):
     edges_topo_weight = edges_topo_weight.tolist()
 
     edges_idxs_to_remove = set(np.random.choice(n_ori_edges, p = edges_topo_weight, \
-                                                size = int(Config.sarn_break_edge_topo_prob * n_topo), \
+                                                size = int(sarn_break_edge_topo_prob * n_topo), \
                                                 replace = False))
     n_topo_remove = len(edges_idxs_to_remove)
 
@@ -536,3 +510,32 @@ def graph_aug_edgeindex(edge_index: EdgeIndex):
                             n_topo_remove, n_spatial_remove, edge_index.length() ))
 
     return edge_index
+
+class GAT(nn.Module):
+    def __init__(self, nfeat, nhid, nout, nhead, nlayer = 1):
+        super(GAT, self).__init__()
+        assert nlayer >= 1
+
+        self.nlayer = nlayer
+        self.layers = nn.ModuleList()
+        self.layers.append(GATConv(nfeat, nhid, heads = nhead, 
+                                    dropout = 0.2, negative_slope = 0.2))
+        for _ in range(nlayer - 1):
+            self.layers.append(GATConv(nhid * nhead, nhid, heads = nhead, 
+                                    dropout = 0.2, negative_slope = 0.2))
+        self.layer_out = GATConv(nhead * nhid, nout, heads = 1, concat=False,
+                            dropout = 0.2, negative_slope = 0.2)
+
+    # x = [2708, 1433]
+    # edge_index = [2, 10556], pair-wise adj edges
+    def forward(self, x, edge_index):
+
+        for l in range(self.nlayer):
+            x = F.dropout(x, p = 0.2, training = self.training)
+            x = self.layers[l](x, edge_index)
+            x = F.elu(x)
+        # output projection
+        x = F.dropout(x, p = 0.2, training = self.training)
+        x = self.layer_out(x, edge_index)
+
+        return x
