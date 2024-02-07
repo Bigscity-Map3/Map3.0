@@ -11,10 +11,13 @@ class HyperRoad(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.device = config.get('device')
+        self.exp_id = config.get('exp_id', None)
+        self.model = config.get('model', '')
+        self.dataset = config.get('dataset', '')
         self.dataloader = data_feature.get('dataloader')
         self.num_nodes = data_feature.get("num_nodes")
-        self.num_class = data_feature.num_classes
-        self.emb_size = config.get('emb_size')
+        self.num_class = data_feature.get("num_classes")
+        self.emb_size = config.get('embed_dim',128)
         self.agg = config.get('agg')
         self.layer_num = config.get('layer_num')
         self.lamb = config.get('lamb')
@@ -22,30 +25,35 @@ class HyperRoad(AbstractTraditionModel):
         self.with_p = config.get('with_p')
         self.one_hot_dim = data_feature.get('one_hot_dim')
         self.lane_cls_num = data_feature.get('lane_cls_num')
+        
         self.speed_cls_num = data_feature.get('speed_cls')
         self.oneway_cls_num = data_feature.get('oneway_cls')
         self.epoches = config.get('epoches')
         self.lr = config.get('learning_rate')
         self.weight_decay = config.get('weight_decay')
+        self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
+            format(self.exp_id, self.model, self.dataset, self.emb_size)
+        self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
+            format(self.exp_id, self.model, self.dataset, self.emb_size)
 
-        self.network = PEHyper(num_nodes=self.num_roads, num_classes=self.num_class,out_emb_dim=self.emb_size, device=self.device, agg_method=self.agg,
-                layer_num=self.layer_num, lamb=self.lamb, gama=self.gama, with_p=self.with_p,one_hot_dim=self.one_hot_dim,lane_cls_num=self.lanes_cls,speed_cls_num=self.speed_cls,oneway_cls_num=self.oneway_cls)
-        
-        self.network.set_paras(data_feature.input_x,data_feature.coords,data_feature.onehot_input_feats,data_feature.norm_GG,data_feature.norm_HG,data_feature.norm_HH)
+        self.network = PEHyper(num_nodes=self.num_nodes, num_classes=self.num_class,out_emb_dim=self.emb_size, device=self.device, agg_method=self.agg,
+                layer_num=self.layer_num, lamb=self.lamb, gama=self.gama, with_p=self.with_p,one_hot_dim=self.one_hot_dim,lane_cls_num=self.lane_cls_num,speed_cls_num=self.speed_cls_num,oneway_cls_num=self.oneway_cls_num)
+        self.network=self.network.to(self.device)
+        self.network.set_paras(data_feature.get("input_x"),data_feature.get("c"),data_feature.get("onehot_input_feats"),data_feature.get("norms")[0],data_feature.get("norms")[1],data_feature.get("norms")[2])
 
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
     def forward(self, batch):
         return self.network(batch)
     
-    def run(self, data):
+    def run(self, data=None):
         start_time = time.time()
         for epoch in range(self.epoches):
             loss_data = 0.0
             gnn_loss_data = 0.0
             hgnn_loss_data = 0.0
             tag_loss_data = 0.0
-            for i_batch, sample_batched in enumerate(data):
+            for i_batch, sample_batched in enumerate(self.dataloader):
                 anchor = sample_batched['anchor'].to(self.device)
                 pos_edge = sample_batched['pos_edge'].to(self.device)
                 neg_edges = sample_batched['neg_edges'].to(self.device)
@@ -73,6 +81,10 @@ class HyperRoad(AbstractTraditionModel):
             
         t1 = time.time()-start_time
         print('cost time is '+str(t1/self.epoches))
+        node_embedding,_ = self.update()
+        node_embedding=node_embedding.cpu().detach().numpy()
+        np.save(self.road_embedding_path,node_embedding)
+        torch.save((self.network.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
     
     def static_embedding(self):
         road_emb, hyper_emb=self.update()
@@ -577,12 +589,12 @@ class PEHyper(nn.Module):
         self.oneway_cls_fc = nn.Linear(out_emb_dim, oneway_cls_num)
 
     def set_paras(self, input_x, c, onehot_input_feats, norm_GG, norm_HH, norm_HG):
-        self.input_x = input_x
-        self.c = c
-        self.onehot_input_feats = onehot_input_feats
-        self.norm_GG = norm_GG
-        self.norm_HH = norm_HH
-        self.norm_HG = norm_HG
+        self.input_x = input_x.to(self.device)
+        self.c = c.to(self.device)
+        self.onehot_input_feats = onehot_input_feats.to(self.device)
+        self.norm_GG = norm_GG.to(self.device)
+        self.norm_HH = norm_HH.to(self.device)
+        self.norm_HG = norm_HG.to(self.device)
 
     def conv(self, x):
         for layer in self.layers:
