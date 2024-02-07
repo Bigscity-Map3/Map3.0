@@ -14,6 +14,10 @@ from logging import getLogger
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
 
 
+FType = torch.FloatTensor
+LType = torch.LongTensor
+
+
 class SAEncoder(nn.Module):
 
     def __init__(self, d_input, d_model, n_head, _type):
@@ -124,9 +128,8 @@ class POI_SSL(torch.nn.Module):
         self.neg_size = neg_size
         self.emb_size = emb_size
         self.attention_size = attention_size
-        self.bin_num = 10
 
-        self.poi_num = self.ssl_data.num_pos
+        self.poi_num = self.ssl_data['num_pois']
         self.temp = temp
 
         self.extractor = extractor
@@ -137,17 +140,18 @@ class POI_SSL(torch.nn.Module):
             self.poi_net = torch.nn.Sequential(
                 nn.Conv1d(in_channels=1, out_channels=4, kernel_size=7),
                 Flatten(),
-                nn.Linear(964, self.emb_size)
+                nn.Linear((self.ssl_data['num_poi_types'] - 6) * 4, self.emb_size)
+                # (x - kernel_size + 1) * out_channels
             ).to(self.device)
 
         if self.extractor == "MLP":
             self.poi_net = torch.nn.Sequential(
-                nn.Linear(247, self.emb_size),
+                nn.Linear(self.ssl_data['num_poi_types'], self.emb_size),
                 nn.ReLU(),
             ).to(self.device)
 
         if self.extractor == "SA":
-            self.poi_net = SAEncoder(d_input=247, d_model=16, n_head=3).to(self.device)
+            self.poi_net = SAEncoder(d_input=self.ssl_data['num_poi_types'], d_model=16, n_head=3).to(self.device)
 
     def generate_attention(self, W_parents, W_children, mask):
         _input = torch.cat([W_parents, W_children], dim=2)
@@ -169,15 +173,13 @@ class POI_SSL(torch.nn.Module):
         return attention
 
     def agg_region_emb(self, poi_set):
-        p_node_dict = self.ssl_data.region_dict[0]["node_dict"]
-        poi_f = np.zeros(len(p_node_dict))
+        poi_f = np.zeros(self.ssl_data['num_poi_types'])
         for poi in poi_set:
-            poi_id = poi[0]
-            poi_f[poi_id] += 1
+            poi_f[poi] += 1
 
         if np.sum(poi_f) != 0:
             poi_f = poi_f / np.sum(poi_f)
-        poi_f = torch.Tensor(poi_f).type(FType).to(device)
+        poi_f = torch.Tensor(poi_f).type(FType).to(self.device)
 
         if self.extractor == "CNN":
             poi_f = poi_f.unsqueeze(0)
@@ -220,16 +222,18 @@ class POI_SSL(torch.nn.Module):
             new_poi = poi
             ratio = random.random()
             if ratio < _ratio:
-                new_poi[0] = random.randint(0, self.ssl_data.num_pos - 1)
+                new_poi[0] = random.randint(0, self.ssl_data['num_pois'] - 1)
             replace_poi_set.append(new_poi)
         return replace_poi_set
 
     def positive_sampling(self, region_id):
-        poi_set, _ = self.ssl_data.get_region(region_id)
+        # TODO：Region 可能没有 POI，导致只能使用 add_aug
+        poi_set = self.ssl_data['region_dict'][region_id]['poi']
 
         de_poi_set = []
         for ratio in [0.1]:
-            de_poi_set.append(self.delete_aug(poi_set, ratio))
+            # de_poi_set.append(self.delete_aug(poi_set, ratio))
+            de_poi_set.append(self.add_aug(poi_set, ratio))
 
         add_poi_set = []
         for ratio in [0.1]:
@@ -237,7 +241,8 @@ class POI_SSL(torch.nn.Module):
 
         re_poi_set = []
         for ratio in [0.1]:
-            re_poi_set.append(self.replace_aug(poi_set, ratio))
+            # re_poi_set.append(self.replace_aug(poi_set, ratio))
+            re_poi_set.append(self.add_aug(poi_set, ratio))
 
         pos_poi_sets = de_poi_set + add_poi_set + re_poi_set
 
@@ -245,45 +250,41 @@ class POI_SSL(torch.nn.Module):
 
     def negative_sampling(self, region_id):
         sampling_pool = []
-        for _id in self.ssl_data.sampling_pool:
+        for _id in self.ssl_data['sampling_pool']:
             if _id == region_id:
                 continue
             sampling_pool.append(_id)
 
-        p = self.ssl_data.rs_ratio["model_poi"][region_id]
+        p = self.ssl_data['model_poi'][region_id]
         neg_region_ids = np.random.choice(sampling_pool, self.neg_size, replace=False, p=p)
 
         neg_poi_sets = []
         for neg_region_id in neg_region_ids:
-            poi_set, _ = self.ssl_data.get_region(neg_region_id)
+            poi_set = self.ssl_data['region_dict'][neg_region_id]['poi']
             neg_poi_sets.append(poi_set)
 
         return neg_poi_sets
 
     def forward(self, poi_set, pos_poi_sets, neg_poi_sets):
-
-        # W_emb_temp = self.tree_gcn()
-        W_emb_temp = self.W_poi
-
-        base_region_emb = self.agg_region_emb(poi_set, W_emb_temp)
+        base_region_emb = self.agg_region_emb(poi_set)
 
         pos_region_emb_list = []
         for pos_poi_set in pos_poi_sets:
-            pos_region_emb = self.agg_region_emb(pos_poi_set, W_emb_temp)
+            pos_region_emb = self.agg_region_emb(pos_poi_set)
             pos_region_emb_list.append(pos_region_emb.unsqueeze(0))
         pos_region_emb = torch.cat(pos_region_emb_list, dim=0)
 
         neg_region_emb_list = []
         for neg_poi_set in neg_poi_sets:
-            neg_region_emb = self.agg_region_emb(neg_poi_set, W_emb_temp)
+            neg_region_emb = self.agg_region_emb(neg_poi_set)
             neg_region_emb_list.append(neg_region_emb.unsqueeze(0))
         neg_region_emb = torch.cat(neg_region_emb_list, dim=0)
 
         pos_scores = torch.matmul(pos_region_emb, base_region_emb)
-        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(device)
+        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(self.device)
 
         neg_scores = torch.matmul(neg_region_emb, base_region_emb)
-        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(device)
+        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(self.device)
 
         scores = torch.cat([pos_scores, neg_scores])
         labels = torch.cat([pos_label, neg_label])
@@ -294,7 +295,7 @@ class POI_SSL(torch.nn.Module):
         return loss, base_region_emb, neg_region_emb
 
     def model_train(self, region_id):
-        poi_set, _ = self.ssl_data.get_region(region_id)
+        poi_set = self.ssl_data['region_dict'][region_id]['poi']
         pos_poi_sets = self.positive_sampling(region_id)
         neg_poi_sets = self.negative_sampling(region_id)
 
@@ -304,9 +305,9 @@ class POI_SSL(torch.nn.Module):
 
     def get_emb(self):
         output = []
-        for region_id in self.ssl_data.sampling_pool:
-            poi_set, _ = self.ssl_data.get_region(region_id)
-            region_emb = self.agg_region_emb(poi_set, self.W_poi)
+        for region_id in self.ssl_data['sampling_pool']:
+            poi_set = self.ssl_data['region_dict'][region_id]['poi']
+            region_emb = self.agg_region_emb(poi_set)
 
             output.append(region_emb.detach().cpu().numpy())
         return np.array(output)
@@ -314,10 +315,11 @@ class POI_SSL(torch.nn.Module):
 
 class FLOW_SSL(torch.nn.Module):
 
-    def __init__(self, ssl_data, neg_size, emb_size, temp, time_zone, extractor):
+    def __init__(self, ssl_data, neg_size, emb_size, temp, time_zone, extractor, device):
         super(FLOW_SSL, self).__init__()
 
         self.ssl_data = ssl_data
+        self.device = device
         self.init_basic_conf(neg_size, emb_size, temp, time_zone, extractor)
 
     def init_basic_conf(self, neg_size, emb_size, temp, time_zone, extractor):
@@ -332,29 +334,31 @@ class FLOW_SSL(torch.nn.Module):
             self.pickup_net = torch.nn.Sequential(
                 nn.Conv1d(in_channels=self.time_zone, out_channels=4, kernel_size=7),
                 Flatten(),
-                nn.Linear(1056, self.emb_size)
-            ).to(device)
+                nn.Linear((self.ssl_data['num_regions'] - 6) * 4, self.emb_size)
+            ).to(self.device)
 
             self.dropoff_net = torch.nn.Sequential(
                 nn.Conv1d(in_channels=self.time_zone, out_channels=4, kernel_size=7),
                 Flatten(),
-                nn.Linear(1056, self.emb_size)
-            ).to(device)
+                nn.Linear((self.ssl_data['num_regions'] - 6) * 4, self.emb_size)
+            ).to(self.device)
 
         if self.extractor == "MLP":
             self.pickup_net = torch.nn.Sequential(
-                nn.Linear(270, self.emb_size),
+                nn.Linear(self.ssl_data['num_regions'], self.emb_size),
                 nn.ReLU(),
-            ).to(device)
+            ).to(self.device)
 
             self.dropoff_net = torch.nn.Sequential(
-                nn.Linear(270, self.emb_size),
+                nn.Linear(self.ssl_data['num_regions'], self.emb_size),
                 nn.ReLU(),
-            ).to(device)
+            ).to(self.device)
 
         if self.extractor == "SA":
-            self.pickup_net = SAEncoder(d_input=270, d_model=16, n_head=3).to(device)
-            self.dropoff_net = SAEncoder(d_input=270, d_model=16, n_head=3).to(device)
+            self.pickup_net = \
+                SAEncoder(d_input=self.ssl_data['num_regions'], d_model=16, n_head=3, _type='avg').to(self.device)
+            self.dropoff_net = \
+                SAEncoder(d_input=self.ssl_data['num_regions'], d_model=16, n_head=3, _type='avg').to(self.device)
 
     def gaussian_noise(self, matrix, mean=0, sigma=0.03):
         matrix = matrix.copy()
@@ -368,7 +372,7 @@ class FLOW_SSL(torch.nn.Module):
 
     def positive_sampling(self, region_id):
         pos_flow_sets = []
-        _, flow_matrix = self.ssl_data.get_region(region_id)
+        flow_matrix = self.ssl_data['matrix_dict'][region_id]
         pickup_matrix, dropoff_matrix = flow_matrix
 
         for sigma in [0.0001, 0.0001, 0.0001, 0.0001]:
@@ -380,17 +384,17 @@ class FLOW_SSL(torch.nn.Module):
 
     def negative_sampling(self, region_id):
         sampling_pool = []
-        for _id in self.ssl_data.sampling_pool:
+        for _id in self.ssl_data['sampling_pool']:
             if _id == region_id:
                 continue
             sampling_pool.append(_id)
 
-        p = self.ssl_data.rs_ratio["model_flow"][region_id]
+        p = self.ssl_data['model_flow'][region_id]
         neg_region_ids = np.random.choice(sampling_pool, self.neg_size, replace=False, p=p)
 
         neg_flow_sets = []
         for neg_region_id in neg_region_ids:
-            _, flow_matrix = self.ssl_data.get_region(neg_region_id)
+            flow_matrix = self.ssl_data['matrix_dict'][neg_region_id]
             neg_flow_sets.append(flow_matrix)
 
         return neg_flow_sets
@@ -400,30 +404,30 @@ class FLOW_SSL(torch.nn.Module):
         dropoff_matrix = flow_matrix[1]
 
         if self.extractor == "CNN":
-            pickup_matrix = torch.from_numpy(pickup_matrix).type(FType).to(device)
+            pickup_matrix = torch.from_numpy(pickup_matrix).type(FType).to(self.device)
             pickup_matrix = pickup_matrix.unsqueeze(0)
             pickup_emb = self.pickup_net(pickup_matrix)
 
-            dropoff_matrix = torch.from_numpy(dropoff_matrix).type(FType).to(device)
+            dropoff_matrix = torch.from_numpy(dropoff_matrix).type(FType).to(self.device)
             dropoff_matrix = dropoff_matrix.unsqueeze(0)
             dropoff_emb = self.dropoff_net(dropoff_matrix)
 
         if self.extractor == "MLP":
             pickup_matrix = np.sum(pickup_matrix, axis=0)
-            pickup_matrix = torch.from_numpy(pickup_matrix).type(FType).to(device)
+            pickup_matrix = torch.from_numpy(pickup_matrix).type(FType).to(self.device)
             pickup_emb = self.pickup_net(pickup_matrix)
 
             dropoff_matrix = np.sum(dropoff_matrix, axis=0)
-            dropoff_matrix = torch.from_numpy(dropoff_matrix).type(FType).to(device)
+            dropoff_matrix = torch.from_numpy(dropoff_matrix).type(FType).to(self.device)
             dropoff_emb = self.dropoff_net(dropoff_matrix)
 
         if self.extractor == "SA":
             pickup_matrix = np.sum(pickup_matrix, axis=0)
-            pickup_matrix = torch.from_numpy(pickup_matrix).type(FType).to(device)
+            pickup_matrix = torch.from_numpy(pickup_matrix).type(FType).to(self.device)
             pickup_emb = self.pickup_net(pickup_matrix)
 
             dropoff_matrix = np.sum(dropoff_matrix, axis=0)
-            dropoff_matrix = torch.from_numpy(dropoff_matrix).type(FType).to(device)
+            dropoff_matrix = torch.from_numpy(dropoff_matrix).type(FType).to(self.device)
             dropoff_emb = self.dropoff_net(dropoff_matrix)
 
         # region_emb = torch.cat([pickup_emb, dropoff_emb], dim=1).squeeze()
@@ -448,10 +452,10 @@ class FLOW_SSL(torch.nn.Module):
         neg_region_emb = torch.cat(neg_region_emb_list, dim=0)
 
         pos_scores = torch.matmul(pos_region_emb, base_region_emb)
-        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(device)
+        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(self.device)
 
         neg_scores = torch.matmul(neg_region_emb, base_region_emb)
-        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(device)
+        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(self.device)
 
         scores = torch.cat([pos_scores, neg_scores])
         labels = torch.cat([pos_label, neg_label])
@@ -462,7 +466,7 @@ class FLOW_SSL(torch.nn.Module):
 
     def model_train(self, region_id):
 
-        _, flow_matrix = self.ssl_data.get_region(region_id)
+        flow_matrix = self.ssl_data['matrix_dict'][region_id]
         pos_flow_sets = self.positive_sampling(region_id)
         neg_flow_sets = self.negative_sampling(region_id)
 
@@ -472,8 +476,8 @@ class FLOW_SSL(torch.nn.Module):
 
     def get_emb(self):
         output = []
-        for region_id in self.ssl_data.sampling_pool:
-            _, flow_matrix = self.ssl_data.get_region(region_id)
+        for region_id in self.ssl_data['sampling_pool']:
+            flow_matrix = self.ssl_data['matrix_dict'][region_id]
             region_emb = self.agg_region_emb(flow_matrix)
 
             output.append(region_emb.detach().cpu().numpy())
@@ -484,24 +488,23 @@ class ReMVC(AbstractTraditionModel):
 
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
-        device = self.config.get('device')
-        extractor = self.config.get('extractor', 'random')
-
-        size = self.config.get('embedding_size', 16)
-        mutual_reg = self.config.get('mutual', 1.0)
-        poi_reg = self.config.get('reg', 0.0001)
+        self.device = config.get('device')
+        extractor = config.get('extractor', 'random')
+        size = config.get('embedding_size', 16)
+        mutual_reg = config.get('mutual', 1.0)
+        poi_reg = config.get('reg', 0.0001)
         self._logger = getLogger()
-        self.ssl_data = SSLData()
+        self.ssl_data = data_feature
         self.poi_model = POI_SSL(self.ssl_data, neg_size=10, emb_size=size, attention_size=16, temp=0.08,
-                                 extractor=extractor).to(device)
+                                 extractor=extractor, device=self.device).to(self.device)
         self.flow_model = FLOW_SSL(self.ssl_data, neg_size=150, emb_size=size, temp=0.08, time_zone=48,
-                                   extractor=extractor).to(device)
+                                   extractor=extractor, device=self.device).to(self.device)
 
-        self.epoch = self.config.get('epoch', 200)
-        self.learning_rate = self.config.get('learning_rate', 0.001)
+        self.epoch = config.get('epoch', 200)
+        self.learning_rate = config.get('learning_rate', 0.001)
         self.mutual_reg = mutual_reg
         self.poi_reg = poi_reg
-        self.mutual_neg_size = self.config.get('mutual_neg_size', 5)
+        self.mutual_neg_size = config.get('mutual_neg_size', 5)
         self.emb_size = size
         self.init_basic_conf()
 
@@ -510,13 +513,24 @@ class ReMVC(AbstractTraditionModel):
                                                        {"params": self.flow_model.dropoff_net.parameters()},
                                                        {"params": self.mutual_net.parameters()}], weight_decay=1e-5)
 
+        self.output_dim = size * 2
+        self.model = config.get('model')
+        self.dataset = config.get('dataset')
+        self.exp_id = config.get('exp_id')
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+
     def init_basic_conf(self):
-        self.mutual_net = torch.nn.Sequential(nn.Linear(self.emb_size * 2, 1)).to(device)
+        self.mutual_net = torch.nn.Sequential(nn.Linear(self.emb_size * 2, 1)).to(self.device)
 
     def forward(self, base_poi_emb, base_flow_emb, neg_poi_emb, neg_flow_emb):
         pos_emb = torch.cat([base_poi_emb, base_flow_emb])
         pos_scores = self.mutual_net(pos_emb)
-        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(device)
+        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(self.device)
 
         weights = torch.ones(neg_poi_emb.size()[0])
         _indexs = torch.multinomial(weights, self.mutual_neg_size)
@@ -532,7 +546,7 @@ class ReMVC(AbstractTraditionModel):
 
         neg_emb = torch.cat([neg_emb_p, neg_emb_f], dim=0)
         neg_scores = self.mutual_net(neg_emb).squeeze()
-        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(device)
+        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(self.device)
 
         scores = torch.cat([pos_scores, neg_scores])
         labels = torch.cat([pos_label, neg_label])
@@ -545,7 +559,7 @@ class ReMVC(AbstractTraditionModel):
         for epoch in range(self.epoch):
             self.loss = 0.0
 
-            for region_id in self.ssl_data.sampling_pool:
+            for region_id in self.ssl_data['sampling_pool']:
                 poi_loss, base_poi_emb, neg_poi_emb = self.poi_model.model_train(region_id)
                 flow_loss, base_flow_emb, neg_flow_emb = self.flow_model.model_train(region_id)
                 mutual_loss = self.forward(base_poi_emb, base_flow_emb, neg_poi_emb, neg_flow_emb)
@@ -557,22 +571,9 @@ class ReMVC(AbstractTraditionModel):
                 loss.backward()
                 self.opt.step()
 
-            print("=============================> iter epoch", epoch)
-            print("avg loss = " + str(self.loss))
-
-            if epoch >= 150:
-                self.test()
-                fw.write("=============================> iter epoch " + str(epoch) + "\n")
-                fw.write("avg loss = " + str(self.loss) + "\n")
-
-    def get_emb(self):
+            self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, self.loss))
+        
         output_flow = self.flow_model.get_emb()
         output_poi = self.poi_model.get_emb()
         output = np.concatenate((output_flow, output_poi), axis=1)
-        return output
-
-    def test(self):
-        output = self.get_emb()
-        lu_classify(output, fw, _type="con")
-        predict_popus(output, fw)
-        fw.flush()
+        np.save(self.npy_cache_file, output)

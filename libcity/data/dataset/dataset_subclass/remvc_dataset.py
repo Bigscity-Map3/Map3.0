@@ -20,17 +20,6 @@ def convert_to_seconds_in_day(time_string):
 
 
 class ReMVCDataset(TrafficRepresentationDataset):
-    """
-    region_dict
-    poi id ？？似乎没用
-    node_dict 只用长度
-    pickup_matrix 时间片 * region 数 flow
-    dropoff_matrix 时间片 * region 数 flow
-
-    rs_ratio
-    model_poi 负采样概率 region 数 -1 （除去自己）
-    model_flow 负采样概率 region 数 -1 （除去自己）
-    """
     def __init__(self, config):
         self.config = config
         super().__init__(config)
@@ -46,23 +35,26 @@ class ReMVCDataset(TrafficRepresentationDataset):
             os.mkdir('./libcity/cache/ReMVC_{}'.format(self.dataset))
 
         self.get_region_dict()
-        # self.sampling_pool = [i for i in range(len(self.region_dict))]
-        # self.rs_ratio = self.get_rs_ratio()
+        self.get_model_poi()
+        self.get_model_flow()
+        self.get_matrix_dict()
 
     def get_region_dict(self):
+        self._logger.info('Begin get_region_dict')
         region_dict = {}
         time_slices_num = self.config.get('time_slices_num', 48)
         for i in range(self.num_regions):
             region_dict[i] = {
                 'poi': [],
-                'pickup_matrix': [[0] * self.num_regions for _ in range(time_slices_num)],
-                'dropoff_matrix': [[0] * self.num_regions for _ in range(time_slices_num)]
+                'pickup_matrix': np.array([[0] * self.num_regions for _ in range(time_slices_num)]),
+                'dropoff_matrix': np.array([[0] * self.num_regions for _ in range(time_slices_num)])
             }
 
         # poi
         poi_dict = {}
         poi_df = self.geofile[self.geofile['traffic_type'] == 'poi']
         poi_map = gen_index_map(poi_df, 'function')
+        self.num_poi_types = len(poi_map)
         for _, row in poi_df.iterrows():
             poi_dict[row['geo_id']] = poi_map[row['function']]
         for _, row in self.region2poi.iterrows():
@@ -73,7 +65,10 @@ class ReMVCDataset(TrafficRepresentationDataset):
         # matrix
         dyna_df = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
         lst_poi, lst_dyna = None, None
+        # self._logger.info('Total {}'.format(len(dyna_df)))
         for _, row in dyna_df.iterrows():
+            # if (_ + 1) % 2000 == 0:
+            #     self._logger.info('Finish {}'.format(_ + 1))
             cur_poi, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
             time_slice = t // int(86400 / time_slices_num)
             if lst_dyna is not None and lst_dyna == cur_dyna:
@@ -81,42 +76,80 @@ class ReMVCDataset(TrafficRepresentationDataset):
                 region_dict[cur_poi]['dropoff_matrix'][time_slice][lst_poi] += 1
             lst_poi, lst_dyna = cur_poi, cur_dyna
 
-        # print(region_dict)
-        # exit(0)
         self.region_dict = region_dict
 
     def get_model_poi(self):
+        self._logger.info('Start get model poi ...')
+        poi_features = {}
+        for i in range(self.num_regions):
+            poi_features[i] = np.zeros(self.num_poi_types)
+            for j in self.region_dict[i]['poi']:
+                poi_features[i][j] += 1
         model_poi = {}
         for i in range(self.num_regions):
-            model_poi[i] = [1.0 / (self.num_regions - 1)] * (self.num_regions - 1)
+            ll = 0
+            model_poi[i] = np.zeros(self.num_regions - 1)
+            for j in range(self.num_regions):
+                if i != j:
+                    model_poi[i][ll] = np.sqrt(np.sum((poi_features[i] - poi_features[j]) ** 2))
+                    ll += 1
+            model_poi[i] = model_poi[i] / np.sum(model_poi[i])
         self.model_poi = model_poi
+        self._logger.info('Finish get model poi ...')
 
     def get_model_flow(self):
+        self._logger.info('Start get model flow ...')
         model_flow = {}
         for i in range(self.num_regions):
-            model_flow[i] = [1.0 / (self.num_regions - 1)] * (self.num_regions - 1)
+            ll = 0
+            model_flow[i] = np.zeros(self.num_regions - 1)
+            for j in range(self.num_regions):
+                if i != j:
+                    model_flow[i][ll] = \
+                        np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'][:, np.newaxis] -
+                                        self.region_dict[j]['pickup_matrix']) ** 2, axis=2)) + \
+                        np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'][:, np.newaxis] -
+                                        self.region_dict[j]['dropoff_matrix']) ** 2, axis=2))
+                    ll += 1
+            model_flow[i] = model_flow[i] / np.sum(model_flow[i])
         self.model_flow = model_flow
+        self._logger.info('Finish get model flow ...')
 
-    def get_matrix(self, idx):
-        pickup_matrix = self.region_dict[idx]["pickup_matrix"]
-        dropoff_matrix = self.region_dict[idx]["dropoff_matrix"]
+    def get_matrix_dict(self):
+        matrix_dict = {}
+        for idx in range(self.num_regions):
+            pickup_matrix = self.region_dict[idx]["pickup_matrix"]
+            dropoff_matrix = self.region_dict[idx]["dropoff_matrix"]
 
-        pickup_matrix = pickup_matrix / pickup_matrix.sum()
-        where_are_NaNs = np.isnan(pickup_matrix)
-        pickup_matrix[where_are_NaNs] = 0
+            pickup_matrix = pickup_matrix / pickup_matrix.sum()
+            where_are_NaNs = np.isnan(pickup_matrix)
+            pickup_matrix[where_are_NaNs] = 0
 
-        dropoff_matrix = dropoff_matrix / dropoff_matrix.sum()
-        where_are_NaNs = np.isnan(dropoff_matrix)
-        dropoff_matrix[where_are_NaNs] = 0
+            dropoff_matrix = dropoff_matrix / dropoff_matrix.sum()
+            where_are_NaNs = np.isnan(dropoff_matrix)
+            dropoff_matrix[where_are_NaNs] = 0
 
-        return fpickup_matrix, dropoff_matrix
+            matrix_dict[idx] = pickup_matrix, dropoff_matrix
+        self.matrix_dict = matrix_dict
 
     def get_data(self):
         return None, None, None
 
     def get_data_feature(self):
+        function = np.zeros(self.num_regions)
+        region_df = self.geofile[self.geofile['traffic_type'] == 'region']
+        for i, row in region_df.iterrows():
+            function[i] = row['function']
         return {
             'region_dict': self.region_dict,
             'model_poi': self.model_poi,
-            'model_flow': self.model_flow
+            'model_flow': self.model_flow,
+            'matrix_dict': self.matrix_dict,
+            'sampling_pool': [i for i in range(self.num_regions)],
+            'num_pois': self.num_pois,
+            'num_poi_types': self.num_poi_types,
+            'num_regions': self.num_regions,
+            'label': {
+                'function_cluster': function
+            }
         }
