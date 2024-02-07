@@ -439,7 +439,7 @@
     },
     "region_representation": {
         "allowed_model": [
-            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL"
+            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL","ReMVC"
         ],
         "allowed_dataset": [
             "bj_dataset","xa_dataset","bj_dataset_tiny"
@@ -477,7 +477,12 @@
         "GMEL": {
             "dataset_class": "GMELDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "GmelEvaluator"
+            "evaluator": "RepresentationEvaluator"
+        },
+        "ReMVC": {
+            "dataset_class": "ReMVCDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "RepresentationEvaluator"
         }
     },
     "poi_representation": {
