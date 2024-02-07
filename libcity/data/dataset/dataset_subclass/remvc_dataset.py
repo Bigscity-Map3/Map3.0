@@ -95,7 +95,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
                     ll += 1
             model_poi[i] = model_poi[i] / np.sum(model_poi[i])
         self.model_poi = model_poi
-        self._logger.info('Finish get model poi ...')
+        self._logger.info('Finish get model poi.')
 
     def get_model_flow(self):
         self._logger.info('Start get model flow ...')
@@ -106,14 +106,14 @@ class ReMVCDataset(TrafficRepresentationDataset):
             for j in range(self.num_regions):
                 if i != j:
                     model_flow[i][ll] = \
-                        np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'][:, np.newaxis] -
-                                        self.region_dict[j]['pickup_matrix']) ** 2, axis=2)) + \
-                        np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'][:, np.newaxis] -
-                                        self.region_dict[j]['dropoff_matrix']) ** 2, axis=2))
+                        np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'].flatten() -
+                                        self.region_dict[j]['pickup_matrix'].flatten()) ** 2)) + \
+                        np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'].flatten() -
+                                        self.region_dict[j]['dropoff_matrix'].flatten()) ** 2))
                     ll += 1
             model_flow[i] = model_flow[i] / np.sum(model_flow[i])
         self.model_flow = model_flow
-        self._logger.info('Finish get model flow ...')
+        self._logger.info('Finish get model flow.')
 
     def get_matrix_dict(self):
         matrix_dict = {}

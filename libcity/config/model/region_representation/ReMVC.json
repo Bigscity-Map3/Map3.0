@@ -3,13 +3,13 @@
   "extractor": "MLP",
   "type": "avg",
   "func": "relu",
-  "embedding_size": 16,
-  "output_dim": 32,
+  "embedding_size": 32,
+  "output_dim": 64,
   "mutual": 1.0,
   "reg": 0.0001,
   "remove_node_type": "ReMVC",
   "time_slices_num": 48,
-  "epoch": 10,
+  "epoch": 200,
   "learning_rate": 0.001,
   "mutual_neg_size": 5
 }
