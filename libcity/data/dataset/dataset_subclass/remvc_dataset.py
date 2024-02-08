@@ -64,17 +64,17 @@ class ReMVCDataset(TrafficRepresentationDataset):
 
         # matrix
         dyna_df = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-        lst_poi, lst_dyna = None, None
+        lst_region, lst_dyna = None, None
         # self._logger.info('Total {}'.format(len(dyna_df)))
         for _, row in dyna_df.iterrows():
             # if (_ + 1) % 2000 == 0:
             #     self._logger.info('Finish {}'.format(_ + 1))
-            cur_poi, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
+            cur_region, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
             time_slice = t // int(86400 / time_slices_num)
             if lst_dyna is not None and lst_dyna == cur_dyna:
-                region_dict[lst_poi]['pickup_matrix'][time_slice][cur_poi] += 1
-                region_dict[cur_poi]['dropoff_matrix'][time_slice][lst_poi] += 1
-            lst_poi, lst_dyna = cur_poi, cur_dyna
+                region_dict[lst_region]['pickup_matrix'][time_slice][cur_region] += 1
+                region_dict[cur_region]['dropoff_matrix'][time_slice][lst_region] += 1
+            lst_region, lst_dyna = cur_region, cur_dyna
 
         self.region_dict = region_dict
 

@@ -10,7 +10,7 @@ from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 
 class RoadRepresentationEvaluator(AbstractEvaluator):
 
-    def __init__(self, config,data_feature):
+    def __init__(self, config, data_feature):
         self._logger = getLogger()
         self.config = config
         self.evaluate_tasks = self.config.get('evaluate_task', ["speed_inference"])
@@ -44,7 +44,7 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         self.geo_ids = list(geofile['geo_id'])
         self.num_nodes = len(self.geo_ids)
-        self.geo_to_ind =   {}
+        self.geo_to_ind = {}
         self.ind_to_geo = {}
         for index, idx in enumerate(self.geo_ids):
             self.geo_to_ind[idx] = index
@@ -67,10 +67,9 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
             for task in result:
                 result_string = ""
                 for key in result[task]:
-                    result_string += key + " = " +str(result[task][key])+" "
+                    result_string += key + " = " + str(result[task][key]) + " "
                 self._logger.info('{} result: {}'.format(task, result_string))
         return
-
 
         # !这个load_geo必须跟dataset部分相同，也就是得到同样的geo_id和index的映射，否则就会乱码
         # TODO: 把dataset部分得到的geo_to_ind和ind_to_geo传过来
@@ -82,7 +81,7 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
             if kind not in result_token:
                 result_token[kind] = []
             result_token[kind].append(self.ind_to_geo[i])
-        result_path = './libcity/cache/{}/evaluate_cache/kmeans_category_{}_{}_{}_{}.json'.\
+        result_path = './libcity/cache/{}/evaluate_cache/kmeans_category_{}_{}_{}_{}.json'. \
             format(self.exp_id, self.model, self.dataset, str(self.output_dim), str(kinds))
         json.dump(result_token, open(result_path, 'w'))
         self._logger.info('Kmeans category is saved at {}'.format(result_path))
@@ -116,7 +115,7 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         df = pd.DataFrame(df)
         df.columns = ['id', 'rid', 'class', 'wkt']
         df = df.sort_values(by='class')
-        result_path = './libcity/cache/{}/evaluate_cache/kmeans_qgis_{}_{}_{}_{}.csv'.\
+        result_path = './libcity/cache/{}/evaluate_cache/kmeans_qgis_{}_{}_{}_{}.csv'. \
             format(self.exp_id, self.model, self.dataset, str(self.output_dim), str(kinds))
         df.to_csv(result_path, index=False)
         self._logger.info('Kmeans result for QGIS is saved at {}'.format(result_path))

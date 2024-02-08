@@ -6,8 +6,10 @@ import numpy as np
 import pandas as pd
 
 from libcity.data.dataset import AbstractDataset
+from libcity.data.dataset import RoadNetWorkDataset
 from libcity.data.utils import generate_dataloader
 from libcity.utils import ensure_dir
+from libcity.evaluator.utils import generate_road_representaion_downstream_data
 
 
 class Alias:
@@ -59,6 +61,10 @@ class Alias:
 class LINEDataset(AbstractDataset):
 
     def __init__(self, config):
+        self.config = config
+        self.device = config.get('device')
+        self._logger = getLogger()
+        self.representation_object = config.get('representation_object', 'road')
         # 数据集参数
         self.dataset = config.get('dataset')
         self.negative_ratio = config.get('negative_ratio', 5)  # 负采样数，对于大数据集，适合 2-5
@@ -70,6 +76,7 @@ class LINEDataset(AbstractDataset):
         self.eval_rate = config.get('eval_rate', 0.1)
         self.scaler_type = config.get('scaler', 'none')
         # 缓存
+        self.label_data_path = './raw_data/' + self.dataset + '/label_data/'
         self.cache_dataset = config.get('cache_dataset', True)
         self.parameters_str = \
             str(self.dataset) + '_' + str(self.train_rate) + '_' \
@@ -87,7 +94,6 @@ class LINEDataset(AbstractDataset):
         self.rel_file = config.get('rel_file', self.dataset)
 
         # 框架相关
-        self._logger = getLogger()
         self.feature_name = {'I': 'int', 'J': 'int', 'Neg': 'int'}
         self.num_workers = config.get('num_workers', 0)
 
@@ -96,6 +102,29 @@ class LINEDataset(AbstractDataset):
 
         # 采样条数
         self.num_samples = self.num_edges * (1 + self.negative_ratio) * self.times
+
+        self.read_processed_data()
+
+    def read_processed_data(self):
+        assert self.representation_object == "road"
+        data_path1 = os.path.join("raw_data", self.dataset, "label_data", "speed.csv")
+        data_path2 = os.path.join("raw_data", self.dataset, "label_data", "time.csv")
+        if not os.path.exists(data_path1) or not os.path.exists(data_path2):
+            generate_road_representaion_downstream_data(self.dataset)
+        self.label = {"speed_inference": {}, "time_estimation": {}}
+        self.length_label = pd.read_csv(self.label_data_path + "length.csv")
+
+        self.speed_label = pd.read_csv(self.label_data_path + "speed.csv")
+        self.speed_label.sort_values(by="index", inplace=True, ascending=True)
+
+        min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
+        self.time_label = pd.read_csv(self.label_data_path + "time.csv")
+
+        self.time_label['path'] = self.time_label['trajs'].map(eval)
+
+        self.time_label['path_len'] = self.time_label['path'].map(len)
+        self.time_label = self.time_label.loc[
+            (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
 
     def _load_geo(self):
         """
@@ -117,6 +146,14 @@ class LINEDataset(AbstractDataset):
         Returns:
             np.ndarray: self.adj_mx, N*N的邻接矩阵
         """
+        relfile = pd.read_csv(self.data_path + self.rel_file + '.rel')
+        self.road2region = relfile[relfile['rel_type'] == 'road2region']
+        self.region2road = relfile[relfile['rel_type'] == 'region2road']
+        self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
+        self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
+        self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
+        self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
+
         map_info = pd.read_csv(self.data_path + self.rel_file + '.rel')
         if 'weight' in map_info.columns:
             self.edges = [(self._geo_to_ind[e[0]], self._geo_to_ind[e[1]], e[2]) for e in
@@ -280,5 +317,10 @@ class LINEDataset(AbstractDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"scaler": self.scaler, "num_edges": self.num_edges,
-                "num_nodes": self.num_nodes}
+        return {
+            "scaler": self.scaler, "num_edges": self.num_edges, "num_nodes": self.num_nodes,
+            "label": {
+                'speed_inference': {'speed': self.speed_label},
+                'time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
+            }
+        }

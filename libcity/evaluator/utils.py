@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import pandas as pd
 
+
 def output(method, value, field):
     """
     Args:
@@ -164,52 +165,50 @@ def evaluate_model(y_pred, y_true, metrics, mode='single', path='metrics.csv'):
 # utils for road representaion downstream data
 def geo2distance(coordinates):
     res = 0
-    for c in range(len(coordinates)-1):
+    for c in range(len(coordinates) - 1):
         lo1, la1 = coordinates[c]
-        lo2, la2 = coordinates[c+1]
+        lo2, la2 = coordinates[c + 1]
         res += geodesic((la1, lo1), (la2, lo2)).km
     return res
 
+
 def getSpeedAndTime(traj_list, geo2length, geo2speed):
-    for i in range(len(traj_list)-1):
+    for i in range(len(traj_list) - 1):
         traj1 = traj_list[i]
-        traj2 = traj_list[i+1]
+        traj2 = traj_list[i + 1]
         geo_id1 = traj1['geo_id']
 
-
-        t1 = datetime.strptime(traj1['time'],'%Y-%m-%d %H:%M:%S')
-        t2 = datetime.strptime(traj2['time'],'%Y-%m-%d %H:%M:%S')
+        t1 = datetime.strptime(traj1['time'], '%Y-%m-%d %H:%M:%S')
+        t2 = datetime.strptime(traj2['time'], '%Y-%m-%d %H:%M:%S')
         length = geo2length[geo_id1]
-        t_delta = float((t2-t1).seconds)
+        t_delta = float((t2 - t1).seconds)
         if t_delta > 0:
             v_temp = length * 1000 / t_delta
 
-            avg, n = geo2speed.get(geo_id1, (0,0))
-            geo2speed[geo_id1] = ((avg * n + v_temp)/(n+1),n+1)
+            avg, n = geo2speed.get(geo_id1, (0, 0))
+            geo2speed[geo_id1] = ((avg * n + v_temp) / (n + 1), n + 1)
 
     traj_series = [x['geo_id'] for x in traj_list]
-    t0 = datetime.strptime(traj_list[0]['time'],'%Y-%m-%d %H:%M:%S')
-    t_ = datetime.strptime(traj_list[-1]['time'],'%Y-%m-%d %H:%M:%S')
-    totaltime = (t_- t0).seconds
-    return (traj_series,totaltime)
+    t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%d %H:%M:%S')
+    t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%d %H:%M:%S')
+    totaltime = (t_ - t0).seconds
+    return traj_series, totaltime
 
-def generate_road_representaion_downstream_data(dataset_name='bj_dataset'):
+
+def generate_road_representaion_downstream_data(dataset_name):
     data_path = os.path.join('raw_data', dataset_name)
-    raw_files = [f for f in os.listdir(data_path) if f.startswith(dataset_name)]
     save_data_path = os.path.join('raw_data', dataset_name, "label_data")
     if not os.path.exists(save_data_path):
         os.makedirs(save_data_path)
     # read files
-    traj_df_reader = pd.read_csv(os.path.join(data_path, raw_files[0]), low_memory=False, sep=',',
-                                 chunksize=100)  # bj_dataset.dyna
-    geo_df = pd.read_csv(os.path.join(data_path, raw_files[1]), low_memory=False)  # bj_dataset.geo
-
+    traj_df_reader = pd.read_csv(os.path.join(data_path, dataset_name + '.dyna'), low_memory=False, sep=',', chunksize=100)
+    geo_df = pd.read_csv(os.path.join(data_path, dataset_name + '.geo'), low_memory=False)
     # length.csv
-    if not os.path.exists(save_data_path+"/length.csv"):
+    if not os.path.exists(save_data_path + "/length.csv"):
         geo2length = {}
         for index, row in tqdm(geo_df.iterrows()):
             geo_id = row['geo_id']
-            if geo_df['traffic_type'][geo_id] == 'road':
+            if geo_df.iloc[geo_id]['traffic_type'] == 'road':
                 coordinates = eval(geo_df['coordinates'][geo_id])
                 geo2length[geo_id] = geo2distance(coordinates)
 
@@ -217,27 +216,24 @@ def generate_road_representaion_downstream_data(dataset_name='bj_dataset'):
         geo2lengthdf = geo2lengthdf.reset_index().rename(columns={'index': 'geo_id'})
         geo2lengthdf.to_csv(save_data_path + '/length.csv', index=False)
 
-
-
     # speed.csv and time.csv for speed inference and time estimation task
     if not os.path.exists(save_data_path + "/time.csv") or not os.path.exists(save_data_path + "/speed.csv"):
-        geo2lengthdf = pd.read_csv(save_data_path + './length.csv')
+        geo2lengthdf = pd.read_csv(save_data_path + '/length.csv')
         geo2length = dict(zip(geo2lengthdf['geo_id'], geo2lengthdf['length']))
         geo2speed = {}
-
         traj_id_temp = 0
         traj_list = []
         trajAndtime = []
         for chunk in tqdm(traj_df_reader):
             for index, row in chunk.iterrows():
-                if row['geo_id'] == 'geo_id':
+                if row['geo_id'] not in geo2length.keys():
                     continue
                 if type(row['total_traj_id']) == str:
                     traj_id = eval(row['total_traj_id'])
                 else:
                     traj_id = row['total_traj_id']
                 if traj_id != traj_id_temp and traj_list != []:
-                    trajs, time = getSpeedAndTime(traj_list,geo2length, geo2speed)
+                    trajs, time = getSpeedAndTime(traj_list, geo2length, geo2speed)
                     trajAndtime.append([trajs, time])
                     traj_id_temp = traj_id
                     traj_list = [row]
@@ -246,6 +242,6 @@ def generate_road_representaion_downstream_data(dataset_name='bj_dataset'):
 
         geo2speeddf = pd.DataFrame.from_dict(geo2speed, orient='index', columns=['speed', 'freq'])
         geo2speeddf = geo2speeddf.reset_index().rename(columns={'index': 'index'})
-        geo2speeddf.to_csv(save_data_path + './speed.csv', index=False)
+        geo2speeddf.to_csv(save_data_path + '/speed.csv', index=False)
         geo2timedf = pd.DataFrame(data=trajAndtime, columns=['trajs', 'time'])
-        geo2timedf.to_csv(save_data_path + './time.csv', index=True)
+        geo2timedf.to_csv(save_data_path + '/time.csv', index=True)
