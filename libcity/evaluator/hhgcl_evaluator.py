@@ -406,7 +406,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['road_ars'] = [road_ars]
     def evaluate_region_embedding(self):
         region_emb = np.load(self.region_embedding_path)
-        self._logger.info('Load regin emb {}, shape = {}'.format(self.region_embedding_path, region_emb.shape))
+        self._logger.info('Load region emb {}, shape = {}'.format(self.region_embedding_path, region_emb.shape))
 
         self._logger.warning('Evaluating Region Classification')
         y_truth,useful_index,region_micro_f1, region_macro_f1 = self._valid_region_clf(region_emb)

@@ -4,7 +4,7 @@ from libcity.executor.abstract_executor import AbstractExecutor
 
 class GensimExecutor(AbstractExecutor):
     def __init__(self, config, model, data_feature):
-        self.evaluator = get_evaluator(config)
+        self.evaluator = get_evaluator(config, data_feature)
         self.config = config
         self.model = model
         self.exp_id = config.get('exp_id', None)

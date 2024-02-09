@@ -1,3 +1,4 @@
 {
-    "representation_object":"road"
-  }
+    "representation_object": "road",
+    "max_epoch": 100
+}

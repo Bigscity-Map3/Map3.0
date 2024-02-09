@@ -114,7 +114,7 @@ class Graph(defaultdict):
             start: the start node of the random walk.
         """
         G = self
-        if start:
+        if start is not None:
             path = [start]
         else:
             # Sampling is uniform w.r.t V, and not w.r.t E
@@ -163,6 +163,7 @@ def from_numpy(x, directed=False):
         G.make_undirected()
 
     G.make_consistent()
+
     return G
 
 
@@ -214,6 +215,9 @@ class DeepWalk(AbstractTraditionModel):
                                  window_size=self.window_size, workers=self.num_workers, iters=self.iter, hs=1)
         model.wv.save_word2vec_format(self.txt_cache_file)
         model.save(self.model_cache_file)
+
+        print(len(model.wv), self.num_nodes)
+        print(len(model.wv[0]), self.output_dim)
 
         assert len(model.wv) == self.num_nodes
         assert len(model.wv[0]) == self.output_dim

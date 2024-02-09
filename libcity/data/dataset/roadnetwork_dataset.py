@@ -79,7 +79,7 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
         data_path1 = os.path.join("raw_data", self.dataset, "label_data", "speed.csv")
         data_path2 = os.path.join("raw_data", self.dataset, "label_data", "time.csv")
         if not os.path.exists(data_path1) or not os.path.exists(data_path2):
-            generate_road_representaion_downstream_data()
+            generate_road_representaion_downstream_data(self.dataset)
         self.label = {"speed_inference": {}, "time_estimation": {}}
         self.length_label = pd.read_csv(self.label_data_path + "length.csv")
 
