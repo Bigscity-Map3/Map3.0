@@ -81,13 +81,13 @@ class HyperRoad(AbstractTraditionModel):
             
         t1 = time.time()-start_time
         print('cost time is '+str(t1/self.epoches))
-        node_embedding,_ = self.update()
+        node_embedding,_ = self.network.update()
         node_embedding=node_embedding.cpu().detach().numpy()
         np.save(self.road_embedding_path,node_embedding)
         torch.save((self.network.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
     
     def static_embedding(self):
-        road_emb, hyper_emb=self.update()
+        road_emb, hyper_emb=self.network.update()
         return road_emb
     
 
