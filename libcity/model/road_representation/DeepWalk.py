@@ -216,9 +216,6 @@ class DeepWalk(AbstractTraditionModel):
         model.wv.save_word2vec_format(self.txt_cache_file)
         model.save(self.model_cache_file)
 
-        print(len(model.wv), self.num_nodes)
-        print(len(model.wv[0]), self.output_dim)
-
         assert len(model.wv) == self.num_nodes
         assert len(model.wv[0]) == self.output_dim
 

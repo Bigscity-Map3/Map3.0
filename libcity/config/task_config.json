@@ -447,7 +447,7 @@
             "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL","ReMVC"
         ],
         "allowed_dataset": [
-            "bj_dataset","xa_dataset","bj_dataset_tiny"
+            "bj_dataset","xa_dataset","bj_dataset_tiny","xa","cd"
         ],
          "Node2Vec": {
             "dataset_class": "Node2VecDataset",

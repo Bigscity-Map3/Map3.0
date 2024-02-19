@@ -1,15 +1,10 @@
 import math
-import collections
-import json
 import os
-import pickle
-import random
 import ast
 import torch
 import sklearn
 import numpy as np
 import pandas as pd
-from io import open
 from logging import getLogger
 from collections import Counter
 from random import *
@@ -405,21 +400,4 @@ class POIRepresentationDataset(AbstractDataset):
                             group['lng'].tolist()]
 
             seq_set.append(one_set)
-        return seq_set
-
-    def gen_span(self, span_len, select_day=None):
-        data = pd.DataFrame(self.df, copy=True)
-        data['day'] = data['datetime'].dt.day
-        if select_day is not None:
-            data = data[data['day'].isin(select_day)]
-        data['weekday'] = data['datetime'].dt.weekday
-        data['timestamp'] = data['datetime'].apply(lambda x: x.timestamp())
-
-        seq_set = []
-        for (user_index, day), group in data.groupby(['user_index', 'day']):
-            for i in range(group.shape[0] - span_len + 1):
-                select_group = group.iloc[i:i + span_len]
-                one_set = [user_index, select_group['loc_index'].tolist(), select_group['weekday'].astype(int).tolist(),
-                           select_group['timestamp'].astype(int).tolist()]
-                seq_set.append(one_set)
         return seq_set

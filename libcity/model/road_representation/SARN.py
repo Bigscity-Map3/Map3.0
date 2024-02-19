@@ -257,12 +257,14 @@ class SARN(nn.Module):
             sub_edge_index_1, new_x_idx_1, mapping_to_origin_idx_1 = \
                                 edge_index_1.sub_edge_index(sub_seg_idx)
             sub_seg_feats_1 = self.seg_feats[new_x_idx_1]
+            sub_seg_feats_1 = sub_seg_feats_1.to(self.device)
             sub_edge_index_1 = torch.tensor(sub_edge_index_1, dtype = torch.long, device = self.device)
             
             if edge_index_2 != None:
                 sub_edge_index_2, new_x_idx_2, mapping_to_origin_idx_2 = \
                                     edge_index_2.sub_edge_index(sub_seg_idx)
                 sub_seg_feats_2 = self.seg_feats[new_x_idx_2]
+                sub_seg_feats_2 = sub_seg_feats_2.to(self.device)
                 sub_edge_index_2 = torch.tensor(sub_edge_index_2, dtype = torch.long, device = self.device)
 
                 sub_seg_ids = [self.seg_idx_to_id[idx] for idx in sub_seg_idx]
