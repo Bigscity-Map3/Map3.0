@@ -202,7 +202,7 @@ class POI2Vec(HS):
         w2v_data = data_feature.get('w2v_data')
         embed_train_users, embed_train_sentences, embed_train_weekdays, \
         embed_train_timestamp, _length = zip(*w2v_data)
-        poi2vec_theta = config.get('theta', 0.1)
+        poi2vec_theta = data_feature.get('theta', 0.1)
         poi2vec_indi_context = config.get('indi_context', False)
         num_vocab = data_feature.get('num_loc')
         embed_dimension = config.get('embed_size', 128)

@@ -1,5 +1,5 @@
 {
-  "theta": 0.1,
+  "con": 1e9,
   "indi_context": false,
-  "learner": "sgd"
+  "learner": "sparse_adam"
 }

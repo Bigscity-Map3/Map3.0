@@ -136,7 +136,7 @@ class TaleDataLoader(POIRepresentationDataLoader):
             self.dataset = TaleData(self.embed_train_sentences, self.embed_train_timestamp, tale_slice, tale_span,
                                     indi_context=tale_indi_context)
         elif self.model_name == 'POI2Vec':
-            poi2vec_theta = config.get('theta', 0.1)
+            poi2vec_theta = data_feature.get('theta', 0.1)
             poi2vec_indi_context = config.get('indi_context', False)
             id2coor_df = data_feature.get('id2coor_df')
             self.dataset = P2VData(self.embed_train_sentences, id2coor_df, theta=poi2vec_theta,
@@ -267,6 +267,8 @@ class POIRepresentationDataset(AbstractDataset):
         self._split_days()
         self._logger.info('User num: {}'.format(self.num_user))
         self._logger.info('Location num: {}'.format(self.num_loc))
+        self.con = self.config.get('con', 7e8)
+        self.theta = self.num_user * self.num_loc / self.con
         self._init_data_feature()
 
     def _load_geo(self):
@@ -361,7 +363,8 @@ class POIRepresentationDataset(AbstractDataset):
             "test_set": self.test_set,
             "w2v_data": self.w2v_data,
             "coor_mat": self.coor_mat,
-            "id2coor_df": self.id2coor_df
+            "id2coor_df": self.id2coor_df,
+            "theta" : self.theta
         }
 
     def gen_sequence(self, min_len=None, select_days=None, include_delta=False):
