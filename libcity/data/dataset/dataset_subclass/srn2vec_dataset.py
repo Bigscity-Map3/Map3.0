@@ -90,6 +90,7 @@ class SRN2VecDataset(AbstractDataset):
         orig_lengths = np.array([0] + [len(x) for x in node_paths]).cumsum()
         flatted = list(chain.from_iterable(node_paths))
         # get all lengths of sequence roads
+        # TODO：BJ疑似因为flatted长度太大报错
         flat_lengths = info_length[flatted]
 
         # generate window tuples

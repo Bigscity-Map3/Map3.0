@@ -10,6 +10,7 @@ import numpy as np
 import networkx as nx
 import math
 import torch
+import re
 
 from libcity.utils.Config import Config
 from libcity.utils import cell
@@ -21,9 +22,10 @@ from libcity.utils.edge_index import EdgeIndex
 
 class OSMLoader:
 
-    def __init__(self, osm_raw_file, schema = ''):
+    def __init__(self, osm_raw_file, schema = '', device=None):
         self.schema = schema
         self.osm_raw_file = osm_raw_file
+        self.device = device
         self.node_file = osm_raw_file + '_node'
         self.segment_file = osm_raw_file + '_segment'
         self.way_file = osm_raw_file + '_way'
@@ -76,6 +78,28 @@ class OSMLoader:
 
         self.road_adj = construct_road_adj()
         print(self.road_adj.sum())
+
+        # bj dataset 没有 {s, e, m}_{lat, lon} 这几列，要手动添加
+        if 'm_lat' not in self.segments:
+            s_lat, s_lon, e_lat, e_lon, m_lat, m_lon = [], [], [], [], [], []
+            for index, row in self.segments.iterrows():
+                # 使用正则表达式匹配小数
+                matches = re.findall(r"[-+]?\d*\.\d+", row['geometry'])
+                # 提取匹配到的小数
+                decimal_values = [float(match) for match in matches]
+                s_lon.append(decimal_values[0])
+                s_lat.append(decimal_values[1])
+                e_lon.append(decimal_values[-2])
+                e_lat.append(decimal_values[-1])
+                m_lon.append((decimal_values[0] + decimal_values[-2]) / 2)
+                m_lat.append((decimal_values[1] + decimal_values[-1]) / 2)
+            self.segments['s_lon'] = s_lon
+            self.segments['s_lat'] = s_lat
+            self.segments['e_lon'] = e_lon
+            self.segments['e_lat'] = e_lat
+            self.segments['m_lon'] = m_lon
+            self.segments['m_lat'] = m_lat
+
         self.segments['inc_id'] = self.segments.id
         self.segments['c_lat'] = self.segments.m_lat
         self.segments['c_lon'] = self.segments.m_lon
@@ -159,7 +183,7 @@ class OSMLoader:
                          'lanes']
         self.seg_feats = self.segments.reset_index().set_index('inc_id')[_feat_columns]
         self.seg_feats = torch.tensor(self.seg_feats.loc[self.segid_in_adj_segments_graph].values, dtype=torch.long,
-                                      device=Config.device)  # [N, n_feat_columns]
+                                      device=self.device)  # [N, n_feat_columns]
 
         logging.debug("seg_feats statistics: min={}, max={}".format( \
             torch.min(self.seg_feats, dim=0)[0].tolist(), \
@@ -293,7 +317,7 @@ class OSMLoader:
                         'radian_code', 's_lon_code', 's_lat_code', 'e_lon_code', 'e_lat_code', \
                         'lanes']
         self.seg_feats = self.segments.reset_index().set_index('inc_id')[_feat_columns]
-        self.seg_feats = torch.tensor(self.seg_feats.loc[self.segid_in_adj_segments_graph].values, dtype = torch.long, device = Config.device) # [N, n_feat_columns]
+        self.seg_feats = torch.tensor(self.seg_feats.loc[self.segid_in_adj_segments_graph].values, dtype = torch.long, device = self.device) # [N, n_feat_columns]
 
         logging.debug("seg_feats statistics: min={}, max={}".format( \
                         torch.min(self.seg_feats, dim = 0)[0].tolist(), \

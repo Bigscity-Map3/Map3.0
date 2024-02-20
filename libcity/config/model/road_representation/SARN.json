@@ -1,4 +1,4 @@
 {
     "representation_object": "road",
-    "sarn_epochs": 1000
+    "sarn_epochs": 5
 }

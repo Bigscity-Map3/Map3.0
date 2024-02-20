@@ -7,7 +7,7 @@
 
   "scaler": "none",
 
-  "max_epoch": 2000,
+  "max_epoch": 1,
   "learner": "adam",
   "learning_rate": 0.001,
   "lr_decay": true,

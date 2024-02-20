@@ -24,6 +24,9 @@ from libcity.utils import tool_funcs
 from libcity.utils import OSMLoader
 from libcity.utils import EdgeIndex
 
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+
 class FeatEmbedding(nn.Module):
     def __init__(self, nsegid_code, nhighway_code,
             nlength_code, nradian_code, nlon_code, nlat_code, hd=16,ld=16,rd=16,lld=32):
@@ -60,7 +63,7 @@ class SARN(nn.Module):
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset', '')
         self.device = config.get('device')
-        self.osm_data = OSMLoader(self.dataset_path, schema = 'SARN')
+        self.osm_data = OSMLoader(self.dataset_path, schema = 'SARN', device=self.device)
         self.osm_data.load_cikm_data(self.dataset)
         self.model='SARN'
        
