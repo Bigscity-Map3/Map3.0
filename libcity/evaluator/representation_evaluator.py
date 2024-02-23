@@ -23,7 +23,7 @@ class RepresentationEvaluator(AbstractEvaluator):
         self.output_dim = config.get('output_dim', 32)
         self.data_path = './raw_data/' + self.dataset + '/'
         self.data_feature = data_feature
-        self.embedding_path = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy' \
+        self.embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy' \
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.result_path = './libcity/cache/{}/evaluate_cache/result_{}_{}_{}.json' \
             .format(self.exp_id, self.model, self.dataset, self.output_dim)

@@ -193,19 +193,50 @@ class TrafficRepresentationDataset(AbstractDataset):
             traj_time_str = ""
             # 将traj_road存成road0,road1...road(一行一条轨迹）的格式
             # 将traj_time存成time0,time1.....,time（一行一条轨迹）的格式
+
+            # for i in tqdm(range(traj_num)):
+            #     road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
+            #     time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
+            #     self.traj_road.append(road_list)
+            #     self.traj_time.append(time_list)
+            #     for road in road_list:
+            #         traj_road_str += (str(road) + ',')
+            #     traj_road_str = traj_road_str[:-1]
+            #     traj_road_str += '\n'
+            #     for time in time_list:
+            #         traj_time_str += (time + ',')
+            #     traj_time_str = traj_time_str[:-1]
+            #     traj_time_str += '\n'
+            
+            road_list = [[] for _ in range(traj_num)]
+            time_list = [[] for _ in range(traj_num)]
+            # 34102841 1018312
+            for _, row in dynafile.iterrows():
+                # if (_ + 1) % 10000 == 0:
+                    # self._logger.info("Finish {}".format(_ + 1))
+                id = row['total_traj_id']
+                # if id == 10000:
+                    # break
+                road_list[id].append(row['geo_id'])
+                time_list[id].append(row['time'])
+            # traj_num = 10000
             for i in tqdm(range(traj_num)):
-                road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
-                time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
-                self.traj_road.append(road_list)
-                self.traj_time.append(time_list)
-                for road in road_list:
-                    traj_road_str += (str(road) + ',')
-                traj_road_str = traj_road_str[:-1]
+                self.traj_road.append(road_list[i])
+                self.traj_time.append(time_list[i])
+
+                traj_road_str += ','.join([str(road) for road in road_list[i]])
+                # for road in road_list[i]:
+                #     traj_road_str += (str(road) + ',')
+                # traj_road_str = traj_road_str[:-1]
                 traj_road_str += '\n'
-                for time in time_list:
-                    traj_time_str += (time + ',')
-                traj_time_str = traj_time_str[:-1]
+
+                traj_time_str += ','.join(time_list[i])
+                # for time in time_list[i]:
+                #     traj_time_str += (time + ',')
+                # traj_time_str = traj_time_str[:-1]
                 traj_time_str += '\n'
+            # self._logger.info("Finish")
+            # exit(0)
             f1 = open(self.traj_road_path, 'w')
             f1.write(traj_road_str)
             f1.close()

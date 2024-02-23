@@ -34,11 +34,11 @@ class ZEMob(AbstractTraditionModel):
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.pkl'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
         self.region_list = torch.arange(self.region_num)
@@ -140,7 +140,7 @@ class ZEMobModel(nn.Module):
         if not self.memory_sufficient:
             batch_ppmi = batch_ppmi.to(self.device)
             batch_G = batch_G.to(self.device)
-        print(batch_zone.device,batch_event.device,batch_G.device,batch_ppmi.device)
+        # print(batch_zone.device,batch_event.device,batch_G.device,batch_ppmi.device)
         return torch.sum(torch.pow(torch.sub(batch_ppmi, torch.mm(batch_zone, batch_event.t())), 2) * batch_G) / 2
 
 # 数据加载

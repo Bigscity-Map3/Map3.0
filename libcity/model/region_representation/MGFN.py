@@ -15,7 +15,8 @@ class MGFN(AbstractTraditionModel):
         self.geo_to_ind = data_feature.get('geo_to_ind', None)
         self.ind_to_geo = data_feature.get('ind_to_geo', None)
         self._logger = getLogger()
-        self.output_dim = config.get('output_dim', 64)
+        self.device = config.get('device')
+        self.output_dim = config.get('output_dim', 32)
         self.iter = config.get('max_epoch', 2000)
         self.dataset = config.get('dataset', '')
         self.learning_rate = config.get('learning_rate', 0.0001)
@@ -23,18 +24,23 @@ class MGFN(AbstractTraditionModel):
         self.n_cluster = data_feature.get("n_cluster")
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
-        input_tensor = torch.Tensor(self.mob_patterns)
-        label = torch.Tensor(self.mob_adj)
+        input_tensor = torch.Tensor(self.mob_patterns).to(self.device)
+        label = torch.Tensor(self.mob_adj).to(self.device)
         criterion = SimLoss()
         model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim)
+        print(model)
+        total_num = sum([param.nelement() for param in model.parameters()])
+        self._logger.info('Total parameter numbers: {}'.format(total_num))
+
+        model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
         for epoch in range(self.iter):
@@ -44,10 +50,9 @@ class MGFN(AbstractTraditionModel):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if epoch % 50 == 0:
-                self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+            self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
         node_embedding = model.out_feature()
-        node_embedding = node_embedding.detach().numpy()
+        node_embedding = node_embedding.detach().cpu().numpy()
         np.save(self.npy_cache_file, node_embedding)
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(node_embedding)) + ',' + str(len(node_embedding[0])) + ')')
@@ -101,7 +106,7 @@ class ConcatLinear(nn.Module):
 
 class GraphStructuralEncoder(nn.Module):
 
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,):
+    def __init__(self, d_model, nhead, dim_feedforward=1048, dropout=0.1,):
         super(GraphStructuralEncoder, self).__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model

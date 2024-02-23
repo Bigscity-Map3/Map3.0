@@ -11,6 +11,8 @@ import torch.nn.functional as F
 
 import dgl.function as fn
 
+import pdb
+
 class GMEL(AbstractTraditionModel):
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)
@@ -19,12 +21,12 @@ class GMEL(AbstractTraditionModel):
         self._logger = getLogger()
         self.output_dim = config.get('output_dim', 96)
         self.dataset = config.get('dataset', '')
-        self.iter = config.get('max_epoch', 120)
+        self.iter = config.get('max_epoch', 10)
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
         self._logger = getLogger()
         self.mini_batch_size = config.get('batch_size',1000)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
@@ -53,7 +55,7 @@ class GMEL(AbstractTraditionModel):
                 trip_od = mini_batch[:, :2].long().to(self.device)
                 trip_volume = mini_batch[:, -1].float().to(self.device)
                 loss = model.get_loss(trip_od, trip_volume, train_inflow, train_outflow, g, multitask_weights=self.multitask_ratio)
-                #self._logger.info("Epoch {:04d} | mini batch Loss = {:.4f}".format(epoch, loss))
+                self._logger.info("Epoch {:04d} | mini batch Loss = {:.4f}".format(epoch, loss))
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_norm)
                 optimizer.step()
@@ -424,6 +426,7 @@ class GMELModel(nn.Module):
         # get embeddings of each node from GNN
         src_embedding = self.forward(g)
         dst_embedding = self.forward2(g)
+        pdb.set_trace()
         # get edge prediction
         edge_prediction = self.predict_edge(src_embedding, dst_embedding, trip_od)
         # get in/out flow prediction
@@ -437,6 +440,8 @@ class GMELModel(nn.Module):
         # get regularization loss
         reg_loss = 0.5 * (self.regularization_loss(src_embedding) + self.regularization_loss(dst_embedding))
         # return the overall loss
+        print(multitask_weights[:3])
+        print(edge_predict_loss, in_predict_loss, out_predict_loss, self.reg_param, reg_loss)
         return multitask_weights[0] * edge_predict_loss + multitask_weights[1] * in_predict_loss + \
                multitask_weights[2] * out_predict_loss + self.reg_param * reg_loss
 
@@ -447,6 +452,7 @@ class GMELModel(nn.Module):
         # construct edge feature
         src_emb = src_embedding[trip_od[:, 0]]
         dst_emb = dst_embedding[trip_od[:, 1]]
+        pdb.set_trace()
         # get predictions
         # edge_feat = torch.cat((src_emb, dst_emb), dim=1)
         # self.edge_regressor(edge_feat)

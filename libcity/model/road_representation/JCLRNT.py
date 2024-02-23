@@ -28,11 +28,11 @@ class JCLRNT(AbstractTraditionModel):
         self.edge_index2 = data_feature.get('edge_index_aug')
         self.edge_cache_file = './libcity/cache/{}/evaluate_cache/edge_{}_{}_{}'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_train_embedding_file = './libcity/cache/{}/evaluate_cache/traj_train_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
@@ -80,7 +80,7 @@ class JCLRNT(AbstractTraditionModel):
         for epoch in tqdm(range(self.iter)):
             total_loss = 0
             self.model.train()
-            for n, data_batch in tqdm(enumerate(self.dataloader)):
+            for n, data_batch in enumerate(self.dataloader):
                 data_batch = data_batch.to(self.device)
                 w_batch = 0
                 self.optimizer.zero_grad()

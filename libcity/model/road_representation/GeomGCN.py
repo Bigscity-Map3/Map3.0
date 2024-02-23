@@ -197,7 +197,7 @@ class GeomGCN(AbstractTrafficStateModel):
         inputs = batch['node_features']
         x = self.geomgcn1(inputs)
         encoder_state = self.geomgcn2(x)
-        np.save('./libcity/cache/evaluate_cache/embedding_{}_{}_{}.npy'
+        np.save('./libcity/cache/evaluate_cache/region_embedding_{}_{}_{}.npy'
                 .format(self.model, self.dataset, self.output_dim),
                 encoder_state.detach().cpu().numpy())
         x = self.geomgcn3(encoder_state)

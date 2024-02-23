@@ -35,12 +35,11 @@ class ReMVCDataset(TrafficRepresentationDataset):
             os.mkdir('./libcity/cache/ReMVC_{}'.format(self.dataset))
 
         self.get_region_dict()
-        self.get_model_poi()
-        self.get_model_flow()
+        self.get_poi_features()
         self.get_matrix_dict()
 
     def get_region_dict(self):
-        self._logger.info('Begin get_region_dict')
+        self._logger.info('Start get region dict...')
         region_dict = {}
         time_slices_num = self.config.get('time_slices_num', 48)
         for i in range(self.num_regions):
@@ -65,10 +64,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
         # matrix
         dyna_df = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
         lst_region, lst_dyna = None, None
-        # self._logger.info('Total {}'.format(len(dyna_df)))
         for _, row in dyna_df.iterrows():
-            # if (_ + 1) % 2000 == 0:
-            #     self._logger.info('Finish {}'.format(_ + 1))
             cur_region, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
             time_slice = t // int(86400 / time_slices_num)
             if lst_dyna is not None and lst_dyna == cur_dyna:
@@ -77,43 +73,41 @@ class ReMVCDataset(TrafficRepresentationDataset):
             lst_region, lst_dyna = cur_region, cur_dyna
 
         self.region_dict = region_dict
+        self._logger.info('Finish get region dict.')
 
-    def get_model_poi(self):
-        self._logger.info('Start get model poi ...')
+    def get_poi_features(self):
+        self._logger.info('Start get poi features...')
         poi_features = {}
         for i in range(self.num_regions):
             poi_features[i] = np.zeros(self.num_poi_types)
             for j in self.region_dict[i]['poi']:
                 poi_features[i][j] += 1
-        model_poi = {}
-        for i in range(self.num_regions):
-            ll = 0
-            model_poi[i] = np.zeros(self.num_regions - 1)
-            for j in range(self.num_regions):
-                if i != j:
-                    model_poi[i][ll] = np.sqrt(np.sum((poi_features[i] - poi_features[j]) ** 2))
-                    ll += 1
-            model_poi[i] = model_poi[i] / np.sum(model_poi[i])
-        self.model_poi = model_poi
-        self._logger.info('Finish get model poi.')
+        self.poi_features = poi_features
+        self._logger.info('Finish get poi features.')
 
-    def get_model_flow(self):
-        self._logger.info('Start get model flow ...')
-        model_flow = {}
-        for i in range(self.num_regions):
-            ll = 0
-            model_flow[i] = np.zeros(self.num_regions - 1)
-            for j in range(self.num_regions):
-                if i != j:
-                    model_flow[i][ll] = \
-                        np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'].flatten() -
-                                        self.region_dict[j]['pickup_matrix'].flatten()) ** 2)) + \
-                        np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'].flatten() -
-                                        self.region_dict[j]['dropoff_matrix'].flatten()) ** 2))
-                    ll += 1
-            model_flow[i] = model_flow[i] / np.sum(model_flow[i])
-        self.model_flow = model_flow
-        self._logger.info('Finish get model flow.')
+    def get_model_flow(self, i):
+        ll = 0
+        model_flow = np.zeros(self.num_regions - 1)
+        for j in range(self.num_regions):
+            if i != j:
+                model_flow[ll] = \
+                    np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'].flatten() -
+                                    self.region_dict[j]['pickup_matrix'].flatten()) ** 2)) + \
+                    np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'].flatten() -
+                                    self.region_dict[j]['dropoff_matrix'].flatten()) ** 2))
+                ll += 1
+        model_flow = model_flow / np.sum(model_flow)
+        return model_flow
+
+    def get_model_poi(self, i):
+        ll = 0
+        model_poi = np.zeros(self.num_regions - 1)
+        for j in range(self.num_regions):
+            if i != j:
+                model_poi[ll] = np.sqrt(np.sum((self.poi_features[i] - self.poi_features[j]) ** 2))
+                ll += 1
+        model_poi = model_poi / np.sum(model_poi)
+        return model_poi
 
     def get_matrix_dict(self):
         matrix_dict = {}
@@ -142,8 +136,6 @@ class ReMVCDataset(TrafficRepresentationDataset):
             function[i] = row['function']
         return {
             'region_dict': self.region_dict,
-            'model_poi': self.model_poi,
-            'model_flow': self.model_flow,
             'matrix_dict': self.matrix_dict,
             'sampling_pool': [i for i in range(self.num_regions)],
             'num_pois': self.num_pois,

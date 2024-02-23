@@ -89,7 +89,7 @@ class LINE(AbstractTrafficStateModel):
             elif order == 'second':
                 [u'_j^T * v_i for (i,j) in zip(I, J)]; (B,)
         """
-        np.save('./libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'
+        np.save('./libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'
                 .format(self.exp_id, self.model, self.dataset, self.output_dim),
                 self.embed.get_embeddings().cpu().numpy())
         return self.embed(I, J)
