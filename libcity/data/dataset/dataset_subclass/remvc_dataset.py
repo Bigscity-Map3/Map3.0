@@ -1,6 +1,9 @@
 import os
+import pickle
+import multiprocessing
 import pandas as pd
 import numpy as np
+from scipy.sparse import csr_matrix
 from datetime import datetime
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
 
@@ -23,7 +26,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         self.config = config
         super().__init__(config)
-        self.dataset = self.config.get('dataset', '')
+        self.dataset = self.config.get('dataset')
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
@@ -33,46 +36,60 @@ class ReMVCDataset(TrafficRepresentationDataset):
         assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
         if not os.path.exists('./libcity/cache/ReMVC_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/ReMVC_{}'.format(self.dataset))
+        self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
 
         self.get_region_dict()
         self.get_poi_features()
         self.get_matrix_dict()
+        self.num_processes = min(200, self.num_regions // 10)
+        self.get_model_flow()
+        self.get_model_poi()
 
     def get_region_dict(self):
         self._logger.info('Start get region dict...')
-        region_dict = {}
-        time_slices_num = self.config.get('time_slices_num', 48)
-        for i in range(self.num_regions):
-            region_dict[i] = {
-                'poi': [],
-                'pickup_matrix': np.array([[0] * self.num_regions for _ in range(time_slices_num)]),
-                'dropoff_matrix': np.array([[0] * self.num_regions for _ in range(time_slices_num)])
-            }
-
-        # poi
         poi_dict = {}
         poi_df = self.geofile[self.geofile['traffic_type'] == 'poi']
         poi_map = gen_index_map(poi_df, 'function')
         self.num_poi_types = len(poi_map)
-        for _, row in poi_df.iterrows():
-            poi_dict[row['geo_id']] = poi_map[row['function']]
-        for _, row in self.region2poi.iterrows():
-            region_id = row['origin_id']
-            poi_id = row['destination_id']
-            region_dict[region_id]['poi'].append(poi_dict[poi_id])
+        region_dict_path = self.data_cache_file + 'remvc_region_dict.pkl'
+        if not os.path.exists(region_dict_path):
+            region_dict = {}
+            time_slices_num = self.config.get('time_slices_num', 48)
+            assert 86400 % time_slices_num == 0
+            for i in range(self.num_regions):
+                region_dict[i] = {
+                    'poi': [],
+                    'pickup_matrix': np.array([[0] * self.num_regions for _ in range(time_slices_num)]),
+                    'dropoff_matrix': np.array([[0] * self.num_regions for _ in range(time_slices_num)])
+                }
 
-        # matrix
-        dyna_df = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-        lst_region, lst_dyna = None, None
-        for _, row in dyna_df.iterrows():
-            cur_region, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
-            time_slice = t // int(86400 / time_slices_num)
-            if lst_dyna is not None and lst_dyna == cur_dyna:
-                region_dict[lst_region]['pickup_matrix'][time_slice][cur_region] += 1
-                region_dict[cur_region]['dropoff_matrix'][time_slice][lst_region] += 1
-            lst_region, lst_dyna = cur_region, cur_dyna
+            # poi
+            for _, row in poi_df.iterrows():
+                poi_dict[row['geo_id']] = poi_map[row['function']]
+            for _, row in self.region2poi.iterrows():
+                region_id = row['origin_id']
+                poi_id = row['destination_id']
+                region_dict[region_id]['poi'].append(poi_dict[poi_id])
 
-        self.region_dict = region_dict
+            # matrix
+            dyna_df = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
+            lst_region, lst_dyna = None, None
+            for _, row in dyna_df.iterrows():
+                cur_region, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
+                time_slice = t // (86400 // time_slices_num)
+                if lst_dyna is not None and lst_dyna == cur_dyna:
+                    region_dict[lst_region]['pickup_matrix'][time_slice][cur_region] += 1
+                    region_dict[cur_region]['dropoff_matrix'][time_slice][lst_region] += 1
+                lst_region, lst_dyna = cur_region, cur_dyna
+            for i in range(self.num_regions):
+                region_dict[i]['pickup_matrix'] = csr_matrix(region_dict[i]['pickup_matrix'])
+                region_dict[i]['dropoff_matrix'] = csr_matrix(region_dict[i]['dropoff_matrix'])
+
+            with open(region_dict_path, 'wb') as f:
+                pickle.dump(region_dict, f)
+
+        with open(region_dict_path, 'rb') as f:
+            self.region_dict = pickle.load(f)
         self._logger.info('Finish get region dict.')
 
     def get_poi_features(self):
@@ -85,46 +102,110 @@ class ReMVCDataset(TrafficRepresentationDataset):
         self.poi_features = poi_features
         self._logger.info('Finish get poi features.')
 
-    def get_model_flow(self, i):
-        ll = 0
-        model_flow = np.zeros(self.num_regions - 1)
-        for j in range(self.num_regions):
-            if i != j:
-                model_flow[ll] = \
-                    np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'].flatten() -
-                                    self.region_dict[j]['pickup_matrix'].flatten()) ** 2)) + \
-                    np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'].flatten() -
-                                    self.region_dict[j]['dropoff_matrix'].flatten()) ** 2))
-                ll += 1
-        model_flow = model_flow / np.sum(model_flow)
-        return model_flow
+    def process_model_flow(self, args):
+        idx, all = args
+        model_flow_path = os.path.join(self.data_cache_file, 'model_flow', 'remvc_model_flow_{}.pkl'.format(idx))
+        num = (self.num_regions + all - 1) // all
+        start = num * idx
+        end = min(num * (idx + 1), self.num_regions)
+        model_flow = {}
+        # self._logger.info('Process {} {} ~ {}'.format(idx, start, end))
+        for i in range(start, end):
+            ll = 0
+            model_flow[i] = np.zeros(self.num_regions - 1)
+            for j in range(self.num_regions):
+                if i != j:
+                    model_flow[i][ll] = \
+                        np.sqrt(np.sum((self.region_dict[i]['pickup_matrix'].astype(float).toarray().flatten() -
+                                        self.region_dict[j]['pickup_matrix'].astype(float).toarray().flatten()) ** 2)) + \
+                        np.sqrt(np.sum((self.region_dict[i]['dropoff_matrix'].astype(float).toarray().flatten() -
+                                        self.region_dict[j]['dropoff_matrix'].astype(float).toarray().flatten()) ** 2))
+                    ll += 1
+            model_flow[i] = model_flow[i] / np.sum(model_flow[i])
+            self._logger.info('Process {} Finish {}.'.format(idx, i - start + 1))
+        with open(model_flow_path, 'wb') as f:
+                pickle.dump(model_flow, f)
 
-    def get_model_poi(self, i):
-        ll = 0
-        model_poi = np.zeros(self.num_regions - 1)
-        for j in range(self.num_regions):
-            if i != j:
-                model_poi[ll] = np.sqrt(np.sum((self.poi_features[i] - self.poi_features[j]) ** 2))
-                ll += 1
-        model_poi = model_poi / np.sum(model_poi)
-        return model_poi
+    def get_model_flow(self):
+        self._logger.info('Start get model flow...')
+        model_flow_path = os.path.join(self.data_cache_file, 'model_flow')
+        all = self.num_processes
+        if not os.path.exists(model_flow_path):
+            os.makedirs(model_flow_path)
+            pool = multiprocessing.Pool(all + 5)
+            pool.map(self.process_model_flow, [(item, all) for item in range(all)])
+            pool.close()
+            pool.join()
+        self.model_flow = {}
+        for i in range(all):
+            model_flow_path = os.path.join(self.data_cache_file, 'model_flow', 'remvc_model_flow_{}.pkl'.format(i))
+            with open(model_flow_path, 'rb') as f:
+                tmp_dict = pickle.load(f)
+                self.model_flow.update(tmp_dict)
+        self._logger.info('Finish get model flow.')
+
+    def process_model_poi(self, args):
+        idx, all = args
+        model_poi_path = os.path.join(self.data_cache_file, 'model_poi', 'remvc_model_poi_{}.pkl'.format(idx))
+        num = (self.num_regions + all - 1) // all
+        start = num * idx
+        end = min(num * (idx + 1), self.num_regions)
+        model_poi = {}
+        # self._logger.info('Process {} {} ~ {}'.format(idx, start, end))
+        for i in range(start, end):
+            ll = 0
+            model_poi[i] = np.zeros(self.num_regions - 1)
+            for j in range(self.num_regions):
+                if i != j:
+                    model_poi[i][ll] = np.sqrt(np.sum((self.poi_features[i] - self.poi_features[j]) ** 2))
+                    ll += 1
+            model_poi[i] = model_poi[i] / np.sum(model_poi[i])
+            self._logger.info('Process {} Finish {}.'.format(idx, i - start + 1))
+        with open(model_poi_path, 'wb') as f:
+                pickle.dump(model_poi, f)
+    
+    def get_model_poi(self):
+        self._logger.info('Start get model poi...')
+        model_poi_path = os.path.join(self.data_cache_file, 'model_poi')
+        all = self.num_processes
+        if not os.path.exists(model_poi_path):
+            os.makedirs(model_poi_path)
+            pool = multiprocessing.Pool(all + 5)
+            pool.map(self.process_model_poi, [(item, all) for item in range(all)])
+            pool.close()
+            pool.join()
+        self.model_poi = {}
+        for i in range(all):
+            model_poi_path = os.path.join(self.data_cache_file, 'model_poi', 'remvc_model_poi_{}.pkl'.format(i))
+            with open(model_poi_path, 'rb') as f:
+                tmp_dict = pickle.load(f)
+                self.model_poi.update(tmp_dict)
+        self._logger.info('Finish get model poi.')
 
     def get_matrix_dict(self):
-        matrix_dict = {}
-        for idx in range(self.num_regions):
-            pickup_matrix = self.region_dict[idx]["pickup_matrix"]
-            dropoff_matrix = self.region_dict[idx]["dropoff_matrix"]
+        self._logger.info('Start get matrix dict...')
+        matrix_dict_path = self.data_cache_file + 'remvc_matrix_dict.pkl'
+        if not os.path.exists(matrix_dict_path):
+            matrix_dict = {}
+            for idx in range(self.num_regions):
+                pickup_matrix = self.region_dict[idx]["pickup_matrix"].astype(float).toarray()
+                dropoff_matrix = self.region_dict[idx]["dropoff_matrix"].astype(float).toarray()
 
-            pickup_matrix = pickup_matrix / pickup_matrix.sum()
-            where_are_NaNs = np.isnan(pickup_matrix)
-            pickup_matrix[where_are_NaNs] = 0
+                pickup_matrix = pickup_matrix / pickup_matrix.sum()
+                where_are_NaNs = np.isnan(pickup_matrix)
+                pickup_matrix[where_are_NaNs] = 0
 
-            dropoff_matrix = dropoff_matrix / dropoff_matrix.sum()
-            where_are_NaNs = np.isnan(dropoff_matrix)
-            dropoff_matrix[where_are_NaNs] = 0
+                dropoff_matrix = dropoff_matrix / dropoff_matrix.sum()
+                where_are_NaNs = np.isnan(dropoff_matrix)
+                dropoff_matrix[where_are_NaNs] = 0
 
-            matrix_dict[idx] = pickup_matrix, dropoff_matrix
-        self.matrix_dict = matrix_dict
+                matrix_dict[idx] = csr_matrix(pickup_matrix), csr_matrix(dropoff_matrix)
+            with open(matrix_dict_path, 'wb') as f:
+                pickle.dump(matrix_dict, f)
+
+        with open(matrix_dict_path, 'rb') as f:
+            self.matrix_dict = pickle.load(f)
+        self._logger.info('Finish get matrix dict.')
 
     def get_data(self):
         return None, None, None
@@ -137,6 +218,8 @@ class ReMVCDataset(TrafficRepresentationDataset):
         return {
             'region_dict': self.region_dict,
             'matrix_dict': self.matrix_dict,
+            'model_flow': self.model_flow,
+            'model_poi': self.model_poi,
             'sampling_pool': [i for i in range(self.num_regions)],
             'num_pois': self.num_pois,
             'num_poi_types': self.num_poi_types,

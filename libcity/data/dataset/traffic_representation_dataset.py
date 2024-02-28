@@ -210,13 +210,8 @@ class TrafficRepresentationDataset(AbstractDataset):
             
             road_list = [[] for _ in range(traj_num)]
             time_list = [[] for _ in range(traj_num)]
-            # 34102841 1018312
             for _, row in dynafile.iterrows():
-                # if (_ + 1) % 10000 == 0:
-                    # self._logger.info("Finish {}".format(_ + 1))
                 id = row['total_traj_id']
-                # if id == 10000:
-                    # break
                 road_list[id].append(row['geo_id'])
                 time_list[id].append(row['time'])
             # traj_num = 10000
@@ -236,7 +231,6 @@ class TrafficRepresentationDataset(AbstractDataset):
                 # traj_time_str = traj_time_str[:-1]
                 traj_time_str += '\n'
             # self._logger.info("Finish")
-            # exit(0)
             f1 = open(self.traj_road_path, 'w')
             f1.write(traj_road_str)
             f1.close()

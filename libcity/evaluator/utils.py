@@ -196,15 +196,15 @@ def getSpeedAndTime(traj_list, geo2length, geo2speed):
 
 
 def generate_road_representaion_downstream_data(dataset_name):
-    data_path = os.path.join('raw_data', dataset_name)
-    save_data_path = os.path.join('raw_data', dataset_name, "label_data")
+    data_path = os.path.join('libcity/cache/dataset_cache', dataset_name)
+    save_data_path = os.path.join('libcity/cache/dataset_cache', dataset_name, "label_data")
     if not os.path.exists(save_data_path):
         os.makedirs(save_data_path)
     # read files
-    traj_df_reader = pd.read_csv(os.path.join(data_path, dataset_name + '.dyna'), low_memory=False, sep=',', chunksize=100)
-    geo_df = pd.read_csv(os.path.join(data_path, dataset_name + '.geo'), low_memory=False)
+    traj_df_reader = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.dyna'), low_memory=False, sep=',', chunksize=100)
+    geo_df = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.geo'), low_memory=False)
     # length.csv
-    if not os.path.exists(save_data_path + "/length.csv"):
+    if not os.path.exists(os.path.join(save_data_path, "length.csv")):
         geo2length = {}
         for index, row in tqdm(geo_df.iterrows()):
             geo_id = row['geo_id']
@@ -214,11 +214,12 @@ def generate_road_representaion_downstream_data(dataset_name):
 
         geo2lengthdf = pd.DataFrame.from_dict(geo2length, orient='index', columns=['length'])
         geo2lengthdf = geo2lengthdf.reset_index().rename(columns={'index': 'geo_id'})
-        geo2lengthdf.to_csv(save_data_path + '/length.csv', index=False)
+        geo2lengthdf.to_csv(os.path.join(save_data_path, 'length.csv'), index=False)
 
     # speed.csv and time.csv for speed inference and time estimation task
-    if not os.path.exists(save_data_path + "/time.csv") or not os.path.exists(save_data_path + "/speed.csv"):
-        geo2lengthdf = pd.read_csv(save_data_path + '/length.csv')
+    if not os.path.exists(os.path.join(save_data_path, "time.csv")) or \
+        not os.path.exists(os.path.join(save_data_path, "speed.csv")):
+        geo2lengthdf = pd.read_csv(os.path.join(save_data_path, 'length.csv'))
         geo2length = dict(zip(geo2lengthdf['geo_id'], geo2lengthdf['length']))
         geo2speed = {}
         traj_id_temp = 0
@@ -242,6 +243,6 @@ def generate_road_representaion_downstream_data(dataset_name):
 
         geo2speeddf = pd.DataFrame.from_dict(geo2speed, orient='index', columns=['speed', 'freq'])
         geo2speeddf = geo2speeddf.reset_index().rename(columns={'index': 'index'})
-        geo2speeddf.to_csv(save_data_path + '/speed.csv', index=False)
+        geo2speeddf.to_csv(os.path.join(save_data_path, 'speed.csv'), index=False)
         geo2timedf = pd.DataFrame(data=trajAndtime, columns=['trajs', 'time'])
-        geo2timedf.to_csv(save_data_path + '/time.csv', index=True)
+        geo2timedf.to_csv(os.path.join(save_data_path, 'time.csv'), index=True)

@@ -165,7 +165,7 @@ class MVURE_Layer(nn.Module):
         self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
         self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
         self.num_nodes = feature.shape[-2]
-        self.fused_layer = self_attn(48, self.device)
+        self.fused_layer = self_attn(12, self.device)
         self.fused_layer.to(self.device)
         self.mv_layer = mv_attn(self.device)
         self.mv_layer.to(self.device)
@@ -207,24 +207,29 @@ class MVURE_Layer(nn.Module):
         s_dgl_graph = dgl.add_self_loop(s_dgl_graph)
         s_out = self.s_gat(graph = s_dgl_graph,feat = self.inputs)#[num_nodes,num_heads,dim]
         s_out = s_out.reshape([s_out.shape[0],s_out.shape[1]*s_out.shape[2]])
+
         t_dgl_graph = self.construct_dgl_graph(self.t_graph)
         t_dgl_graph = dgl.add_self_loop(t_dgl_graph)
         t_out = self.t_gat(graph = t_dgl_graph,feat = self.inputs)
         t_out = t_out.reshape([t_out.shape[0], t_out.shape[1] * t_out.shape[2]])
+
         poi_dgl_graph = self.construct_dgl_graph(self.poi_graph)
         poi_dgl_graph = dgl.add_self_loop(poi_dgl_graph)
         poi_out = self.poi_gat(graph=poi_dgl_graph, feat=self.inputs)
         poi_out = poi_out.reshape([poi_out.shape[0], poi_out.shape[1] * poi_out.shape[2]])
+
         single_view_out = torch.stack([s_out,t_out,poi_out],dim = 0)
         fused_out = self.fused_layer(single_view_out)
         s_out = self.alpha * fused_out[0] + (1 - self.alpha) * s_out
         t_out = self.alpha * fused_out[1] + (1 - self.alpha) * t_out
         poi_out = self.alpha * fused_out[2] + (1 - self.alpha) * poi_out
+
         fused_out = torch.stack([s_out, t_out, poi_out], dim=0)
         mv_out = self.mv_layer(fused_out)
         s_out = self.beta * s_out + (1 - self.beta) * mv_out
         t_out = self.beta * t_out + (1 - self.beta) * mv_out
         poi_out = self.beta * poi_out + (1 - self.beta) * mv_out
+
         result = torch.stack([s_out, t_out, poi_out], dim=0)
         return result
 
@@ -236,10 +241,8 @@ class MVURE_Layer(nn.Module):
         s_embeddings = embedding[0]
         t_embeddings = embedding[1]
         poi_embeddings = embedding[2]
-        loss1 = self.calculate_mob_loss(s_embeddings,t_embeddings,self.mob_adj)
-        loss2 = self.calculate_poi_loss(poi_embeddings,self.poi_graph)
-        result = loss1 + loss2
-        return result
+        return self.calculate_mob_loss(s_embeddings,t_embeddings,self.mob_adj) +\
+            self.calculate_poi_loss(poi_embeddings,self.poi_graph)
 
     def calculate_mob_loss(self,s_embeddings,t_embeddings,mob_adj_np):
         """

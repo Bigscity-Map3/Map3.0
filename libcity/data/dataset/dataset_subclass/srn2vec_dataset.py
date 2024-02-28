@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import json
+import os
+import pickle
 
 import torch
 from scipy.sparse.csgraph import shortest_path
@@ -30,6 +32,7 @@ class SRN2VecDataset(AbstractDataset):
         self.road_mob_path = self.data_path+'roadmap_'+self.dataset+'/'+'roadmap_'+self.dataset+'.mob'
         self.construct_road_adj()
         self.n_short_paths = config.get('n_short_paths',1280)
+        self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
         node_paths = self.generate_shortest_paths(self.road_adj,self.n_short_paths)
         self.number_negative = config.get('number_negative',3)
         self.batch_size = config.get('batch_size',128)
@@ -50,27 +53,34 @@ class SRN2VecDataset(AbstractDataset):
 
 
     def generate_shortest_paths(self,adj,n_shortest_paths):
-    #最短路算法实现，返回所有的路径
-        def get_path(Pr, i, j):
-            path = [j]
-            k = j
-            while Pr[i, k] != -9999:
-                path.append(Pr[i, k])
-                k = Pr[i, k]
-            if Pr[i, k] == -9999 and k != i:
-                return []
-            return path[::-1]
+        #最短路算法实现，返回所有的路径
+        nodes_paths_cache_file = self.data_cache_file + 'srn2vec_nodes_paths_{}.pkl'.format(n_shortest_paths)
+        if not os.path.exists(nodes_paths_cache_file):
+            def get_path(Pr, i, j):
+                path = [j]
+                k = j
+                while Pr[i, k] != -9999:
+                    path.append(Pr[i, k])
+                    k = Pr[i, k]
+                if Pr[i, k] == -9999 and k != i:
+                    return []
+                return path[::-1]
 
-        _, P = shortest_path(
-            adj, directed=True, method="D", return_predecessors=True, unweighted=True
-        )
-        nodes_paths = []
-        for source in tqdm(range(self.road_num)):
-            targets = np.random.choice(np.setdiff1d(np.arange(self.road_num),[source]),size=n_shortest_paths,replace=False)
-            for target in targets:
-                path = get_path(P,source,target)
-                if path!=[]:
-                    nodes_paths.append(path)
+            _, P = shortest_path(
+                adj, directed=True, method="D", return_predecessors=True, unweighted=True
+            )
+            nodes_paths = []
+            for source in tqdm(range(self.road_num)):
+                targets = np.random.choice(np.setdiff1d(np.arange(self.road_num),[source]),size=n_shortest_paths,replace=False)
+                for target in targets:
+                    path = get_path(P,source,target)
+                    if path != []:
+                        nodes_paths.append(path)
+            with open(nodes_paths_cache_file, 'wb') as f:
+                pickle.dump(nodes_paths, f)
+
+        with open(nodes_paths_cache_file, 'rb') as f:
+            nodes_paths = pickle.load(f)
         return nodes_paths
 
     def extract_pairs(self,info_length, info_highway,node_paths,window_size,number_negative):
@@ -91,15 +101,23 @@ class SRN2VecDataset(AbstractDataset):
         flatted = list(chain.from_iterable(node_paths))
         # get all lengths of sequence roads
         # TODO：BJ疑似因为flatted长度太大报错
-        flat_lengths = info_length[flatted]
+        # 2344563208
+        # flat_lengths = info_length[flatted]
 
         # generate window tuples
         node_combs = []
         for i in tqdm(range(len(orig_lengths) - 1)):
-            lengths = flat_lengths[orig_lengths[i]: orig_lengths[i + 1]]
+            lengths = info_length[flatted[orig_lengths[i]: orig_lengths[i + 1]]]
             # cumsum = lengths.cumsum()
             for j in range(len(lengths)):
-                mask = (lengths[j:].cumsum() < window_size).sum()
+                mask = 0
+                sum = 0
+                while j + mask < len(lengths) and sum + lengths[j + mask] < window_size:
+                    sum += lengths[j + mask]
+                    mask += 1
+                # mask = (lengths[j:].cumsum() < window_size).sum()
+                # assert (lengths[j:].cumsum() < window_size).sum() == mask
+                # print(mask, len(lengths) - j)
                 # idx = (np.abs(lengths[j:].cumsum() - window_size)).argmin()
                 window = node_paths[i][j: j + mask]
                 if len(window) > 1:

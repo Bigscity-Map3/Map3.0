@@ -37,6 +37,8 @@ class MGFN(AbstractTraditionModel):
         criterion = SimLoss()
         model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim)
         print(model)
+        for name, param in model.named_parameters():
+            print(name, param.nelement())
         total_num = sum([param.nelement() for param in model.parameters()])
         self._logger.info('Total parameter numbers: {}'.format(total_num))
 
@@ -106,7 +108,7 @@ class ConcatLinear(nn.Module):
 
 class GraphStructuralEncoder(nn.Module):
 
-    def __init__(self, d_model, nhead, dim_feedforward=1048, dropout=0.1,):
+    def __init__(self, d_model, nhead, dim_feedforward=512, dropout=0.1,):
         super(GraphStructuralEncoder, self).__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model

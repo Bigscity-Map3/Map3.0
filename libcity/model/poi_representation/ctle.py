@@ -1,14 +1,29 @@
 import math
-from itertools import zip_longest
-from collections import Counter
 
 import numpy as np
 import torch
 from torch import nn
 from sklearn.utils import shuffle
 
-from libcity.model.poi_representation.utils import next_batch, weight_init
+from libcity.model.poi_representation.utils import weight_init
 from libcity.model.abstract_model import AbstractModel
+
+
+def gen_casual_mask(seq_len, include_self=True):
+    """
+    Generate a casual mask which prevents i-th output element from
+    depending on any input elements from "the future".
+    Note that for PyTorch Transformer model, sequence mask should be
+    filled with -inf for the masked positions, and 0.0 else.
+
+    :param seq_len: length of sequence.
+    :return: a casual mask, shape (seq_len, seq_len)
+    """
+    if include_self:
+        mask = 1 - torch.triu(torch.ones(seq_len, seq_len)).transpose(0, 1)
+    else:
+        mask = 1 - torch.tril(torch.ones(seq_len, seq_len)).transpose(0, 1)
+    return mask.bool()
 
 
 class PositionalEncoding(nn.Module):

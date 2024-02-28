@@ -10,7 +10,7 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
         self.config = config
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
-        self.label_data_path = './raw_data/' + self.dataset + '/label_data/'
+        self.label_data_path = os.path.join('libcity', 'cache', 'dataset_cache', self.dataset, 'label_data')
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
         self.dyna_file = self.config.get('dyna_file', self.dataset)
@@ -76,18 +76,18 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
 
     def read_processed_data(self):
         assert self.representation_object == "road"
-        data_path1 = os.path.join("raw_data", self.dataset, "label_data", "speed.csv")
-        data_path2 = os.path.join("raw_data", self.dataset, "label_data", "time.csv")
+        data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
+        data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
         if not os.path.exists(data_path1) or not os.path.exists(data_path2):
             generate_road_representaion_downstream_data(self.dataset)
         self.label = {"speed_inference": {}, "time_estimation": {}}
-        self.length_label = pd.read_csv(self.label_data_path + "length.csv")
+        self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
 
-        self.speed_label = pd.read_csv(self.label_data_path + "speed.csv")
+        self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
         self.speed_label.sort_values(by="index", inplace=True, ascending=True)
 
         min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
-        self.time_label = pd.read_csv(self.label_data_path + "time.csv")
+        self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
 
         self.time_label['path'] = self.time_label['trajs'].map(eval)
 

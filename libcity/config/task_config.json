@@ -389,7 +389,7 @@
             "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad","SARN"
         ],
         "allowed_dataset": [
-            "BJ_roadmap","xa","bj","cd"
+            "BJ_roadmap","xa","bj","cd","xa_road","bj_road","cd_road"
         ],
         "ChebConv": {
             "dataset_class": "ChebConvDataset",

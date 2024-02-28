@@ -118,7 +118,7 @@ class ChebConv(AbstractTrafficStateModel):
         """
         inputs = batch['node_features']
         encoder_state = self.encoder(inputs)  # N, output_dim
-        np.save('./libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'
+        np.save('./libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'
                 .format(self.exp_id, self.model, self.dataset, self.output_dim),
                 encoder_state.detach().cpu().numpy())
         output = self.decoder(encoder_state)  # N, feature_dim

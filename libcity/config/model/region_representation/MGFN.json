@@ -1,5 +1,5 @@
 {
-  "output_dim": 32,
+  "output_dim": 16,
   "representation_object":"region",
   "max_epoch": 10
 }
