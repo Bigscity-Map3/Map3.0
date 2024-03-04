@@ -425,32 +425,24 @@ class FLOW_SSL(torch.nn.Module):
         return region_emb
 
     def forward(self, flow_matrix, pos_flow_sets, neg_flow_sets):
-        logger = getLogger()
-        # logger.info('1')
         base_region_emb = self.agg_region_emb(flow_matrix)
-        # logger.info('2')
         pos_region_emb_list = []
         for pos_flow_matrix in pos_flow_sets:
             pos_region_emb = self.agg_region_emb(pos_flow_matrix)
             pos_region_emb_list.append(pos_region_emb.unsqueeze(0))
         pos_region_emb = torch.cat(pos_region_emb_list, dim=0)
-        logger.info('3')
         neg_region_emb_list = []
         for neg_flow_matrix in neg_flow_sets:
             neg_region_emb = self.agg_region_emb(neg_flow_matrix)
             neg_region_emb_list.append(neg_region_emb.unsqueeze(0))
         neg_region_emb = torch.cat(neg_region_emb_list, dim=0)
-        logger.info('4')
         pos_scores = torch.matmul(pos_region_emb, base_region_emb)
         pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(FType).to(self.device)
-        # logger.info('5')
         neg_scores = torch.matmul(neg_region_emb, base_region_emb)
         neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(FType).to(self.device)
-        # logger.info('6')
         scores = torch.cat([pos_scores, neg_scores])
         labels = torch.cat([pos_label, neg_label])
         scores /= self.temp
-        # logger.info('7')
         loss = -(F.log_softmax(scores, dim=0) * labels).sum() / labels.sum()
         return loss, base_region_emb, neg_region_emb
 
@@ -548,16 +540,10 @@ class ReMVC(AbstractTraditionModel):
         self._logger.info("Start training.")
         for epoch in range(self.epoch):
             self.loss = 0.0
-            counter = 0
             for region_id in self.ssl_data['sampling_pool']:
-                counter += 1
-                self._logger.info('{} Stage 1'.format(counter))
                 poi_loss, base_poi_emb, neg_poi_emb = self.poi_model.model_train(region_id)
-                self._logger.info('{} Stage 2'.format(counter))
                 flow_loss, base_flow_emb, neg_flow_emb = self.flow_model.model_train(region_id)
-                self._logger.info('{} Stage 3'.format(counter))
                 mutual_loss = self.forward(base_poi_emb, base_flow_emb, neg_poi_emb, neg_flow_emb)
-                self._logger.info('{} Stage 4'.format(counter))
 
                 loss = flow_loss + self.poi_reg * poi_loss + self.mutual_reg * mutual_loss
 

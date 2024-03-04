@@ -125,6 +125,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
             self._logger.info('Process {} Finish {}.'.format(idx, i - start + 1))
         with open(model_flow_path, 'wb') as f:
                 pickle.dump(model_flow, f)
+        self._logger.info('Process {} End.'.format(idx))
 
     def get_model_flow(self):
         self._logger.info('Start get model flow...')
@@ -132,10 +133,15 @@ class ReMVCDataset(TrafficRepresentationDataset):
         all = self.num_processes
         if not os.path.exists(model_flow_path):
             os.makedirs(model_flow_path)
-            pool = multiprocessing.Pool(all + 5)
-            pool.map(self.process_model_flow, [(item, all) for item in range(all)])
-            pool.close()
-            pool.join()
+        pool = multiprocessing.Pool(all + 5)
+        tmp = []
+        for i in range(all):
+            model_flow_path = os.path.join(self.data_cache_file, 'model_flow', 'remvc_model_flow_{}.pkl'.format(i))
+            if not os.path.exists(model_flow_path):
+                tmp.append(i)
+        pool.map(self.process_model_flow, [(item, all) for item in tmp])
+        pool.close()
+        pool.join()
         self.model_flow = {}
         for i in range(all):
             model_flow_path = os.path.join(self.data_cache_file, 'model_flow', 'remvc_model_flow_{}.pkl'.format(i))
@@ -143,43 +149,25 @@ class ReMVCDataset(TrafficRepresentationDataset):
                 tmp_dict = pickle.load(f)
                 self.model_flow.update(tmp_dict)
         self._logger.info('Finish get model flow.')
-
-    def process_model_poi(self, args):
-        idx, all = args
-        model_poi_path = os.path.join(self.data_cache_file, 'model_poi', 'remvc_model_poi_{}.pkl'.format(idx))
-        num = (self.num_regions + all - 1) // all
-        start = num * idx
-        end = min(num * (idx + 1), self.num_regions)
+    
+    def get_model_poi(self):
+        self._logger.info('Start get model poi...')
+        poi_features = {}
+        for i in range(self.num_regions):
+            poi_features[i] = np.zeros(self.num_poi_types)
+            for j in self.region_dict[i]['poi']:
+                poi_features[i][j] += 1
         model_poi = {}
-        # self._logger.info('Process {} {} ~ {}'.format(idx, start, end))
-        for i in range(start, end):
+        for i in range(self.num_regions):
+            model_poi[i] = [1.0 / (self.num_regions - 1)] * (self.num_regions - 1)
             ll = 0
             model_poi[i] = np.zeros(self.num_regions - 1)
             for j in range(self.num_regions):
                 if i != j:
-                    model_poi[i][ll] = np.sqrt(np.sum((self.poi_features[i] - self.poi_features[j]) ** 2))
+                    model_poi[i][ll] = np.sqrt(np.sum((poi_features[i] - poi_features[j]) ** 2))
                     ll += 1
             model_poi[i] = model_poi[i] / np.sum(model_poi[i])
-            self._logger.info('Process {} Finish {}.'.format(idx, i - start + 1))
-        with open(model_poi_path, 'wb') as f:
-                pickle.dump(model_poi, f)
-    
-    def get_model_poi(self):
-        self._logger.info('Start get model poi...')
-        model_poi_path = os.path.join(self.data_cache_file, 'model_poi')
-        all = self.num_processes
-        if not os.path.exists(model_poi_path):
-            os.makedirs(model_poi_path)
-            pool = multiprocessing.Pool(all + 5)
-            pool.map(self.process_model_poi, [(item, all) for item in range(all)])
-            pool.close()
-            pool.join()
-        self.model_poi = {}
-        for i in range(all):
-            model_poi_path = os.path.join(self.data_cache_file, 'model_poi', 'remvc_model_poi_{}.pkl'.format(i))
-            with open(model_poi_path, 'rb') as f:
-                tmp_dict = pickle.load(f)
-                self.model_poi.update(tmp_dict)
+        self.model_poi = model_poi
         self._logger.info('Finish get model poi.')
 
     def get_matrix_dict(self):

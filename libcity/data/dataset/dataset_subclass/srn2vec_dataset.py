@@ -41,6 +41,7 @@ class SRN2VecDataset(AbstractDataset):
 
 
     def construct_road_adj(self):
+        self._logger.info('Start construct road adj...')
         self.road_adj = np.zeros(shape=[self.road_num,self.road_num])
 
         #构建路网的邻接关系
@@ -50,12 +51,15 @@ class SRN2VecDataset(AbstractDataset):
             for neighbor in road_adj_data[str(road)]:
                 distance = self.centroid[road].distance(self.centroid[neighbor])
                 self.road_adj[road][neighbor] = distance
+        self._logger.info('Finish construct road adj.')
 
 
     def generate_shortest_paths(self,adj,n_shortest_paths):
+        self._logger.info('Start generate shortest paths...')
         #最短路算法实现，返回所有的路径
-        nodes_paths_cache_file = self.data_cache_file + 'srn2vec_nodes_paths_{}.pkl'.format(n_shortest_paths)
-        if not os.path.exists(nodes_paths_cache_file):
+        config_file = os.path.join(self.data_cache_file, 'srn2vec_config.json')
+        nodes_paths_cache_file = os.path.join(self.data_cache_file, 'srn2vec_nodes_paths_{}'.format(n_shortest_paths))
+        if not os.path.exists(config_file):
             def get_path(Pr, i, j):
                 path = [j]
                 k = j
@@ -65,7 +69,10 @@ class SRN2VecDataset(AbstractDataset):
                 if Pr[i, k] == -9999 and k != i:
                     return []
                 return path[::-1]
-
+            if not os.path.exists(nodes_paths_cache_file):
+                os.makedirs(nodes_paths_cache_file)
+            total = 500000
+            counter = 0
             _, P = shortest_path(
                 adj, directed=True, method="D", return_predecessors=True, unweighted=True
             )
@@ -76,11 +83,27 @@ class SRN2VecDataset(AbstractDataset):
                     path = get_path(P,source,target)
                     if path != []:
                         nodes_paths.append(path)
-            with open(nodes_paths_cache_file, 'wb') as f:
-                pickle.dump(nodes_paths, f)
+                        if len(nodes_paths) == total:
+                            with open(os.path.join(nodes_paths_cache_file, 'path_{}'.format(counter)), 'wb') as f:
+                                pickle.dump(nodes_paths, f)
+                            nodes_paths = []
+                            counter += 1
+            if nodes_paths != []:
+                with open(os.path.join(nodes_paths_cache_file, 'path_{}'.format(counter)), 'wb') as f:
+                    pickle.dump(nodes_paths, f)
+                nodes_paths = []
+                counter += 1
+            data_config = {'paths_count': counter}
+            with open(config_file, 'w') as f:
+                json.dump(data_config, f)
 
-        with open(nodes_paths_cache_file, 'rb') as f:
-            nodes_paths = pickle.load(f)
+        with open(config_file, 'r') as f:
+            data_config = json.load(f)
+        nodes_paths = []
+        for i in range(data_config['paths_count']):
+            with open(os.path.join(nodes_paths_cache_file, 'path_{}'.format(i)), 'rb') as f:
+                nodes_paths.extend(pickle.load(f))
+        self._logger.info('Finish generate shortest paths.')
         return nodes_paths
 
     def extract_pairs(self,info_length, info_highway,node_paths,window_size,number_negative):
