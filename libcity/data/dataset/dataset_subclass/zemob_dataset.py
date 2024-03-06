@@ -8,6 +8,7 @@ import torch
 from tqdm import tqdm
 import geopandas as gpd
 from libcity.data.dataset import AbstractDataset
+from libcity.data.preprocess import preprocess_traj_region_11, cache_dir
 
 
 class ZEMobDataset(AbstractDataset):
@@ -80,7 +81,8 @@ class ZEMobDataset(AbstractDataset):
         :return:
         """
         mobility_event_index = 0
-        traj_file = pd.read_csv(self.data_path + "traj_region_" + self.dataset + "_11.csv", delimiter=';')
+        preprocess_traj_region_11(self.config)
+        traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_11.csv'))
         for i in tqdm(range(len(traj_file))):
             # 得到起始zone和起始zone对应的mobility_event
             path = traj_file.loc[i, 'path']

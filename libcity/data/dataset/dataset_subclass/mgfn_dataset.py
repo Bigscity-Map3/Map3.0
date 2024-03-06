@@ -11,6 +11,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from tqdm import  *
+from libcity.data.preprocess import preprocess_traj_region_11, cache_dir
 
 class MGFNDataset(AbstractDataset):
     def __init__(self,config):
@@ -42,7 +43,9 @@ class MGFNDataset(AbstractDataset):
 
     def construct_multi_graph(self):
         time_each_slice = 24 // self.time_slice
-        traj_file = pd.read_csv(self.data_path+"traj_region_"+self.dataset+"_11.csv",delimiter=';')
+        preprocess_traj_region_11(self.config)
+        traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_11.csv'))
+        # traj_file = pd.read_csv(self.data_path+"traj_region_"+self.dataset+"_11.csv",delimiter=';')
         self.multi_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
         for i in tqdm(range(len(traj_file))):
             path = traj_file.loc[i, 'path']

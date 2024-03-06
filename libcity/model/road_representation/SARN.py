@@ -78,7 +78,7 @@ class SARN(nn.Module):
         self.sarn_learning_rate = config.get("sarn_learning_rate", 0.005)
         self.sarn_learning_weight_decay = config.get("sarn_learning_weight_decay", 0.0001)
         self.sarn_training_bad_patience = config.get("sarn_training_bad_patience", 20)
-        self.sarn_epochs = config.get("sarn_epochs", 5)
+        self.sarn_epochs = config.get("max_epoch", 5)
         self.sarn_moco_loss_global_weight=config.get("sarn_moco_loss_global_weight", 1-self.sarn_moco_loss_local_weight)
         self.sarn_batch_size = config.get("sarn_batch_size", 128)
         self.sarn_learning_rated_adjusted=config.get("sarn_learning_rated_adjusted", True)

@@ -8,6 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from libcity.data.dataset import AbstractDataset
+from libcity.data.preprocess import preprocess_traj_region_11, cache_dir
 
 
 class HDGEDataset(AbstractDataset):
@@ -45,7 +46,11 @@ class HDGEDataset(AbstractDataset):
         self._logger.info("finish constructing flow graph")
         return
     time_each_slice = 24 // self.time_slice
-    traj_file = pd.read_csv(self.data_path + "traj_region_" + self.dataset + "_11.csv", delimiter=';')
+    preprocess_traj_region_11(self.config)
+    traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_11.csv'))
+    # print(os.path.join(cache_dir, self.dataset, 'traj_region_11.csv'))
+    # print(traj_file.keys())
+    # traj_file = pd.read_csv(self.data_path + "traj_region_" + self.dataset + "_11.csv", delimiter=';')
     self.flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
     for i in tqdm(range(len(traj_file))):
         path = traj_file.loc[i, 'path']

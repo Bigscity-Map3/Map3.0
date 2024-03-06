@@ -36,7 +36,7 @@ class SpeedInferenceModel(AbstractModel):
         num_road = len(x)
         for i in index:
             x_.append(x[i-num_road])
-        x = torch.tensor(x_).cuda()
+        x = torch.tensor(np.array(x_)).cuda()
         x.detach()
 
         for _ in range(self.n_split):

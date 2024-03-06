@@ -312,7 +312,7 @@ class RnnLocPredictor(nn.Module, ABC):
 
 def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, batch_size, device):
     logger = getLogger()
-    logger.info('Start training downstream model ...')
+    logger.info('Start training downstream model...')
     pre_model = pre_model.to(device)
     optimizer = torch.optim.Adam(pre_model.parameters(), lr=1e-4)
     loss_func = nn.CrossEntropyLoss()
@@ -373,7 +373,7 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
             logger.info('epoch {} complete!'.format(epoch))
 
     best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
-    logger.info('Finished Evaluation')
+    logger.info('Finished Evaluation.')
     logger.info(
         'Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
             best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))

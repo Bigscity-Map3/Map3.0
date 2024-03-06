@@ -481,7 +481,7 @@ class ReMVC(AbstractTraditionModel):
         self.flow_model = FLOW_SSL(self.ssl_data, neg_size=flow_neg_size, emb_size=size, temp=0.08, time_zone=48,
                                    extractor=extractor, device=self.device).to(self.device)
 
-        self.epoch = config.get('epoch', 200)
+        self.epoch = config.get('max_epoch', 200)
         self.learning_rate = config.get('learning_rate', 0.001)
         self.mutual_reg = mutual_reg
         self.poi_reg = poi_reg

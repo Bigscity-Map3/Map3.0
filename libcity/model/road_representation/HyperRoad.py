@@ -28,7 +28,7 @@ class HyperRoad(AbstractTraditionModel):
         
         self.speed_cls_num = data_feature.get('speed_cls')
         self.oneway_cls_num = data_feature.get('oneway_cls')
-        self.epoches = config.get('epoches')
+        self.epoches = config.get('max_epoch')
         self.lr = config.get('learning_rate')
         self.weight_decay = config.get('weight_decay')
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
