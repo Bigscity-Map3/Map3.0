@@ -10,7 +10,7 @@ allowed_metrics = ['Precision', 'Recall', 'F1', 'MRR', 'MAP', 'NDCG']
 
 class TrajLocPredEvaluator(AbstractEvaluator):
 
-    def __init__(self, config):
+    def __init__(self, config,data_feature):
         self.metrics = config['metrics']  # 评估指标, 是一个 list
         self.config = config
         self.topk = config['topk']

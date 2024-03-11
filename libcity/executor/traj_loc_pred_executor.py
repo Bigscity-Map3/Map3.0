@@ -12,7 +12,7 @@ from libcity.utils import get_evaluator
 class TrajLocPredExecutor(AbstractExecutor):
 
     def __init__(self, config, model, data_feature):
-        self.evaluator = get_evaluator(config)
+        self.evaluator = get_evaluator(config,data_feature)
         self.metrics = 'Recall@{}'.format(config['topk'])
         self.config = config
         self.model = model.to(self.config['device'])
