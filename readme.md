@@ -25,14 +25,6 @@ LibCity currently supports the following tasks:
 * Map Matching
 * Road Network Representation Learning
 
-## Features
-
-* **Unified**: LibCity builds a systematic pipeline to implement, use and evaluate traffic prediction models in a unified platform. We design basic spatial-temporal data storage, unified model instantiation interfaces, and standardized evaluation procedure.
-
-* **Comprehensive**: 65 models covering 9 traffic prediction tasks have been reproduced to form a comprehensive model warehouse. Meanwhile, LibCity collects 35 commonly used datasets of different sources and implements a series of commonly used evaluation metrics and strategies for performance evaluation. 
-
-* **Extensible**: LibCity enables a modular design of different components, allowing users to flexibly insert customized components into the library. Therefore, new researchers can easily develop new models with the support of LibCity.
-
 ## LibCity News
 [![new](https://github.com/RUCAIBox/RecBole/raw/master/asset/new.gif)](https://github.com/RUCAIBox/RecBole/blob/master/asset/new.gif) **11/19/2022**: Our self-attention-based traffic flow prediction model **PDFormer** developed on LibCity was accepted by **AAAI2023**, please check this [link](https://github.com/BUAABIGSCity/PDFormer) for more details.
 
