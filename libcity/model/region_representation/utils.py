@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import dgl
 import numpy_indexed as npi
+
 def build_graph_from_matrix(adjm, node_feats, device='cpu'):
     '''
     Build graph using DGL library from adjacency matrix.

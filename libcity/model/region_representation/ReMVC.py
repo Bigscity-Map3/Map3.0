@@ -1,3 +1,4 @@
+from re import I
 import numpy as np
 import random
 import torch
@@ -19,7 +20,6 @@ class SAEncoder(nn.Module):
 
     def __init__(self, d_input, d_model, n_head, _type):
         super(SAEncoder, self).__init__()
-
         self.d_input = d_input
         self.d_model = d_model
         self.n_head = n_head
@@ -38,6 +38,7 @@ class SAEncoder(nn.Module):
         if f_type == "avg":
             output = torch.mean(v, dim=0)
         return output
+
 
     def forward(self, x):
         q = self.linear_q(x)
@@ -171,11 +172,13 @@ class POI_SSL(torch.nn.Module):
 
     def agg_region_emb(self, poi_set):
         poi_f = np.zeros(self.ssl_data['num_poi_types'])
+
         for poi in poi_set:
             poi_f[poi] += 1
 
         if np.sum(poi_f) != 0:
             poi_f = poi_f / np.sum(poi_f)
+
         poi_f = torch.Tensor(poi_f).type(FType).to(self.device)
 
         if self.extractor == "CNN":
@@ -219,18 +222,20 @@ class POI_SSL(torch.nn.Module):
             new_poi = poi
             ratio = random.random()
             if ratio < _ratio:
-                new_poi[0] = random.randint(0, self.ssl_data['num_pois'] - 1)
+                new_poi = random.randint(0, self.ssl_data['num_poi_types'] - 1)
             replace_poi_set.append(new_poi)
         return replace_poi_set
 
     def positive_sampling(self, region_id):
-        # TODO：Region 可能没有 POI，导致只能使用 add_aug
+
         poi_set = self.ssl_data['region_dict'][region_id]['poi']
+        if len(poi_set) == 0:
+            return [[],[],[]]
 
         de_poi_set = []
         for ratio in [0.1]:
-            # de_poi_set.append(self.delete_aug(poi_set, ratio))
-            de_poi_set.append(self.add_aug(poi_set, ratio))
+            de_poi_set.append(self.delete_aug(poi_set, ratio))
+            # de_poi_set.append(self.add_aug(poi_set, ratio))
 
         add_poi_set = []
         for ratio in [0.1]:
@@ -238,9 +243,9 @@ class POI_SSL(torch.nn.Module):
 
         re_poi_set = []
         for ratio in [0.1]:
-            # re_poi_set.append(self.replace_aug(poi_set, ratio))
-            re_poi_set.append(self.add_aug(poi_set, ratio))
-
+            re_poi_set.append(self.replace_aug(poi_set, ratio))
+            # re_poi_set.append(self.add_aug(poi_set, ratio))
+            
         pos_poi_sets = de_poi_set + add_poi_set + re_poi_set
 
         return pos_poi_sets

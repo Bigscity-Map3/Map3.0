@@ -17,14 +17,14 @@ from libcity.data.dataset.dataset_subclass.crann_dataset import CRANNDataset
 from libcity.data.dataset.dataset_subclass.ccrnn_dataset import CCRNNDataset
 from libcity.data.dataset.dataset_subclass.chebconv_dataset import ChebConvDataset
 from libcity.data.dataset.dataset_subclass.cstn_dataset import CSTNDataset
-from libcity.data.dataset.dataset_subclass.geosan_dataset import GeoSANDataset
+# from libcity.data.dataset.dataset_subclass.geosan_dataset import GeoSANDataset
 from libcity.data.dataset.dataset_subclass.gsnet_dataset import GSNetDataset
 from libcity.data.dataset.dataset_subclass.line_dataset import LINEDataset
 from libcity.data.dataset.dataset_subclass.node2vec_dataset import Node2VecDataset
 from libcity.data.dataset.dataset_subclass.hdge_dataset import HDGEDataset
 from libcity.data.dataset.dataset_subclass.mgfn_dataset import MGFNDataset
 from libcity.data.dataset.dataset_subclass.line_region_dataset import LINERegionDataset
-from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
+# from libcity.data.dataset.dataset_subclass.zemob_dataset import ZEMobDataset
 from libcity.data.dataset.dataset_subclass.mvure_dataset import MVUREDataset
 from libcity.data.dataset.dataset_subclass.gmel_dataset import GMELDataset
 from libcity.data.dataset.dataset_subclass.remvc_dataset import ReMVCDataset
@@ -51,13 +51,13 @@ __all__ = [
     "DMVSTNetDataset",
     'ChebConvDataset',
     "CSTNDataset",
-    "GeoSANDataset",
+    # "GeoSANDataset",
     "GSNetDataset",
     "Node2VecDataset",
     "LINEDataset",
     "HDGEDataset",
     "MGFNDataset",
-    "ZEMobDataset",
+    # "ZEMobDataset",
     "MVUREDataset",
     "GMELDataset",
     "SRN2VecDataset",

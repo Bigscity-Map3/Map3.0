@@ -137,6 +137,8 @@ class ODRegionRepresentationDataset(AbstractDataset):
         将region2poi和poi2region保存
         把region2region直接做成self.adj_mx，邻接的保存为质心距离，不邻接的保存为0
         """
+        import pdb 
+        pdb.set_trace()
         relfile = pd.read_csv(self.data_path + self.rel_file + '.rel')
         self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
         self.region2poi = relfile[relfile['rel_type'] == 'region2poi']

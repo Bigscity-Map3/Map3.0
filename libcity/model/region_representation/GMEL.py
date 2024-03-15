@@ -11,8 +11,6 @@ import torch.nn.functional as F
 
 import dgl.function as fn
 
-import pdb
-
 class GMEL(AbstractTraditionModel):
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)
@@ -105,6 +103,7 @@ class GMEL(AbstractTraditionModel):
         train_outflow = torch.from_numpy(train_outflow).view(-1, 1).float().to(self.device)
         # construct graph using adjacency matrix
         g = utils.build_graph_from_matrix(ct_adj, node_feats.astype(np.float32), self.device)
+
         return g,num_nodes,node_feats,train_data,train_inflow,train_outflow,trip_od_valid,trip_volume_valid,trip_od_train,trip_volume_train
 
 class GAT(nn.Module):
@@ -214,7 +213,6 @@ def MSE(y_hat, y):
             acc_sqe_sum += torch.sum((y_hat[i: i + limit] - y[i: i + limit]) ** 2)
         return acc_sqe_sum / y_hat.shape[0]
 
-
 class GATLayer(nn.Module):
     def __init__(self, g, in_ndim, out_ndim, in_edim=1, out_edim=1):
         '''
@@ -279,7 +277,6 @@ class GATLayer(nn.Module):
         self.g.update_all(self.message_func, self.reduce_func)
         return self.g.ndata.pop('h')
 
-
 class GATInputLayer(nn.Module):
 
     def __init__(self, g, in_ndim, out_ndim, in_edim=1, out_edim=1):
@@ -296,7 +293,7 @@ class GATInputLayer(nn.Module):
         # handle parameters
         self.g = g
         # equation (1)
-        self.fc0 = nn.Linear(in_edim, out_edim, bias=False).to()
+        self.fc0 = nn.Linear(in_edim, out_edim, bias=False)
         self.fc1 = nn.Linear(in_ndim, out_ndim, bias=False)
         self.fc2 = nn.Linear(in_ndim, out_ndim, bias=False)
         # equation (2)
@@ -311,7 +308,6 @@ class GATInputLayer(nn.Module):
         '''
         transform edge features
         '''
-
         return {'t': self.fc0(edges.data['d'])}
 
     def edge_attention(self, edges):
@@ -327,7 +323,8 @@ class GATInputLayer(nn.Module):
     def reduce_func(self, nodes):
         # reduce UDF for equation (3) & (4)
         # equation (3)
-        alpha = F.softmax(nodes.mailbox['e'], dim=1)
+
+        alpha = F.softmax(nodes.mailbox['e'], dim=1) # fix
         # equation (4). this is the core update part.
         z_neighbor = torch.sum(alpha * nodes.mailbox['z'], dim=1)
         z_i = nodes.data['z_i']
@@ -347,7 +344,7 @@ class GATInputLayer(nn.Module):
         # equation (2)
         self.g.apply_edges(self.edge_attention)
         # equation (3) & (4)
-        self.g.update_all(self.message_func, self.reduce_func)
+        self.g.update_all(self.message_func, self.reduce_func)# fix
         return self.g.ndata.pop('h')
 
 class GMELModel(nn.Module):
@@ -418,6 +415,7 @@ class GMELModel(nn.Module):
         # calculate the in/out flow of nodes
         # scaled back trip volume
         # get in/out nodes of this batch
+
         out_nodes, out_flows_idx = torch.unique(trip_od[:, 0], return_inverse=True)
         in_nodes, in_flows_idx = torch.unique(trip_od[:, 1], return_inverse=True)
         # scale the in/out flows of the nodes in this batch
@@ -426,7 +424,7 @@ class GMELModel(nn.Module):
         # get embeddings of each node from GNN
         src_embedding = self.forward(g)
         dst_embedding = self.forward2(g)
-        pdb.set_trace()
+        # pdb.set_trace()
         # get edge prediction
         edge_prediction = self.predict_edge(src_embedding, dst_embedding, trip_od)
         # get in/out flow prediction
@@ -440,8 +438,6 @@ class GMELModel(nn.Module):
         # get regularization loss
         reg_loss = 0.5 * (self.regularization_loss(src_embedding) + self.regularization_loss(dst_embedding))
         # return the overall loss
-        print(multitask_weights[:3])
-        print(edge_predict_loss, in_predict_loss, out_predict_loss, self.reg_param, reg_loss)
         return multitask_weights[0] * edge_predict_loss + multitask_weights[1] * in_predict_loss + \
                multitask_weights[2] * out_predict_loss + self.reg_param * reg_loss
 
@@ -452,7 +448,7 @@ class GMELModel(nn.Module):
         # construct edge feature
         src_emb = src_embedding[trip_od[:, 0]]
         dst_emb = dst_embedding[trip_od[:, 1]]
-        pdb.set_trace()
+        # pdb.set_trace()
         # get predictions
         # edge_feat = torch.cat((src_emb, dst_emb), dim=1)
         # self.edge_regressor(edge_feat)
