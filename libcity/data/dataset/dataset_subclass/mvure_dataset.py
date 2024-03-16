@@ -2,13 +2,32 @@ import os
 from logging import getLogger
 from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
-import numpy
 import numpy as np
 from tqdm import tqdm
 
 from libcity.data.dataset.abstract_dataset import AbstractDataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from libcity.data.preprocess import preprocess_all, cache_dir
+
+
+def cosine_similarity(a, b):
+    dot_product = np.dot(a, b)  # 计算向量 a 和向量 b 的点积
+    norm_a = np.linalg.norm(a)  # 计算向量 a 的范数
+    norm_b = np.linalg.norm(b)  # 计算向量 b 的范数
+    # 如果任一向量的范数为零，则返回零
+    if norm_a == 0 or norm_b == 0:
+        return 0
+    similarity = dot_product / (norm_a * norm_b)  # 计算余弦相似度
+    return similarity
+
+
+def num2str(x):
+    s = '#'
+    while x > 0:
+        s += chr(ord('a') + x % 26)
+        x //= 26
+    return s
+
 
 class MVUREDataset(AbstractDataset):
 
@@ -94,13 +113,32 @@ class MVUREDataset(AbstractDataset):
             self.poi_simi = np.load(self.poi_simi_path)
             self._logger.info("finish construct poi_simi")
             return
-        self.poi_simi = np.zeros([self.num_regions,self.num_regions])
-        poi_simi_file = pd.read_csv(self.data_path+"regionmap_"+self.dataset+"/"+"regionmap_"+self.dataset+".sem")
-        for i in range(len(poi_simi_file)):
-            origin_id = poi_simi_file.loc[i, "origin_id"]
-            destination_id = poi_simi_file.loc[i, "destination_id"]
-            self.poi_simi[origin_id][destination_id] = poi_simi_file.loc[i,"semantic_weight"]
-        np.save(self.poi_simi_path,self.poi_simi)
+        self.poi_simi = np.zeros([self.num_regions, self.num_regions])
+        corpus = [[] for _ in range(self.num_regions)]
+        geo_df = pd.read_csv(os.path.join(self.data_path, self.dataset + '.geo'))
+        rel_df = pd.read_csv(os.path.join(self.data_path, self.dataset + '.rel'))
+        poi2region = rel_df[rel_df['rel_type'] == 'poi2region']
+        poi_type_dict = {}
+        total = 0
+        for _, row in poi2region.iterrows():
+            poi_id = int(row['origin_id'])
+            region_id = int(row['destination_id'])
+            poi_type = geo_df['poi_TYPE'][poi_id]
+            if poi_type not in poi_type_dict.keys():
+                total += 1
+                poi_type_dict[poi_type] = total
+            corpus[region_id].append(num2str(poi_type_dict[poi_type]))
+        corpus = [' '.join(_) for _ in corpus]
+        # 创建一个 TfidfVectorizer 对象
+        tfidf_vectorizer = TfidfVectorizer()
+        # 将文本数据转换成 TF-IDF 表示
+        tfidf_matrix = tfidf_vectorizer.fit_transform(corpus).toarray()
+        for i in range(self.num_regions):
+            for j in range(i, self.num_regions):
+                similarity = cosine_similarity(tfidf_matrix[i], tfidf_matrix[j])
+                self.poi_simi[i][j] = similarity
+                self.poi_simi[j][i] = similarity
+        np.save(self.poi_simi_path, self.poi_simi)
         self._logger.info("finish construct poi_simi")
 
     def data_preprocess(self):

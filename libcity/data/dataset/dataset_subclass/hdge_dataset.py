@@ -71,9 +71,8 @@ class HDGEDataset(AbstractDataset):
         self.spatial_graph = np.load(self.spatial_graph_path)
         self._logger.info("finish constructing spatial graph")
         return
-    region_geo_file = pd.read_csv(self.data_path + "regionmap_" + self.dataset + "/regionmap_" + self.dataset + ".geo",
-                                  delimiter=',')
-    self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['geometry'])
+    region_geo_file = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+    self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'])
     self.centroid = self.region_geometry.centroid
     self.spatial_graph = np.zeros([self.num_nodes,self.num_nodes])
     for i in range(self.num_nodes):

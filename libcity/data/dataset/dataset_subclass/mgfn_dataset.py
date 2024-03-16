@@ -44,7 +44,6 @@ class MGFNDataset(AbstractDataset):
 
     def construct_multi_graph(self):
         time_each_slice = 24 // self.time_slice
-        preprocess_traj_region(self.config)
         traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
         self.multi_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
         for i in tqdm(range(len(traj_file))):
