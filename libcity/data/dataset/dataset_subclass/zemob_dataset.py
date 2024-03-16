@@ -19,7 +19,7 @@ class ZEMobDataset(AbstractDataset):
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
         self.device = config.get('device', torch.device('cpu'))
-        self.od_label_path = self.data_path + "region_od_flow_" + self.dataset + "_11_train.npy"
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
         self.num_nodes = self.num_regions
@@ -192,8 +192,9 @@ class ZEMobDataset(AbstractDataset):
             self.distance = np.load(self.distance_matrix_path)
             self._logger.info("finish constructing distance matrix")
             return
-        region_geo_file =  pd.read_csv(self.data_path + "regionmap_" + self.dataset +"/regionmap_" + self.dataset + ".geo", delimiter=',')
-        self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['geometry'])
+        region_geo_file = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        # region_geo_file =  pd.read_csv(self.data_path + "regionmap_" + self.dataset +"/regionmap_" + self.dataset + ".geo", delimiter=',')
+        self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'])
         centroid = self.region_geometry.centroid
         for i in range(self.zone_num):
             for j in range(i, self.zone_num):

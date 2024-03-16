@@ -23,7 +23,7 @@ class HDGEDataset(AbstractDataset):
      assert (24%self.time_slice == 0)
      if not os.path.exists('./libcity/cache/HDGE_{}'.format(self.dataset)):
          os.mkdir('./libcity/cache/HDGE_{}'.format(self.dataset))
-     self.od_label_path = self.data_path + "region_od_flow_" + self.dataset + "_11_train.npy"
+     self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
      self.mob_adj = np.load(self.od_label_path)
      self.num_regions = self.mob_adj.shape[0]
      self.num_nodes = self.num_regions

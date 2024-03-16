@@ -27,7 +27,7 @@ class MGFNDataset(AbstractDataset):
             os.mkdir('./libcity/cache/MGFN_{}'.format(self.dataset))
         self.multi_graph = None
         self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
-        self.od_label_path = self.data_path + "region_od_flow_" + self.dataset + "_11_train.npy"
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
         self.num_nodes = self.num_regions

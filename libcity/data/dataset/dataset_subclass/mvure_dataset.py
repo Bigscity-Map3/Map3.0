@@ -8,11 +8,13 @@ from tqdm import tqdm
 
 from libcity.data.dataset.abstract_dataset import AbstractDataset
 from sklearn.feature_extraction.text import TfidfVectorizer
+from libcity.data.preprocess import preprocess_all, cache_dir
 
 class MVUREDataset(AbstractDataset):
 
     def __init__(self, config):
         self.config = config
+        preprocess_all(config)
         self._logger = getLogger()
         self.num_nodes = 0
         self.dataset = self.config.get('dataset', '')
@@ -22,7 +24,7 @@ class MVUREDataset(AbstractDataset):
         self.in_flow_adj_path = './libcity/cache/MVURE_{}/in_flow_adj.npy'.format(self.dataset)
         self.out_flow_adj_path = './libcity/cache/MVURE_{}/out_flow_adj.npy'.format(self.dataset)
         self.poi_simi_path = './libcity/cache/MVURE_{}/poi_simi.npy'.format(self.dataset)
-        self.od_label_path = self.data_path+"region_od_flow_"+self.dataset+"_11_train.npy"
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
         self.num_nodes = self.num_regions

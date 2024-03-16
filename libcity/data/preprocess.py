@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 
 cache_dir = os.path.join('libcity', 'cache', 'dataset_cache')
-DEBUG = False
 
 
 def str2timestamp(s):
@@ -26,65 +25,13 @@ class PreProcess():
         self.dyna_file = os.path.join('raw_data', self.dataset, config.get('dyna_file', self.dataset) + '.dyna')
 
 
-# class preprocess_traj_region(PreProcess):
-#     def __init__(self, config):
-#         super().__init__(config)
-#         file_name = 'traj_region.csv'  # 上级目录已包含数据集名称
-#         self.data_file = os.path.join(self.data_dir, file_name)
-#         if not os.path.exists(self.data_file) or DEBUG:
-#             logger = getLogger()
-#             logger.info('Start preprocess traj region.')
-#             dyna_df = pd.read_csv(self.dyna_file)
-#             id = []
-#             path = []
-#             tlist = []
-#             usr_id = []
-#             traj_id = []
-#             start_time = []
-#             lst_traj_id, lst_usr_id = None, None
-#             for _, row in tqdm(dyna_df.iterrows(), total=dyna_df.shape[0]):
-#                 if lst_traj_id != row['traj_id'] or lst_usr_id != row['entity_id']:  # 轨迹划分依据还存疑，靠 traj_id 和 total_traj_id 都不行
-#                     idx = len(id)
-#                     id.append(idx)
-#                     path.append([])
-#                     tlist.append([])
-#                     usr_id.append(row['entity_id'])
-#                     traj_id.append(row['traj_id'])
-#                     start_time.append(row['time'].split(' ')[0])
-#                 tlist[idx].append(str2timestamp(row['time']))
-#                 path[idx].append(row['geo_id'])
-#                 lst_traj_id = row['traj_id']
-#                 lst_usr_id = row['entity_id']
-#             df = pd.concat(
-#                 [
-#                     pd.Series(id, name='id'), 
-#                     pd.Series(path, name='path'), 
-#                     pd.Series(tlist, name='tlist'),
-#                     pd.Series(usr_id, name='usr_id'),
-#                     pd.Series(traj_id, name='traj_id'),
-#                     pd.Series(start_time, name='start_time')
-#                 ], axis=1)
-#             df.to_csv(self.data_file, index=False)
-#             train_file = os.path.join(self.data_dir, 'traj_region_train.csv')
-#             val_file = os.path.join(self.data_dir, 'traj_region_val.csv')
-#             test_file = os.path.join(self.data_dir, 'traj_region_test.csv')
-#             train_df = df.sample(frac=3/5, random_state=1)
-#             df = df.drop(train_df.index)
-#             val_df = df.sample(frac=1/2, random_state=1)
-#             test_df = df.drop(val_df.index)
-#             train_df.to_csv(train_file, index=False)
-#             val_df.to_csv(val_file, index=False)
-#             test_df.to_csv(test_file, index=False)
-#             logger.info('Finish preprocess traj region.')
-
-
 class preprocess_traj(PreProcess):
     # 在目前的代码中，该文件被命名为 traj_{dataset}_11.csv，但现在计划改名，将其与 region 区分开
     def __init__(self, config):
         super().__init__(config)
         file_name = 'traj_road.csv'
         self.data_file = os.path.join(self.data_dir, file_name)
-        if not os.path.exists(self.data_file) or DEBUG:
+        if not os.path.exists(self.data_file):
             logger = getLogger()
             logger.info('Start preprocess traj.')
             dyna_df = pd.read_csv(self.dyna_file)
@@ -147,6 +94,8 @@ class preprocess_traj(PreProcess):
             test_df.to_csv(test_file, index=False)
 
             # region traj
+            file_name = 'traj_region.csv'
+            data_file = os.path.join(self.data_dir, file_name)
             rel_df = pd.read_csv(self.rel_file)
             road2region_df = rel_df[rel_df['rel_type'] == 'road2region']
             geo_df = pd.read_csv(self.geo_file)
@@ -156,17 +105,20 @@ class preprocess_traj(PreProcess):
                 x = int(row['origin_id']) - num_regions
                 y = int(row['destination_id'])
                 road2region[x] = y
-            path = [road2region[i] for i in path]
+            region_paths = []
+            for road_path in path:
+                tmp = [road2region[i] for i in road_path]
+                region_paths.append(tmp)
             df = pd.concat(
                 [
                     pd.Series(id, name='id'), 
-                    pd.Series(path, name='path'), 
+                    pd.Series(region_paths, name='path'), 
                     pd.Series(tlist, name='tlist'),
                     pd.Series(usr_id, name='usr_id'),
                     pd.Series(traj_id, name='traj_id'),
                     pd.Series(start_time, name='start_time')
                 ], axis=1)
-            df.to_csv(self.data_file, index=False)
+            df.to_csv(data_file, index=False)
             train_file = os.path.join(self.data_dir, 'traj_region_train.csv')
             val_file = os.path.join(self.data_dir, 'traj_region_val.csv')
             test_file = os.path.join(self.data_dir, 'traj_region_test.csv')
@@ -224,18 +176,19 @@ def save_od_matrix(data_dir, file_name, n):
         np.save(file_path, od_matrix)
 
 
+# TODO：应该取平均
 def save_in_avg(data_dir, file_name):
     file_path = os.path.join(data_dir, file_name + '_in_avg.npy')
     if not os.path.exists(file_path):
         od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.mean(od_file, axis=0))
+        np.save(file_path, np.sum(od_file, axis=0))
 
 
 def save_out_avg(data_dir, file_name):
     file_path = os.path.join(data_dir, file_name + '_out_avg.npy')
     if not os.path.exists(file_path):
         od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.mean(od_file, axis=1))
+        np.save(file_path, np.sum(od_file, axis=1))
 
 
 class preprocess_od(PreProcess):
@@ -251,10 +204,10 @@ class preprocess_od(PreProcess):
         save_od_matrix(self.data_dir, 'traj_road'        , num_roads  )
         save_od_matrix(self.data_dir, 'traj_road_train'  , num_roads  )
         save_od_matrix(self.data_dir, 'traj_road_test'   , num_roads  )
-        save_in_avg(self.data_dir, 'traj_region')
-        save_in_avg(self.data_dir, 'traj_road')
-        save_out_avg(self.data_dir, 'traj_region')
-        save_out_avg(self.data_dir, 'traj_road')
+        save_in_avg(self.data_dir, 'traj_region_test')
+        save_in_avg(self.data_dir, 'traj_road_test')
+        save_out_avg(self.data_dir, 'traj_region_test')
+        save_out_avg(self.data_dir, 'traj_road_test')
 
 
 class preprocess_feature(PreProcess):
@@ -315,12 +268,13 @@ def preprocess_all(config):
     preprocess_feature(config)
     preprocess_neighbor(config)
     preprocess_traj(config)
+    preprocess_od(config)
 
 
 if __name__ == '__main__':
     # pd.set_option('display.max_rows', None)  # 设置行数为无限制
     # pd.set_option('display.max_columns', None)  # 设置列数为无限制
-    # os.chdir('/home/tangyb/private/tyb/remote/representation')
-    os.chdir('/home/zhangwt/tyb/tyb/remote/representation')
+    os.chdir('/home/tangyb/private/tyb/remote/representation')
+    # os.chdir('/home/zhangwt/tyb/tyb/remote/representation')
     config = {'dataset': 'test'}
-    preprocess_neighbor(config)
+    # preprocess_neighbor(config)

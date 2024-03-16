@@ -47,35 +47,19 @@ class JCLRNTDataset(AbstractDataset):
         self.edge_threshold = self.config.get("edge_threshold", 0.6)
         self.centroid = self.road_geometry.centroid
         self.road_num = len(self.road_tag)
-         # self.traj_path = self.data_path + 'traj_' + self.dataset + '_11.csv'
         self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
-        # self.adj_json_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_neighbor_' + self.dataset + '.json'
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
-        # self.road_mob_path = self.data_path+'roadmap_'+self.dataset+'/'+'roadmap_'+self.dataset+'.mob'
-        # self.road_feature_path = self.data_path+'roadmap_'+self.dataset+'/'+'road_features_'+self.dataset+'.csv'
         self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
         self.number_negative = config.get('number_negative',3)
         self.batch_size = config.get('batch_size',64)
         self.min_len=config.get('min_len',10)
         self.max_len = config.get('max_len', 64)
         self.construct_road_adj()
-        # self.train_path = 'raw_data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
         self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.traj_arr = self.prepare_traj_data()
         train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         eval_path = os.path.join(data_cache_dir, 'traj_road_val.csv')
         test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
-        # train_path = 'raw_data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
-        # eval_path = 'raw_data/{}/traj_{}_11_val.csv'.format(
-        #     self.dataset, self.dataset)
-        # test_path = 'raw_data/{}/traj_{}_11_test.csv'.format(
-        #     self.dataset, self.dataset)
-        # path1 = 'raw_data/{}/downstream_eval/{}_decup_detoured_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
-        # path2 = 'raw_data/{}/downstream_eval/{}_decup_othersdetour_test_topk0.2_0.2_1.0_3000_30000.csv'.format(self.dataset,self.dataset)
-        # path3 = 'raw_data/{}/downstream_eval/{}_decup_origin_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
-        # self.traj_arr_detour_test = self.prepare_traj_test_data(path1)
-        # self.traj_arr_detour_others = self.prepare_traj_test_data(path2)
-        # self.traj_arr_origin_test = self.prepare_traj_test_data(path3)
         self.traj_arr_train = self.prepare_traj_test_data(train_path)
         self.traj_arr_eval = self.prepare_traj_test_data(eval_path)
         self.traj_arr_test = self.prepare_traj_test_data(test_path)
