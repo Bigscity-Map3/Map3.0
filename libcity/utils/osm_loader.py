@@ -11,6 +11,7 @@ import networkx as nx
 import math
 import torch
 import re
+import os
 
 from libcity.utils.Config import Config
 from libcity.utils import cell
@@ -18,6 +19,7 @@ sys.modules['cell'] = cell
 from cell import CellSpace
 from libcity.utils.tool_funcs import haversine_np 
 from libcity.utils.edge_index import EdgeIndex
+from libcity.data.preprocess import cache_dir
 
 
 class OSMLoader:
@@ -59,11 +61,14 @@ class OSMLoader:
         _time = time.time()
 
         # ======== basis for all =========
-        self.cikm_data_path = 'raw_data/{}/'.format(dataset)
-        self.segments_file_path = self.cikm_data_path + 'road_' + dataset + '.csv'
+        # self.cikm_data_path = 'raw_data/{}/'.format(dataset)
+        data_cache_dir = os.path.join(cache_dir, dataset)
+        # self.segments_file_path = self.cikm_data_path + 'road_' + dataset + '.csv'
+        self.segments_file_path = os.path.join(data_cache_dir, 'road.csv')
         self.segments = pd.read_csv(self.segments_file_path)
         self.road_num = len(self.segments)
-        self.adj_json_path = self.cikm_data_path + 'roadmap_' + dataset + '/' + 'road_neighbor_' + dataset + '.json'
+        # self.adj_json_path = self.cikm_data_path + 'roadmap_' + dataset + '/' + 'road_neighbor_' + dataset + '.json'
+        self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
 
         def construct_road_adj():
             road_adj = np.zeros(shape=[self.road_num, self.road_num])

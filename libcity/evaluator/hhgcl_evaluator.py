@@ -32,6 +32,7 @@ import seaborn as sns
 from sklearn import manifold
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import normalize
+from libcity.data.preprocess import cache_dir
 
 
 class Classifier(nn.Module):
@@ -257,9 +258,11 @@ class HHGCLEvaluator(AbstractEvaluator):
         return sc, db, ch, nmi, ars
 
     def _valid_road_clf(self, road_emb):
-        road_data = pd.read_csv(
-            './raw_data/{}/roadmap_{}/roadmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
-        road_label = road_data['highway'].values
+        # road_data = pd.read_csv(
+        #     './raw_data/{}/roadmap_{}/roadmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
+        # road_label = road_data['highway'].values
+        road_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        road_label = road_data['road_highway'].values
         label = road_label
         useful_index = []
         useful_label = [2, 3, 4, 5, 6]
@@ -286,9 +289,11 @@ class HHGCLEvaluator(AbstractEvaluator):
         return y,useful_index,road_micro_f1, road_macro_f1
 
     def _valid_region_clf(self, region_emb):
-        region_data = pd.read_csv(
-            './raw_data/{}/regionmap_{}/regionmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
-        region_label = region_data['FUNCTION'].values
+        # region_data = pd.read_csv(
+        #     './raw_data/{}/regionmap_{}/regionmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
+        # region_label = region_data['FUNCTION'].values
+        region_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        region_label = region_data['region_FUNCTION'].values
         label = region_label
         useful_label = [1, 3, 4, 5, 6]
         useful_index = []

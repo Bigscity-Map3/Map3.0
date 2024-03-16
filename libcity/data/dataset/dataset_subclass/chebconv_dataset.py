@@ -7,11 +7,15 @@ from logging import getLogger
 from libcity.utils import StandardScaler, NormalScaler, NoneScaler, \
     MinMax01Scaler, MinMax11Scaler, LogScaler, ensure_dir
 from libcity.data.dataset import AbstractDataset
+from libcity.evaluator.utils import generate_road_representaion_downstream_data
+from libcity.data.preprocess import preprocess_all, cache_dir
 
 
 class ChebConvDataset(AbstractDataset):
     def __init__(self, config):
+        self.representation_object = config.get('representation_object', 'road')
         self.config = config
+        preprocess_all(config)
         self.dataset = self.config.get('dataset', '')
         self.cache_dataset = self.config.get('cache_dataset', True)
         self.train_rate = self.config.get('train_rate', 0.7)
@@ -29,6 +33,8 @@ class ChebConvDataset(AbstractDataset):
         if not os.path.exists(self.data_path):
             raise ValueError("Dataset {} not exist! Please ensure the path "
                              "'./raw_data/{}/' exist!".format(self.dataset, self.dataset))
+        self.label_data_path = os.path.join('libcity', 'cache', 'dataset_cache', self.dataset, 'label_data')
+
         # 加载数据集的config.json文件
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
@@ -40,6 +46,7 @@ class ChebConvDataset(AbstractDataset):
         self._logger = getLogger()
         self._load_geo()
         self._load_rel()
+        self.read_processed_data()
 
     def _load_geo(self):
         """
@@ -47,7 +54,8 @@ class ChebConvDataset(AbstractDataset):
         """
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         self.geo_ids = list(geofile['geo_id'])
-        self.num_nodes = len(self.geo_ids)
+        # self.num_nodes = len(self.geo_ids)
+        self.num_nodes = geofile[geofile['traffic_type'] == 'road'].shape[0]
         self.geo_to_ind = {}
         for index, idx in enumerate(self.geo_ids):
             self.geo_to_ind[idx] = index
@@ -62,6 +70,7 @@ class ChebConvDataset(AbstractDataset):
         Returns:
             np.ndarray: self.adj_mx, N*N的邻接矩阵
         """
+        # TODO：这里应该构建 road 之间的邻接矩阵
         map_info = pd.read_csv(self.data_path + self.rel_file + '.rel')
         # 使用稀疏矩阵构建邻接矩阵
         adj_row = []
@@ -92,28 +101,35 @@ class ChebConvDataset(AbstractDataset):
         # 'tunnel', 'bridge', 'service', 'junction', 'key'是01 1+1+1+1+1
         # 'lanes', 'highway'是类别 47+6
         # 'length', 'maxspeed', 'width'是浮点 1+1+1 共61
-        node_features = self.road_info[self.road_info.columns[3:]]
+        node_features = pd.read_csv(os.path.join(cache_dir, self.dataset, 'road.csv'))
+        node_features = node_features.drop(
+            ['id', 'geometry', 'u', 'v', 's_lon', 's_lat', 
+             'e_lon', 'e_lat', 'm_lon', 'm_lat', 'coordinates',
+             'type'], axis=1)
+        # print(node_features.keys())
+        # exit(0)
 
+        # node_features = self.road_info[self.road_info.columns[3:]]
         # 对部分列进行归一化
-        norm_dict = {
-            'length': 1,
-            'maxspeed': 5,
-            'width': 6
-        }
-        for k, v in norm_dict.items():
-            d = node_features[k]
-            min_ = d.min()
-            max_ = d.max()
-            dnew = (d - min_) / (max_ - min_)
-            node_features = node_features.drop(k, 1)
-            node_features.insert(v, k, dnew)
+        # norm_dict = {
+        #     'length': 1,
+        #     'maxspeed': 5,
+        #     'width': 6
+        # }
+        # for k, v in norm_dict.items():
+        #     d = node_features[k]
+        #     min_ = d.min()
+        #     max_ = d.max()
+        #     dnew = (d - min_) / (max_ - min_)
+        #     node_features = node_features.drop(k, 1)
+        #     node_features.insert(v, k, dnew)
 
-        # 对部分列进行独热编码
-        onehot_list = ['lanes', 'highway']
-        for col in onehot_list:
-            dum_col = pd.get_dummies(node_features[col], col)
-            node_features = node_features.drop(col, axis=1)
-            node_features = pd.concat([node_features, dum_col], axis=1)
+        # # 对部分列进行独热编码
+        # onehot_list = ['lanes', 'highway']
+        # for col in onehot_list:
+        #     dum_col = pd.get_dummies(node_features[col], col)
+        #     node_features = node_features.drop(col, axis=1)
+        #     node_features = pd.concat([node_features, dum_col], axis=1)
 
         node_features = node_features.values
         np.save(self.cache_file_folder + '{}_node_features.npy'.format(self.dataset), node_features)
@@ -216,6 +232,27 @@ class ChebConvDataset(AbstractDataset):
         self.eval_dataloader = {'node_features': node_features, 'mask': valid_mask}
         self.test_dataloader = {'node_features': node_features, 'mask': test_mask}
         return self.train_dataloader, self.eval_dataloader, self.test_dataloader
+    
+    def read_processed_data(self):
+        assert self.representation_object == "road"
+        data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
+        data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
+        if not os.path.exists(data_path1) or not os.path.exists(data_path2):
+            generate_road_representaion_downstream_data(self.dataset)
+        self.label = {"speed_inference": {}, "time_estimation": {}}
+        self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
+
+        self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
+        self.speed_label.sort_values(by="index", inplace=True, ascending=True)
+
+        min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
+        self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
+
+        self.time_label['path'] = self.time_label['trajs'].map(eval)
+
+        self.time_label['path_len'] = self.time_label['path'].map(len)
+        self.time_label = self.time_label.loc[
+            (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
 
     def get_data_feature(self):
         """
@@ -224,5 +261,11 @@ class ChebConvDataset(AbstractDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"scaler": self.scaler, "adj_mx": self.adj_mx,
-                "num_nodes": self.num_nodes, "feature_dim": self.feature_dim}
+        return {
+                    "scaler": self.scaler, "adj_mx": self.adj_mx,
+                    "num_nodes": self.num_nodes, "feature_dim": self.feature_dim,
+                    "label": {
+                        'speed_inference': {'speed': self.speed_label},
+                        'time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
+                    }
+                }

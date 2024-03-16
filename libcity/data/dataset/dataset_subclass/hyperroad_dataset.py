@@ -13,6 +13,7 @@ from sklearn.preprocessing import OneHotEncoder
 from logging import getLogger
 
 from libcity.data.dataset import AbstractDataset
+from libcity.data.preprocess import preprocess_all, cache_dir
 
 class Road(Dataset):
     def __init__(self, edges, road_network, hyper_network, road2hyper, road_feature, hyper_feature, 
@@ -124,22 +125,29 @@ class Road(Dataset):
 class HyperRoadDataset(AbstractDataset):
     def __init__(self,config):
         self.config=config
+        preprocess_all(config)
         self.device = config.get('device')
         self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
         # 加载所有road的tag标签
-        self.road_geo_path = self.data_path + 'road_' + self.dataset + '.csv'
+        # self.road_geo_path = self.data_path + 'road_' + self.dataset + '.csv'
+        data_cache_dir = os.path.join(cache_dir, self.dataset)
+        self.road_geo_path = os.path.join(data_cache_dir, 'road.csv')
         self.road_geo_df = pd.read_csv(self.road_geo_path, delimiter=',')
         self.road_tag = np.array(self.road_geo_df['highway'])
         self.road_length = np.array(self.road_geo_df['length'])
         self.road_num = len(self.road_length)
-        self.traj_path = self.data_path + 'traj_' + self.dataset + '_11.csv'
-        self.adj_json_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_neighbor_' + self.dataset + '.json'
-        self.road2region_path = self.data_path + 'road2region_'+self.dataset+'.json'
-        self.road_mob_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'roadmap_' + self.dataset + '.mob'
-        self.road_feature_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_features_' + self.dataset + '.csv'
-        self.region_geo_path = self.data_path+'region_'+self.dataset+'.csv'
+        # self.traj_path = self.data_path + 'traj_' + self.dataset + '_11.csv'
+        self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
+        # self.adj_json_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_neighbor_' + self.dataset + '.json'
+        self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
+        # self.road2region_path = self.data_path + 'road2region_'+self.dataset+'.json'
+        # self.road_mob_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'roadmap_' + self.dataset + '.mob'
+        # self.road_feature_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_features_' + self.dataset + '.csv'
+        self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
+        # self.region_geo_path = self.data_path+'region_'+self.dataset+'.csv'
+        self.region_geo_path = os.path.join(data_cache_dir, 'region.csv')
         self.region_geo_df = pd.read_csv(self.region_geo_path, delimiter=',')
         self.region_num = len(self.region_geo_df)
         self.road_geometry = gpd.GeoSeries.from_wkt(self.road_geo_df['geometry'])
@@ -281,11 +289,17 @@ class HyperRoadDataset(AbstractDataset):
     
     def construct_hyper_adj(self):
         hyper_adj = np.zeros(shape=[self.road_num,self.region_num])
-        with open(self.road2region_path, 'r', encoding='utf-8') as fp:
-            road2region_data = json.load(fp)
-        for road in range(self.road_num):
-            region = road2region_data[str(road)]
-            hyper_adj[road][region] = 1
+        df = pd.read_csv(os.path.join(self.data_path, self.dataset + '.rel'))
+        road2region_df = df[df['rel_type'] == 'road2region']
+        for _, row in road2region_df.iterrows():
+            x = int(row['origin_id']) - self.region_num
+            y = int(row['destination_id'])
+            hyper_adj[x][y] = 1
+        # with open(self.road2region_path, 'r', encoding='utf-8') as fp:
+        #     road2region_data = json.load(fp)
+        # for road in range(self.road_num):
+        #     region = road2region_data[str(road)]
+        #     hyper_adj[road][region] = 1
         return hyper_adj
     
     def construct_road_feature(self):
