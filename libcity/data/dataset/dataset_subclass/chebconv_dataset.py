@@ -56,6 +56,7 @@ class ChebConvDataset(AbstractDataset):
         self.geo_ids = list(geofile['geo_id'])
         # self.num_nodes = len(self.geo_ids)
         self.num_nodes = geofile[geofile['traffic_type'] == 'road'].shape[0]
+        self.num_regions = geofile[geofile['traffic_type'] == 'region'].shape[0]
         self.geo_to_ind = {}
         for index, idx in enumerate(self.geo_ids):
             self.geo_to_ind[idx] = index
@@ -70,8 +71,8 @@ class ChebConvDataset(AbstractDataset):
         Returns:
             np.ndarray: self.adj_mx, N*N的邻接矩阵
         """
-        # TODO：这里应该构建 road 之间的邻接矩阵
         map_info = pd.read_csv(self.data_path + self.rel_file + '.rel')
+        map_info = map_info[map_info['rel_type'] == 'road2road'].reset_index(drop=True)
         # 使用稀疏矩阵构建邻接矩阵
         adj_row = []
         adj_col = []
@@ -80,8 +81,8 @@ class ChebConvDataset(AbstractDataset):
         cnt = 0
         for i in range(map_info.shape[0]):
             if map_info['origin_id'][i] in self.geo_to_ind and map_info['destination_id'][i] in self.geo_to_ind:
-                f_id = self.geo_to_ind[map_info['origin_id'][i]]
-                t_id = self.geo_to_ind[map_info['destination_id'][i]]
+                f_id = self.geo_to_ind[map_info['origin_id'][i]] - self.num_regions
+                t_id = self.geo_to_ind[map_info['destination_id'][i]] - self.num_regions
                 if (f_id, t_id) not in adj_set:
                     adj_set.add((f_id, t_id))
                     adj_row.append(f_id)
@@ -106,8 +107,7 @@ class ChebConvDataset(AbstractDataset):
             ['id', 'geometry', 'u', 'v', 's_lon', 's_lat', 
              'e_lon', 'e_lat', 'm_lon', 'm_lat', 'coordinates',
              'type'], axis=1)
-        # print(node_features.keys())
-        # exit(0)
+        # TODO：应该保留哪些属性？
 
         # node_features = self.road_info[self.road_info.columns[3:]]
         # 对部分列进行归一化

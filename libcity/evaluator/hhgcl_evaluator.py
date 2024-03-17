@@ -1,5 +1,4 @@
 import math
-import json
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader
@@ -83,7 +82,6 @@ def evaluation_classify(X, y, kfold=5, num_classes=5, seed=42, output_dim=128):
         for e in range(1000):
             model.train()
             opt.zero_grad()
-            # pdb.set_trace()
             ce_loss = nn.CrossEntropyLoss()(model(X_train), y_train)
             ce_loss.backward()
             opt.step()
@@ -167,8 +165,6 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
     y_trues = y_trues.numpy()
     mae, rmse, mape, r2 = metrics_local(y_trues, y_preds)
     return mae,rmse,mape,r2
-
-
 
 
 def evaluation_reg(X, y, kfold=5, seed=42, output_dim=128):
@@ -259,9 +255,6 @@ class HHGCLEvaluator(AbstractEvaluator):
         return sc, db, ch, nmi, ars
 
     def _valid_road_clf(self, road_emb):
-        # road_data = pd.read_csv(
-        #     './raw_data/{}/roadmap_{}/roadmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
-        # road_label = road_data['highway'].values
         road_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         road_label = road_data['road_highway'].dropna().astype(int).values
         label = road_label
@@ -269,8 +262,6 @@ class HHGCLEvaluator(AbstractEvaluator):
         useful_label = [2, 3, 4, 5, 6]
         num_classes = 5
         self._logger.info('Road emb shape = {}, label shape = {}'.format(road_emb.shape, label.shape))
-        # import pdb
-        # pdb.set_trace()
         assert len(label) == len(road_emb)
 
         X = []
@@ -292,9 +283,6 @@ class HHGCLEvaluator(AbstractEvaluator):
         return y,useful_index,road_micro_f1, road_macro_f1
 
     def _valid_region_clf(self, region_emb):
-        # region_data = pd.read_csv(
-        #     './raw_data/{}/regionmap_{}/regionmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
-        # region_label = region_data['FUNCTION'].values
         region_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         region_label = region_data['region_FUNCTION'].dropna().astype(int).values
         label = region_label
@@ -323,6 +311,7 @@ class HHGCLEvaluator(AbstractEvaluator):
                                                                output_dim=self.output_dim)
         self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(region_micro_f1, region_macro_f1))
         return y,useful_index,region_micro_f1, region_macro_f1
+    
     def _valid_road_flow_using_bilinear(self,road_emb):
         self._logger.warning('Evaluating Road OD-Flow Prediction Using Bilinear Module')
         od_flow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_od.npy')).astype('float32')
@@ -331,6 +320,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info(
             'MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(road_mae,road_rmse,road_r2,road_mape))
         return road_mae, road_rmse, road_r2, road_mape
+    
     def _valid_region_flow_using_bilinear(self,region_emb):
         self._logger.warning('Evaluating Region OD-Flow Prediction Using Bilinear Module')
         # od_flow = np.load('./raw_data/{}/region_od_flow_{}_11.npy'.format(
@@ -341,7 +331,6 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info(
             'MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae,region_rmse,region_r2,region_mape))
         return region_mae,region_rmse,region_r2,region_mape
-
 
     def _valid_road_flow(self, road_emb):
         self._logger.warning('Evaluating Road In-Flow Prediction')
@@ -392,6 +381,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info("Result of region flow estimation in {}:".format(self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae, region_rmse, region_r2, region_mape))
         return region_mae, region_rmse, region_mape, region_r2
+    
     def evaluate_road_embedding(self):
         road_emb = np.load(self.road_embedding_path)
         self._logger.info('Load road emb {}, shape = {}'.format(self.road_embedding_path, road_emb.shape))
@@ -416,6 +406,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['road_ch'] = [road_ch]
         self.result['road_nmi'] = [road_nmi]
         self.result['road_ars'] = [road_ars]
+
     def evaluate_region_embedding(self):
         region_emb = np.load(self.region_embedding_path)
         self._logger.info('Load region emb {}, shape = {}'.format(self.region_embedding_path, region_emb.shape))
@@ -445,6 +436,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['region_ch'] = [region_ch]
         self.result['region_nmi'] = [region_nmi]
         self.result['region_ars'] = [region_ars]
+
     def evaluate(self):
         if self.representation_object == 'region':
             self.evaluate_region_embedding()
