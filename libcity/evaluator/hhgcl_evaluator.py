@@ -323,8 +323,6 @@ class HHGCLEvaluator(AbstractEvaluator):
     
     def _valid_region_flow_using_bilinear(self,region_emb):
         self._logger.warning('Evaluating Region OD-Flow Prediction Using Bilinear Module')
-        # od_flow = np.load('./raw_data/{}/region_od_flow_{}_11.npy'.format(
-        #     self.dataset, self.dataset)).astype('float32')
         od_flow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_od.npy')).astype('float32')
         region_mae,region_rmse,region_mape,region_r2 = evaluation_bilinear_reg(region_emb,od_flow,kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} bilinear estimation in {}:".format('odflow', self.dataset))
@@ -335,16 +333,12 @@ class HHGCLEvaluator(AbstractEvaluator):
     def _valid_road_flow(self, road_emb):
         self._logger.warning('Evaluating Road In-Flow Prediction')
         inflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_in_avg.npy')).astype('float32')
-        # inflow = np.load('./raw_data/{}/road_in_flow_day_avg_{}_11.npy'.format(
-        #     self.dataset, self.dataset, self.dataset)).astype('float32')
         in_road_mae, in_road_rmse, in_road_mape, in_road_r2 = evaluation_reg(road_emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('inflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_road_mae, in_road_rmse, in_road_r2, in_road_mape))
 
         self._logger.warning('Evaluating Road Out-Flow Prediction')
         outflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_out_avg.npy')).astype('float32')
-        # outflow = np.load('./raw_data/{}/road_out_flow_day_avg_{}_11.npy'.format(
-        #     self.dataset, self.dataset, self.dataset)).astype('float32')
         out_road_mae, out_road_rmse, out_road_mape, out_road_r2 = evaluation_reg(road_emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_road_mae, out_road_rmse, out_road_r2, out_road_mape))
@@ -360,16 +354,12 @@ class HHGCLEvaluator(AbstractEvaluator):
     def _valid_region_flow(self, region_emb):
         self._logger.warning('Evaluating Region In-Flow Prediction')
         inflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_in_avg.npy')).astype('float32')
-        # inflow = np.load('./raw_data/{}/region_in_flow_day_avg_{}_11.npy'.format(
-        #     self.dataset, self.dataset, self.dataset)).astype('float32')
         in_region_mae, in_region_rmse, in_region_mape, in_region_r2 = evaluation_reg(region_emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('inflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_region_mae, in_region_rmse, in_region_r2, in_region_mape))
 
         self._logger.warning('Evaluating Region Out-Flow Prediction')
         outflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_out_avg.npy')).astype('float32')
-        # outflow = np.load('./raw_data/{}/region_out_flow_day_avg_{}_11.npy'.format(
-        #     self.dataset, self.dataset, self.dataset)).astype('float32')
         out_region_mae, out_region_rmse, out_region_mape, out_region_r2 = evaluation_reg(region_emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_region_mae, out_region_rmse, out_region_r2, out_region_mape))

@@ -106,9 +106,18 @@ class preprocess_traj(PreProcess):
                 y = int(row['destination_id'])
                 road2region[x] = y
             region_paths = []
-            for road_path in path:
-                tmp = [road2region[i] for i in road_path]
-                region_paths.append(tmp)
+            region_tlists = []
+            for i, road_path in enumerate(path):
+                tmp1, tmp2 = [], []
+                lst_region = None
+                for j, road in enumerate(road_path):
+                    region = road2region[road]
+                    if region != lst_region:
+                        tmp1.append(region)
+                        tmp2.append(tlist[i][j])
+                        lst_region = region
+                region_paths.append(tmp1)
+                region_tlists.append(tmp2)
             df = pd.concat(
                 [
                     pd.Series(id, name='id'), 
@@ -176,19 +185,18 @@ def save_od_matrix(data_dir, file_name, n):
         np.save(file_path, od_matrix)
 
 
-# TODO：应该取平均
-def save_in_avg(data_dir, file_name):
+def save_in_avg(data_dir, file_name, num_days):
     file_path = os.path.join(data_dir, file_name + '_in_avg.npy')
     if not os.path.exists(file_path):
         od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.sum(od_file, axis=0))
+        np.save(file_path, np.sum(od_file, axis=0) / num_days)
 
 
-def save_out_avg(data_dir, file_name):
+def save_out_avg(data_dir, file_name, num_days):
     file_path = os.path.join(data_dir, file_name + '_out_avg.npy')
     if not os.path.exists(file_path):
         od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.sum(od_file, axis=1))
+        np.save(file_path, np.sum(od_file, axis=1) / num_days)
 
 
 class preprocess_od(PreProcess):
@@ -198,16 +206,18 @@ class preprocess_od(PreProcess):
         geo_df = pd.read_csv(self.geo_file)
         num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
         num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
+        traj_df = pd.read_csv(os.path.join(self.data_dir, 'traj_road.csv'))
+        num_days = traj_df['start_time'].drop_duplicates().shape[0]
         save_od_matrix(self.data_dir, 'traj_region'      , num_regions)
         save_od_matrix(self.data_dir, 'traj_region_train', num_regions)
         save_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
         save_od_matrix(self.data_dir, 'traj_road'        , num_roads  )
         save_od_matrix(self.data_dir, 'traj_road_train'  , num_roads  )
         save_od_matrix(self.data_dir, 'traj_road_test'   , num_roads  )
-        save_in_avg(self.data_dir, 'traj_region_test')
-        save_in_avg(self.data_dir, 'traj_road_test')
-        save_out_avg(self.data_dir, 'traj_region_test')
-        save_out_avg(self.data_dir, 'traj_road_test')
+        save_in_avg(self.data_dir, 'traj_region_test', num_days)
+        save_in_avg(self.data_dir, 'traj_road_test', num_days)
+        save_out_avg(self.data_dir, 'traj_region_test', num_days)
+        save_out_avg(self.data_dir, 'traj_road_test', num_days)
 
 
 class preprocess_feature(PreProcess):
@@ -277,4 +287,4 @@ if __name__ == '__main__':
     os.chdir('/home/tangyb/private/tyb/remote/representation')
     # os.chdir('/home/zhangwt/tyb/tyb/remote/representation')
     config = {'dataset': 'test'}
-    # preprocess_neighbor(config)
+    preprocess_all(config)

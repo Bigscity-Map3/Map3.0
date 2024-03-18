@@ -10,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from libcity.data.preprocess import preprocess_all, cache_dir
 
 
-def cosine_similarity(a, b):
+def my_cosine_similarity(a, b):
     dot_product = np.dot(a, b)  # 计算向量 a 和向量 b 的点积
     norm_a = np.linalg.norm(a)  # 计算向量 a 的范数
     norm_b = np.linalg.norm(b)  # 计算向量 b 的范数
@@ -135,7 +135,7 @@ class MVUREDataset(AbstractDataset):
         tfidf_matrix = tfidf_vectorizer.fit_transform(corpus).toarray()
         for i in range(self.num_regions):
             for j in range(i, self.num_regions):
-                similarity = cosine_similarity(tfidf_matrix[i], tfidf_matrix[j])
+                similarity = my_cosine_similarity(tfidf_matrix[i], tfidf_matrix[j])
                 self.poi_simi[i][j] = similarity
                 self.poi_simi[j][i] = similarity
         np.save(self.poi_simi_path, self.poi_simi)

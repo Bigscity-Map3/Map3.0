@@ -127,15 +127,7 @@ class LINERegionDataset(TrafficRepresentationDataset):
             return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        # for traj in self.traj_road:
-        #     origin_region_geo_id = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])[0]
-        #     destination_region_geo_id = \
-        #         list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])[0]
-        #     if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
-        #         origin_region = self.geo_to_ind[origin_region_geo_id]
-        #         destination_region = self.geo_to_ind[destination_region_geo_id]
-        #         self.od_label[origin_region][destination_region] += 1
-        for traj in self.traj_road:
+        for traj in self.traj_region:
             origin_region_geo_id = traj[0]
             destination_region_geo_id = traj[-1]
             if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
