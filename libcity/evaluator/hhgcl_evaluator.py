@@ -287,7 +287,7 @@ class HHGCLEvaluator(AbstractEvaluator):
 
     def _valid_region_clf(self, region_emb):
         region_data = pd.read_csv(
-            './raw_data/{}/regionmap_{}/regionmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
+            './raw_data/{}/regionmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
         region_label = region_data['FUNCTION'].values
         label = region_label
         useful_label = [1, 3, 4, 5, 6]

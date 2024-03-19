@@ -53,13 +53,13 @@ class MVURE(AbstractTraditionModel):
         outs = None
         for epoch in range(self.iter):
             model.train()
-            outs = model()
-            loss = model.calculate_loss(outs)
+            outs, loss_embedding = model()
+            loss = model.calculate_loss(loss_embedding)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
-        node_embedding = outs[-2]
+        node_embedding = outs
         node_embedding = node_embedding.detach().cpu().numpy()
         np.save(self.npy_cache_file, node_embedding)
         self._logger.info('词向量和模型保存完成')
@@ -155,7 +155,7 @@ class MVURE_Layer(nn.Module):
     def __init__(self,mob_adj,s_graph,t_graph,poi_graph,feature,input_dim,output_dim, device):
         super(MVURE_Layer,self).__init__()
         self.device = device
-        self.mob_adj = mob_adj
+        self.mob_adj = torch.tensor(mob_adj).to(torch.float32).to(self.device)
         self.inputs = torch.from_numpy(feature).to(torch.float32).to(device)
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -171,9 +171,12 @@ class MVURE_Layer(nn.Module):
         self.mv_layer.to(self.device)
         self.alpha = 0.8
         self.beta = 0.5
-        self.s_graph = s_graph
-        self.t_graph = t_graph
-        self.poi_graph = poi_graph
+        self.s_graph = self.construct_dgl_graph(s_graph)
+        self.t_graph = self.construct_dgl_graph(t_graph)
+        self.poi_graph_org=torch.tensor(poi_graph).to(torch.float32).to(self.device)
+        self.poi_graph = self.construct_dgl_graph(poi_graph)
+
+    
 
     def construct_dgl_graph(self,adj_mx):
         """
@@ -203,19 +206,13 @@ class MVURE_Layer(nn.Module):
         return g
 
     def forward(self):
-        s_dgl_graph = self.construct_dgl_graph(self.s_graph)
-        s_dgl_graph = dgl.add_self_loop(s_dgl_graph)
-        s_out = self.s_gat(graph = s_dgl_graph,feat = self.inputs)#[num_nodes,num_heads,dim]
+        s_out = self.s_gat(graph = self.s_graph,feat = self.inputs)#[num_nodes,num_heads,dim]
         s_out = s_out.reshape([s_out.shape[0],s_out.shape[1]*s_out.shape[2]])
 
-        t_dgl_graph = self.construct_dgl_graph(self.t_graph)
-        t_dgl_graph = dgl.add_self_loop(t_dgl_graph)
-        t_out = self.t_gat(graph = t_dgl_graph,feat = self.inputs)
+        t_out = self.t_gat(graph = self.t_graph,feat = self.inputs)
         t_out = t_out.reshape([t_out.shape[0], t_out.shape[1] * t_out.shape[2]])
 
-        poi_dgl_graph = self.construct_dgl_graph(self.poi_graph)
-        poi_dgl_graph = dgl.add_self_loop(poi_dgl_graph)
-        poi_out = self.poi_gat(graph=poi_dgl_graph, feat=self.inputs)
+        poi_out = self.poi_gat(graph=self.poi_graph, feat=self.inputs)
         poi_out = poi_out.reshape([poi_out.shape[0], poi_out.shape[1] * poi_out.shape[2]])
 
         single_view_out = torch.stack([s_out,t_out,poi_out],dim = 0)
@@ -231,7 +228,7 @@ class MVURE_Layer(nn.Module):
         poi_out = self.beta * poi_out + (1 - self.beta) * mv_out
 
         result = torch.stack([s_out, t_out, poi_out], dim=0)
-        return result
+        return mv_out, result
 
     def calculate_loss(self,embedding):
         """
@@ -241,46 +238,40 @@ class MVURE_Layer(nn.Module):
         s_embeddings = embedding[0]
         t_embeddings = embedding[1]
         poi_embeddings = embedding[2]
-        return self.calculate_mob_loss(s_embeddings,t_embeddings,self.mob_adj) +\
-            self.calculate_poi_loss(poi_embeddings,self.poi_graph)
+        return self.calculate_mob_loss(s_embeddings,t_embeddings) +\
+            self.calculate_poi_loss(poi_embeddings)
 
-    def calculate_mob_loss(self,s_embeddings,t_embeddings,mob_adj_np):
+    def calculate_mob_loss(self,s_embeddings,t_embeddings):
         """
         :param s_embeddings:tensor[num_nodes,embedding_dim]
         :param t_embeddings: tensor[num_nodes,embedding_dim]
         :param mob_adj: np.array[num_nodes,num_nodes]
         :return:
         """
-        mob_adj = torch.tensor(mob_adj_np).to(torch.float32).to(self.device)
-        inner_prod = self.pairwise_inner_product(s_embeddings,t_embeddings)
-        phat = torch.softmax(inner_prod,dim = -1).to(torch.float32)
-        loss = torch.sum(-torch.mm(mob_adj,torch.log(phat)))
+
+        inner_prod = self.pairwise_inner_product(s_embeddings, t_embeddings)
+        phat = torch.softmax(inner_prod,dim=-1)
+        loss = torch.sum(-torch.mul(self.mob_adj, torch.log(phat + 0.0001)))
         inner_prod = self.pairwise_inner_product(t_embeddings, s_embeddings)
-        phat = torch.softmax(inner_prod,dim = -1).to(torch.float32)
-        loss += torch.sum(-torch.mm(mob_adj.T,torch.log(phat)))
+        phat = torch.softmax(inner_prod,dim=-1)
+        loss += torch.sum(-torch.mul(torch.transpose(self.mob_adj, 0, 1), torch.log(phat + 0.0001)))
         return loss
 
 
-    def calculate_poi_loss(self,embedding,poi_adj_np):
+    def calculate_poi_loss(self,embedding):
         """
         :param embedding: tensor[num_nodes,embedding_dim]
         :param poi_adj: np.array[num_nodes,num_nodes]
         :return:
         """
-        poi_adj = torch.tensor(poi_adj_np).float().to(self.device)
         inner_prod = self.pairwise_inner_product(embedding, embedding)
         loss_function = nn.MSELoss(reduction="sum")
-        loss = loss_function(inner_prod,poi_adj)
+        loss = loss_function(inner_prod,self.poi_graph_org)
         return loss
 
     def pairwise_inner_product(self,mat_1, mat_2):
-        n, m = mat_1.shape
-        mat_expand = torch.unsqueeze(mat_2, 0)
-        mat_expand = mat_expand.expand(n, n, m)
-        mat_expand = mat_expand.permute(1, 0, 2)
-        inner_prod = torch.mul(mat_expand, mat_1)
-        inner_prod = torch.sum(inner_prod, axis=-1)
-        return inner_prod
+        result = torch.mm(mat_1, mat_2.t())
+        return result
 
 
 

@@ -70,7 +70,7 @@ class MGFNDataset(AbstractDataset):
 
     def propertyFunc_UnidirectionalIndex(self,adj_matrix):
         unidirectionalIndex = 0
-        for i in range(len(adj_matrix)):
+        for i in trange(len(adj_matrix)):
             for j in range(len(adj_matrix[0])):
                 unidirectionalIndex = unidirectionalIndex + \
                                       abs(adj_matrix[i][j] - adj_matrix[j][i])

@@ -93,7 +93,7 @@ class MVUREDataset(AbstractDataset):
             self._logger.info("finish construct poi_simi")
             return
         self.poi_simi = np.zeros([self.num_regions,self.num_regions])
-        poi_simi_file = pd.read_csv(self.data_path+"regionmap_"+self.dataset+"/"+"regionmap_"+self.dataset+".sem")
+        poi_simi_file = pd.read_csv(self.data_path+"regionmap_bj.sem")
         for i in range(len(poi_simi_file)):
             origin_id = poi_simi_file.loc[i, "origin_id"]
             destination_id = poi_simi_file.loc[i, "destination_id"]

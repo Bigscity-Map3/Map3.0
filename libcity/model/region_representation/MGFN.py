@@ -1,3 +1,4 @@
+import time
 from logging import getLogger
 import torch
 import numpy as np
@@ -5,18 +6,17 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+
 class MGFN(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+        self.device = config.get('device')
         self.mob_patterns = data_feature.get("mob_patterns")
         self.mob_adj = data_feature.get("mob_adj")
         self.time_slice = data_feature.get("time_slice")
         self.num_nodes = data_feature.get("num_nodes")
-        self.geo_to_ind = data_feature.get('geo_to_ind', None)
-        self.ind_to_geo = data_feature.get('ind_to_geo', None)
         self._logger = getLogger()
-        self.device = config.get('device')
-        self.output_dim = config.get('output_dim', 32)
+        self.output_dim = config.get('output_dim', 128)
         self.iter = config.get('max_epoch', 2000)
         self.dataset = config.get('dataset', '')
         self.learning_rate = config.get('learning_rate', 0.0001)
@@ -24,27 +24,21 @@ class MGFN(AbstractTraditionModel):
         self.n_cluster = data_feature.get("n_cluster")
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
         input_tensor = torch.Tensor(self.mob_patterns).to(self.device)
         label = torch.Tensor(self.mob_adj).to(self.device)
-        criterion = SimLoss()
-        model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim)
-        print(model)
-        for name, param in model.named_parameters():
-            print(name, param.nelement())
-        total_num = sum([param.nelement() for param in model.parameters()])
-        self._logger.info('Total parameter numbers: {}'.format(total_num))
-
-        model.to(self.device)
+        criterion = SimLoss().to(self.device)
+        model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim).to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
+        start_time = time.time()
         for epoch in range(self.iter):
             model.train()
             s_out, t_out = model(input_tensor)
@@ -52,9 +46,12 @@ class MGFN(AbstractTraditionModel):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+            if epoch % 50 == 0:
+                self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+        t1 = time.time()-start_time
+        self._logger.info('cost time is {}'.format(t1 / self.iter))
         node_embedding = model.out_feature()
-        node_embedding = node_embedding.detach().cpu().numpy()
+        node_embedding = node_embedding.cpu().detach().numpy()
         np.save(self.npy_cache_file, node_embedding)
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(node_embedding)) + ',' + str(len(node_embedding[0])) + ')')
@@ -108,7 +105,7 @@ class ConcatLinear(nn.Module):
 
 class GraphStructuralEncoder(nn.Module):
 
-    def __init__(self, d_model, nhead, dim_feedforward=512, dropout=0.1,):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,):
         super(GraphStructuralEncoder, self).__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
@@ -144,10 +141,15 @@ class MobilityPatternJointLearning(nn.Module):
         self.node_num = node_num
         self.num_multi_pattern_encoder = 3
         self.num_cross_graph_encoder = 1
+        #改动
+        if node_num%4 == 0:
+            self.n_head = 4
+        else:
+            self.n_head = 2
         self.multi_pattern_blocks = nn.ModuleList(
-            [GraphStructuralEncoder(d_model=node_num, nhead=2) for _ in range(self.num_multi_pattern_encoder)])
+            [GraphStructuralEncoder(d_model=node_num, nhead=self.n_head) for _ in range(self.num_multi_pattern_encoder)])
         self.cross_graph_blocks = nn.ModuleList(
-            [GraphStructuralEncoder(d_model=node_num, nhead=2) for _ in range(self.num_cross_graph_encoder)])
+            [GraphStructuralEncoder(d_model=node_num, nhead=self.n_head) for _ in range(self.num_cross_graph_encoder)])
         self.fc = DeepFc(self.graph_num*self.node_num, output_dim)
         self.linear_out = nn.Linear(node_num, output_dim)
         self.para1 = torch.nn.Parameter(torch.FloatTensor(1), requires_grad=True)#the size is [1]
