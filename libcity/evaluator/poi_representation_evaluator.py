@@ -33,6 +33,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
+
         if self.model_name == 'erpp':
             pre_model = ErppLocPredictor(embed_layer, input_size=embed_size, lstm_hidden_size=hidden_size,
                                          fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
@@ -60,14 +61,35 @@ class POIRepresentationEvaluator(AbstractEvaluator):
                                             output_size=num_loc, num_layers=2)
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
                        num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+    
+    def evaluate_traj_clf(self):
+        embed_layer = self.data_feature.get('embed_layer')
+        num_loc = self.data_feature.get('num_loc')
+        num_user = self.data_feature.get('num_user')
+        embed_size = self.config.get('embed_size', 128)
+        hidden_size = embed_size * 4
+        task_epoch = self.config.get('task_epoch', 5)
+        train_set = self.data_feature.get('train_set')
+        test_set = self.data_feature.get('test_set')
+        downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
+
+        clf_model=LstmUserPredictor(embed_layer,embed_size,hidden_size,hidden_size,num_user,num_layers=2,device=self.device)
+        
+        traj_user_classification(train_set, test_set, num_user, num_loc, clf_model,
+                       num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+        
+    
+    # def evaluate_clf(self):
 
     def evaluate(self):
         self._logger.info('Start evaluating ...')
-        task_name = self.config.get('downstream_task', 'loc_pre')
+        task_name = self.config.get('downstream_task', 'traj_clf')
         self._logger.info('Downstream Model: {}'.format(self.model_name))
         self._logger.info('Downstream Task: {}'.format(task_name))
         if task_name == 'loc_pre':
             self.evaluate_loc_pre()
+        if task_name == 'traj_clf':
+            self.evaluate_traj_clf()
 
     def save_result(self, save_path, filename=None):
         pass

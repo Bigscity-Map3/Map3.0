@@ -9,6 +9,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 from logging import getLogger
 from libcity.model.poi_representation.utils import next_batch, create_src_trg, weight_init, top_n_accuracy
+from torch.nn.utils.rnn import pad_sequence,pad_packed_sequence,pack_padded_sequence
 
 
 def seq2seq_forward(encoder, decoder, lstm_input, valid_len, pre_len):
@@ -309,10 +310,103 @@ class RnnLocPredictor(nn.Module, ABC):
         out = self.out_linear(rnn_out_pre)
         return out
 
+class LstmUserPredictor(nn.Module, ABC):
+    def __init__(self, embed_layer, input_size, rnn_hidden_size, fc_hidden_size, output_size, num_layers,device):
+        super().__init__()
+        self.embed_layer = embed_layer
+        self.add_module('embed_layer', self.embed_layer)
+        self.hidden_size=rnn_hidden_size
+        self.num_layers=num_layers
+        self.device=device
+
+        self.encoder = nn.LSTM(input_size, rnn_hidden_size, num_layers, dropout=0.1 if num_layers>1 else 0.0, batch_first=True)
+
+        
+
+        self.fc = nn.Sequential(nn.Tanh(), nn.Linear(rnn_hidden_size, fc_hidden_size),
+                                        nn.LeakyReLU(), nn.Linear(fc_hidden_size, output_size))
+    
+        self.apply(weight_init)
+
+        self.softmax=torch.nn.LogSoftmax(dim=1)
+
+    def forward(self, seq,valid_len,**kwargs):
+        
+        full_embed = self.embed_layer(seq, downstream=True, **kwargs)
+        pack_x = pack_padded_sequence(full_embed, lengths=valid_len,batch_first=True,enforce_sorted=False)
+
+        h0 = torch.zeros(self.num_layers, full_embed.size(0), self.hidden_size).to(self.device)
+        c0 = torch.zeros(self.num_layers, full_embed.size(0), self.hidden_size).to(self.device)
+
+        out, _ = self.encoder(pack_x, (h0, c0))
+        out, out_len = pad_packed_sequence(out, batch_first=True)
+
+        out = torch.stack([out[i,ind-1,:] for i,ind in enumerate(valid_len)])
+        
+        pred = self.fc(out)
+        pred = self.softmax(pred)
+        return pred
+
+def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, num_epoch, batch_size, device):
+    logger = getLogger()
+    logger.info('Start training downstream model [user_clf]...')
+    clf_model = clf_model.to(device)
+    optimizer = torch.optim.Adam(clf_model.parameters(), lr=1e-4)
+    loss_func = nn.CrossEntropyLoss()
+
+    def pre_func(batch):
+        user_index, full_seq, weekday, timestamp, length, time_delta, dist, lat, lng = zip(*batch)
+        full_seq=[torch.tensor(seq,dtype=torch.long,device=device) for seq in full_seq]
+        inputs = pad_sequence(full_seq,batch_first=True, padding_value=num_loc)
+        targets = torch.tensor(user_index).long().to(device)
+        length = list(length)
+        # timestamp = torch.tensor(timestamp).long().to(device)
+
+        out = clf_model(inputs,length)
+        return out, targets
+
+    score_log = []
+    test_point = max(1, int(len(train_set) / batch_size / 2))
+    logger.info('Test set size: {}'.format(len(test_set)))
+
+    for epoch in range(num_epoch):
+        for i, batch in enumerate(next_batch(shuffle(train_set), batch_size)):
+            out, label = pre_func(batch)
+            loss = loss_func(out, label)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            if (i + 1) % test_point == 0:
+                pres_raw, labels = [], []
+                for test_batch in next_batch(test_set, batch_size * 4):
+                    test_out, test_label = pre_func(test_batch)
+                    pres_raw.append(test_out.detach().cpu().numpy())
+                    labels.append(test_label.detach().cpu().numpy())
+                pres_raw, labels = np.concatenate(pres_raw), np.concatenate(labels)
+                pres = pres_raw.argmax(-1)
+
+                pre = precision_score(labels, pres, average='macro', zero_division=0.0)
+                acc, recall = accuracy_score(labels, pres), recall_score(labels, pres, average='macro', zero_division=0.0)
+                f1_micro, f1_macro = f1_score(labels, pres, average='micro'), f1_score(labels, pres, average='macro')
+                score_log.append([acc, pre, recall, f1_micro, f1_macro])
+                best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
+                logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
+                    best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+            
+        if (epoch + 1) % 5 == 0:
+            logger.info('epoch {} complete!'.format(epoch))
+
+    best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
+    logger.info('Finished Evaluation.')
+    logger.info(
+        'Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
+            best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+
 
 def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, batch_size, device):
     logger = getLogger()
-    logger.info('Start training downstream model...')
+    logger.info('Start training downstream model [next_loc]...')
     pre_model = pre_model.to(device)
     optimizer = torch.optim.Adam(pre_model.parameters(), lr=1e-4)
     loss_func = nn.CrossEntropyLoss()
