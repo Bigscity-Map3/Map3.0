@@ -4,6 +4,7 @@ from logging import getLogger
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import os
 import json
 from sklearn.preprocessing import StandardScaler
 import torch
@@ -12,6 +13,9 @@ from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset
 from libcity.data.dataset import AbstractDataset
+from libcity.data.preprocess import preprocess_all, cache_dir
+
+
 class TrajRoadDataset(Dataset):
     def __init__(self, data):
         self.data = data
@@ -27,12 +31,15 @@ class JCLRNTDataset(AbstractDataset):
 
     def __init__(self,config):
         self.config = config
+        preprocess_all(config)
         self.device = config.get('device')
         self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
+        data_cache_dir = os.path.join(cache_dir, self.dataset)
         #加载所有road的tag标签
-        self.road_geo_path = self.data_path+'road_'+self.dataset+'.csv'
+        # self.road_geo_path = self.data_path+'road_'+self.dataset+'.csv'
+        self.road_geo_path = os.path.join(data_cache_dir, 'road.csv')
         self.road_geo_df = pd.read_csv(self.road_geo_path,delimiter=',')
         self.road_tag = np.array(self.road_geo_df['highway'])
         self.road_length = np.array(self.road_geo_df['length'])
@@ -40,28 +47,19 @@ class JCLRNTDataset(AbstractDataset):
         self.edge_threshold = self.config.get("edge_threshold", 0.6)
         self.centroid = self.road_geometry.centroid
         self.road_num = len(self.road_tag)
-        self.traj_path = self.data_path+'traj_'+self.dataset+'_11.csv'
-        self.adj_json_path = self.data_path+'roadmap_'+self.dataset+'/'+'road_neighbor_'+self.dataset+'.json'
-        self.road_mob_path = self.data_path+'roadmap_'+self.dataset+'/'+'roadmap_'+self.dataset+'.mob'
-        self.road_feature_path = self.data_path+'roadmap_'+self.dataset+'/'+'road_features_'+self.dataset+'.csv'
+        self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
+        self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
+        self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
         self.number_negative = config.get('number_negative',3)
         self.batch_size = config.get('batch_size',64)
         self.min_len=config.get('min_len',10)
         self.max_len = config.get('max_len', 64)
         self.construct_road_adj()
-        self.train_path = 'raw_data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
+        self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.traj_arr = self.prepare_traj_data()
-        train_path = 'raw_data/{}/traj_{}_11_train.csv'.format(self.dataset,self.dataset)
-        eval_path = 'raw_data/{}/traj_{}_11_val.csv'.format(
-            self.dataset, self.dataset)
-        test_path = 'raw_data/{}/traj_{}_11_test.csv'.format(
-            self.dataset, self.dataset)
-        path1 = 'raw_data/{}/downstream_eval/{}_decup_detoured_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
-        path2 = 'raw_data/{}/downstream_eval/{}_decup_othersdetour_test_topk0.2_0.2_1.0_3000_30000.csv'.format(self.dataset,self.dataset)
-        path3 = 'raw_data/{}/downstream_eval/{}_decup_origin_test_topk0.2_0.2_1.0_3000.csv'.format(self.dataset,self.dataset)
-        self.traj_arr_detour_test = self.prepare_traj_test_data(path1)
-        self.traj_arr_detour_others = self.prepare_traj_test_data(path2)
-        self.traj_arr_origin_test = self.prepare_traj_test_data(path3)
+        train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
+        eval_path = os.path.join(data_cache_dir, 'traj_road_val.csv')
+        test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
         self.traj_arr_train = self.prepare_traj_test_data(train_path)
         self.traj_arr_eval = self.prepare_traj_test_data(eval_path)
         self.traj_arr_test = self.prepare_traj_test_data(test_path)
@@ -81,7 +79,7 @@ class JCLRNTDataset(AbstractDataset):
     def prepare_traj_data(self):
         self.edge_index=[]
         self.od_matrix=np.zeros((self.road_num,self.road_num),dtype=np.float32)
-        traj_df = pd.read_csv(self.train_path,delimiter=';')
+        traj_df = pd.read_csv(self.train_path)
         traj_list = []
         for i in tqdm(range(len(traj_df))):
             path = traj_df.loc[i, 'path']
@@ -110,7 +108,7 @@ class JCLRNTDataset(AbstractDataset):
         return arr
     
     def prepare_traj_test_data(self,traj_path):
-        traj_df = pd.read_csv(traj_path,delimiter=';')
+        traj_df = pd.read_csv(traj_path)
         traj_list = []
         for i in tqdm(range(len(traj_df))):
             path = traj_df.loc[i, 'path']
@@ -149,7 +147,9 @@ class JCLRNTDataset(AbstractDataset):
             dict: 包含数据集的相关特征的字典
         """
         return {'dataloader':self.train_dataloader,'num_nodes':self.road_num,"edge_index":self.edge_index,
-                "edge_index_aug":self.edge_index_aug,"traj_arr_test":self.traj_arr_test,"traj_arr_eval":self.traj_arr_eval,"traj_arr_train":self.traj_arr_train
-                ,"traj_arr_detour_test":self.traj_arr_detour_test,"traj_arr_detour_others":self.traj_arr_detour_others,"traj_arr_origin_test":self.traj_arr_origin_test}#"traj_arr_detour_test":self.traj_arr_detour_test,
+                "edge_index_aug":self.edge_index_aug,"traj_arr_test":self.traj_arr_test,"traj_arr_eval":self.traj_arr_eval,"traj_arr_train":self.traj_arr_train}
+                #"traj_arr_origin_test":self.traj_arr_origin_test
+                #"traj_arr_detour_test":self.traj_arr_detour_test,
                 #"traj_arr_detour_others":self.traj_arr_detour_others}
+                #"traj_arr_detour_test":self.traj_arr_detour_test,"traj_arr_detour_others":self.traj_arr_detour_others,
 

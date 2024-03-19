@@ -1,5 +1,4 @@
 import math
-import json
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader
@@ -32,6 +31,7 @@ import seaborn as sns
 from sklearn import manifold
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import normalize
+from libcity.data.preprocess import cache_dir
 
 
 class Classifier(nn.Module):
@@ -167,8 +167,6 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
     return mae,rmse,mape,r2
 
 
-
-
 def evaluation_reg(X, y, kfold=5, seed=42, output_dim=128):
     kf = KFold(n_splits=kfold, random_state=seed, shuffle=True)
     y_preds = []
@@ -257,9 +255,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         return sc, db, ch, nmi, ars
 
     def _valid_road_clf(self, road_emb):
-        road_data = pd.read_csv(
-            './raw_data/{}/roadmap_{}/roadmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
-        road_label = road_data['highway'].values
+        road_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        road_label = road_data['road_highway'].dropna().astype(int).values
         label = road_label
         useful_index = []
         useful_label = [2, 3, 4, 5, 6]
@@ -286,9 +283,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         return y,useful_index,road_micro_f1, road_macro_f1
 
     def _valid_region_clf(self, region_emb):
-        region_data = pd.read_csv(
-            './raw_data/{}/regionmap_{}.geo'.format(self.dataset, self.dataset, self.dataset))
-        region_label = region_data['FUNCTION'].values
+        region_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        region_label = region_data['region_FUNCTION'].dropna().astype(int).values
         label = region_label
         useful_label = [1, 3, 4, 5, 6]
         useful_index = []
@@ -315,37 +311,34 @@ class HHGCLEvaluator(AbstractEvaluator):
                                                                output_dim=self.output_dim)
         self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(region_micro_f1, region_macro_f1))
         return y,useful_index,region_micro_f1, region_macro_f1
+    
     def _valid_road_flow_using_bilinear(self,road_emb):
         self._logger.warning('Evaluating Road OD-Flow Prediction Using Bilinear Module')
-        od_flow = np.load('./raw_data/{}/road_od_flow_{}_11.npy'.format(
-            self.dataset, self.dataset)).astype('float32')
+        od_flow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_od.npy')).astype('float32')
         road_mae,road_rmse,road_mape,road_r2 = evaluation_bilinear_reg(road_emb,od_flow,kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} bilinear estimation in {}:".format('odflow', self.dataset))
         self._logger.info(
             'MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(road_mae,road_rmse,road_r2,road_mape))
         return road_mae, road_rmse, road_r2, road_mape
+    
     def _valid_region_flow_using_bilinear(self,region_emb):
         self._logger.warning('Evaluating Region OD-Flow Prediction Using Bilinear Module')
-        od_flow = np.load('./raw_data/{}/region_od_flow_{}_11.npy'.format(
-            self.dataset, self.dataset)).astype('float32')
+        od_flow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_od.npy')).astype('float32')
         region_mae,region_rmse,region_mape,region_r2 = evaluation_bilinear_reg(region_emb,od_flow,kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} bilinear estimation in {}:".format('odflow', self.dataset))
         self._logger.info(
             'MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae,region_rmse,region_r2,region_mape))
         return region_mae,region_rmse,region_r2,region_mape
 
-
     def _valid_road_flow(self, road_emb):
         self._logger.warning('Evaluating Road In-Flow Prediction')
-        inflow = np.load('./raw_data/{}/road_in_flow_day_avg_{}_11.npy'.format(
-            self.dataset, self.dataset, self.dataset)).astype('float32')
+        inflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_in_avg.npy')).astype('float32')
         in_road_mae, in_road_rmse, in_road_mape, in_road_r2 = evaluation_reg(road_emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('inflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_road_mae, in_road_rmse, in_road_r2, in_road_mape))
 
         self._logger.warning('Evaluating Road Out-Flow Prediction')
-        outflow = np.load('./raw_data/{}/road_out_flow_day_avg_{}_11.npy'.format(
-            self.dataset, self.dataset, self.dataset)).astype('float32')
+        outflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_out_avg.npy')).astype('float32')
         out_road_mae, out_road_rmse, out_road_mape, out_road_r2 = evaluation_reg(road_emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_road_mae, out_road_rmse, out_road_r2, out_road_mape))
@@ -360,15 +353,13 @@ class HHGCLEvaluator(AbstractEvaluator):
 
     def _valid_region_flow(self, region_emb):
         self._logger.warning('Evaluating Region In-Flow Prediction')
-        inflow = np.load('./raw_data/{}/region_in_flow_day_avg_{}_11.npy'.format(
-            self.dataset, self.dataset, self.dataset)).astype('float32')
+        inflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_in_avg.npy')).astype('float32')
         in_region_mae, in_region_rmse, in_region_mape, in_region_r2 = evaluation_reg(region_emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('inflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_region_mae, in_region_rmse, in_region_r2, in_region_mape))
 
         self._logger.warning('Evaluating Region Out-Flow Prediction')
-        outflow = np.load('./raw_data/{}/region_out_flow_day_avg_{}_11.npy'.format(
-            self.dataset, self.dataset, self.dataset)).astype('float32')
+        outflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_out_avg.npy')).astype('float32')
         out_region_mae, out_region_rmse, out_region_mape, out_region_r2 = evaluation_reg(region_emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_region_mae, out_region_rmse, out_region_r2, out_region_mape))
@@ -380,6 +371,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info("Result of region flow estimation in {}:".format(self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae, region_rmse, region_r2, region_mape))
         return region_mae, region_rmse, region_mape, region_r2
+    
     def evaluate_road_embedding(self):
         road_emb = np.load(self.road_embedding_path)
         self._logger.info('Load road emb {}, shape = {}'.format(self.road_embedding_path, road_emb.shape))
@@ -404,6 +396,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['road_ch'] = [road_ch]
         self.result['road_nmi'] = [road_nmi]
         self.result['road_ars'] = [road_ars]
+
     def evaluate_region_embedding(self):
         region_emb = np.load(self.region_embedding_path)
         self._logger.info('Load region emb {}, shape = {}'.format(self.region_embedding_path, region_emb.shape))
@@ -433,6 +426,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['region_ch'] = [region_ch]
         self.result['region_nmi'] = [region_nmi]
         self.result['region_ars'] = [region_ars]
+
     def evaluate(self):
         if self.representation_object == 'region':
             self.evaluate_region_embedding()

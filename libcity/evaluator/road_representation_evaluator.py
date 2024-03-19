@@ -62,7 +62,17 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
             result = {task: result}
             self.all_result.append(result)
 
-        print(self.all_result)
+        result = self.all_result[0]['speed_inference']
+        df = pd.DataFrame({
+            'mae': [result['mae']],
+            'mse': [result['mse']],
+            'rmse': [result['rmse']]
+        })
+        result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
+        df.to_csv(result_path, index=False)
+        self._logger.info('Evaluate result is saved at {}'.format(result_path))
+
         for result in self.all_result:
             for task in result:
                 result_string = ""

@@ -6,6 +6,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from datetime import datetime
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
+from libcity.data.preprocess import cache_dir
 
 
 def gen_index_map(df, column, offset=0):
@@ -72,15 +73,20 @@ class ReMVCDataset(TrafficRepresentationDataset):
                 region_dict[region_id]['poi'].append(poi_dict[poi_id])
 
             # matrix
-            dyna_df = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-            lst_region, lst_dyna = None, None
-            for _, row in dyna_df.iterrows():
-                cur_region, cur_dyna, t = row['geo_id'], row['traj_id'], convert_to_seconds_in_day(str(row['time']))
-                time_slice = t // (86400 // time_slices_num)
-                if lst_dyna is not None and lst_dyna == cur_dyna:
-                    region_dict[lst_region]['pickup_matrix'][time_slice][cur_region] += 1
-                    region_dict[cur_region]['dropoff_matrix'][time_slice][lst_region] += 1
-                lst_region, lst_dyna = cur_region, cur_dyna
+            traj_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
+            for _, row in traj_df.iterrows():
+                tmp1 = row['path'].split(',')
+                tmp2 = row['tlist'].split(',')
+                if len(tmp1) == 1:
+                    origin = destination = int(tmp1[0][1:-1])
+                    o_time_slice = d_time_slice = (int(tmp2[0][1:-1]) % 86400) // (86400 // time_slices_num)
+                else:
+                    origin = int(tmp1[0][1:])
+                    destination = int(tmp1[-1][:-1])
+                    o_time_slice = (int(tmp2[0][1:]) % 86400) // (86400 // time_slices_num)
+                    d_time_slice = (int(tmp2[-1][:-1]) % 86400) // (86400 // time_slices_num)
+                region_dict[origin]['pickup_matrix'][o_time_slice][destination] += 1
+                region_dict[destination]['dropoff_matrix'][d_time_slice][origin] += 1
             for i in range(self.num_regions):
                 region_dict[i]['pickup_matrix'] = csr_matrix(region_dict[i]['pickup_matrix'])
                 region_dict[i]['dropoff_matrix'] = csr_matrix(region_dict[i]['dropoff_matrix'])

@@ -44,6 +44,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             raise ValueError("Dataset {} not exist! Please ensure the path "
                              "'./raw_data/{}/' exist!".format(self.dataset, self.dataset))
         ensure_dir('./libcity/cache/dataset_cache/{}'.format(self.dataset))
+        self.traj_region_path = './libcity/cache/dataset_cache/{}/traj_region.txt'.format(self.dataset)
         self.traj_road_path = './libcity/cache/dataset_cache/{}/traj_road.txt'.format(self.dataset)
         self.traj_time_path = './libcity/cache/dataset_cache/{}/traj_time.txt'.format(self.dataset)
         # 加载数据集的config.json文件
@@ -82,6 +83,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_regions = 0
         self.num_roads = 0
         self.num_pois = 0
+        self.traj_region = []
         self.traj_road = []
         self.traj_time = []
         self.road2region = None
@@ -173,67 +175,57 @@ class TrafficRepresentationDataset(AbstractDataset):
         目前将轨迹数据整理成若干[road0,road1...road]的集合,以及[time0,time1.....,time]的集合
         构造图在模型的dataset子类中实现
         """
-        if os.path.exists(self.traj_road_path) and os.path.exists(self.traj_time_path):
+        if os.path.exists(self.traj_road_path) and os.path.exists(self.traj_region_path) and os.path.exists(self.traj_time_path):
             f1 = open(self.traj_road_path, 'r')
             f2 = open(self.traj_time_path, 'r')
+            f3 = open(self.traj_region_path, 'r')
             road_lines = f1.readlines()
             time_lines = f2.readlines()
+            region_lines = f3.readlines()
             for line in road_lines:
                 self.traj_road.append([int(road_str) for road_str in line.split(',')])
+            for line in region_lines:
+                self.traj_region.append([int(region_str) for region_str in line.split(',')])
             for line in time_lines:
                 line = line[:-1]
                 self.traj_time.append(line.split(','))
             f1.close()
             f2.close()
+            f3.close()
             self._logger.info("Loaded file " + self.dyna_file + '.dyna')
         else:
             dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
             traj_num = dynafile['total_traj_id'].max() + 1
             traj_road_str = ""
+            traj_region_str = ""
             traj_time_str = ""
             # 将traj_road存成road0,road1...road(一行一条轨迹）的格式
             # 将traj_time存成time0,time1.....,time（一行一条轨迹）的格式
-
-            # for i in tqdm(range(traj_num)):
-            #     road_list = list(dynafile[dynafile['total_traj_id'] == i]['geo_id'])
-            #     time_list = list(dynafile[dynafile['total_traj_id'] == i]['time'])
-            #     self.traj_road.append(road_list)
-            #     self.traj_time.append(time_list)
-            #     for road in road_list:
-            #         traj_road_str += (str(road) + ',')
-            #     traj_road_str = traj_road_str[:-1]
-            #     traj_road_str += '\n'
-            #     for time in time_list:
-            #         traj_time_str += (time + ',')
-            #     traj_time_str = traj_time_str[:-1]
-            #     traj_time_str += '\n'
-            
             road_list = [[] for _ in range(traj_num)]
+            region_list = [[] for _ in range(traj_num)]
             time_list = [[] for _ in range(traj_num)]
             for _, row in dynafile.iterrows():
                 id = row['total_traj_id']
                 road_list[id].append(row['geo_id'])
+                tmp = list(self.road2region[self.road2region['origin_id'] == row['geo_id'] + self.num_regions]['destination_id'])
+                region_list[id].append(tmp[0])
                 time_list[id].append(row['time'])
-            # traj_num = 10000
             for i in tqdm(range(traj_num)):
                 self.traj_road.append(road_list[i])
+                self.traj_region.append(region_list[i])
                 self.traj_time.append(time_list[i])
-
                 traj_road_str += ','.join([str(road) for road in road_list[i]])
-                # for road in road_list[i]:
-                #     traj_road_str += (str(road) + ',')
-                # traj_road_str = traj_road_str[:-1]
                 traj_road_str += '\n'
-
+                traj_region_str += ','.join([str(region) for region in region_list[i]])
+                traj_region_str += '\n'
                 traj_time_str += ','.join(time_list[i])
-                # for time in time_list[i]:
-                #     traj_time_str += (time + ',')
-                # traj_time_str = traj_time_str[:-1]
                 traj_time_str += '\n'
-            # self._logger.info("Finish")
             f1 = open(self.traj_road_path, 'w')
             f1.write(traj_road_str)
             f1.close()
+            f3 = open(self.traj_region_path, 'w')
+            f3.write(traj_region_str)
+            f3.close()
             f2 = open(self.traj_time_path, 'w')
             f2.write(traj_time_str)
             f2.close()

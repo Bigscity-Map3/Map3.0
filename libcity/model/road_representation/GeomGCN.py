@@ -142,6 +142,7 @@ class GeomGCN(AbstractTrafficStateModel):
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.output_dim = config.get('output_dim', 8)
+        self.exp_id = config.get('exp_id', 0)
 
     def get_input(self, config, data_feature):
         num_input_features = data_feature.get('feature_dim', 1)
@@ -172,8 +173,8 @@ class GeomGCN(AbstractTrafficStateModel):
         g = g.to(self.device)
 
         for u, v, feature in G.edges(data='subgraph_idx'):
-            if (feature is not None) and g.has_edge_between(u, v):
-                g.edges[g.edge_id(u, v)].data['subgraph_idx'] = torch.tensor([feature]).to(self.device)
+            if (feature is not None) and g.has_edges_between(u, v):
+                g.edges[g.edge_ids(u, v)].data['subgraph_idx'] = torch.tensor([feature]).to(self.device)
 
         degs = g.in_degrees().float()
         norm = torch.pow(degs, -0.5)
@@ -197,8 +198,8 @@ class GeomGCN(AbstractTrafficStateModel):
         inputs = batch['node_features']
         x = self.geomgcn1(inputs)
         encoder_state = self.geomgcn2(x)
-        np.save('./libcity/cache/evaluate_cache/road_embedding_{}_{}_{}.npy'
-                .format(self.model, self.dataset, self.output_dim),
+        np.save('./libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'
+                .format(self.exp_id, self.model, self.dataset, self.output_dim),
                 encoder_state.detach().cpu().numpy())
         x = self.geomgcn3(encoder_state)
         output = self.geomgcn4(x)

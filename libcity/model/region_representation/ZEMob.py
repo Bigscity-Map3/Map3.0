@@ -141,6 +141,8 @@ class ZEMobModel(nn.Module):
             batch_ppmi = batch_ppmi.to(self.device)
             batch_G = batch_G.to(self.device)
         # print(batch_zone.device,batch_event.device,batch_G.device,batch_ppmi.device)
+        # import pdb
+        # pdb.set_trace()
         return torch.sum(torch.pow(torch.sub(batch_ppmi, torch.mm(batch_zone, batch_event.t())), 2) * batch_G) / 2
 
 # 数据加载

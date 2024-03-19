@@ -8,12 +8,13 @@ import pandas as pd
 from tqdm import tqdm
 
 from libcity.data.dataset import AbstractDataset
-from libcity.data.preprocess import preprocess_traj_region_11, cache_dir
+from libcity.data.preprocess import preprocess_all, cache_dir
 
 
 class HDGEDataset(AbstractDataset):
  def __init__(self,config):
      self.config = config
+     preprocess_all(config)
      self._logger = getLogger()
      self.dataset = self.config.get('dataset', '')
      self.data_path = './raw_data/' + self.dataset + '/'
@@ -22,7 +23,7 @@ class HDGEDataset(AbstractDataset):
      assert (24%self.time_slice == 0)
      if not os.path.exists('./libcity/cache/HDGE_{}'.format(self.dataset)):
          os.mkdir('./libcity/cache/HDGE_{}'.format(self.dataset))
-     self.od_label_path = self.data_path + "region_od_flow_" + self.dataset + "_11_train.npy"
+     self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
      self.mob_adj = np.load(self.od_label_path)
      self.num_regions = self.mob_adj.shape[0]
      self.num_nodes = self.num_regions
@@ -46,11 +47,7 @@ class HDGEDataset(AbstractDataset):
         self._logger.info("finish constructing flow graph")
         return
     time_each_slice = 24 // self.time_slice
-    preprocess_traj_region_11(self.config)
-    traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_11.csv'))
-    # print(os.path.join(cache_dir, self.dataset, 'traj_region_11.csv'))
-    # print(traj_file.keys())
-    # traj_file = pd.read_csv(self.data_path + "traj_region_" + self.dataset + "_11.csv", delimiter=';')
+    traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
     self.flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
     for i in tqdm(range(len(traj_file))):
         path = traj_file.loc[i, 'path']
@@ -74,9 +71,8 @@ class HDGEDataset(AbstractDataset):
         self.spatial_graph = np.load(self.spatial_graph_path)
         self._logger.info("finish constructing spatial graph")
         return
-    region_geo_file = pd.read_csv(self.data_path + "regionmap_" + self.dataset + "/regionmap_" + self.dataset + ".geo",
-                                  delimiter=',')
-    self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['geometry'])
+    region_geo_file = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+    self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'])
     self.centroid = self.region_geometry.centroid
     self.spatial_graph = np.zeros([self.num_nodes,self.num_nodes])
     for i in range(self.num_nodes):

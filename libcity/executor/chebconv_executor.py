@@ -30,7 +30,7 @@ class ChebConvExecutor(TrafficStateExecutor):
             rmse = loss.masked_rmse_torch(output[test_mask], node_labels[test_mask])
             mae = loss.masked_mae_torch(output[test_mask], node_labels[test_mask])
             mape = loss.masked_mape_torch(output[test_mask], node_labels[test_mask])
-            self._logger.info('mae={}, map={}, rmse={}'.format(mae.item(), mape.item(), rmse.item()))
+            self._logger.info('mae={}, mape={}, rmse={}'.format(mae.item(), mape.item(), rmse.item()))
             return mae.item(), mape.item(), rmse.item()
 
     def train(self, train_dataloader, eval_dataloader):

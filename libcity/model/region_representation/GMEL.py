@@ -53,7 +53,7 @@ class GMEL(AbstractTraditionModel):
                 trip_od = mini_batch[:, :2].long().to(self.device)
                 trip_volume = mini_batch[:, -1].float().to(self.device)
                 loss = model.get_loss(trip_od, trip_volume, train_inflow, train_outflow, g, multitask_weights=self.multitask_ratio)
-                self._logger.info("Epoch {:04d} | mini batch Loss = {:.4f}".format(epoch, loss))
+                # self._logger.info("Epoch {:04d} | mini batch Loss = {:.4f}".format(epoch, loss))
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_norm)
                 optimizer.step()
