@@ -284,7 +284,16 @@ class POIRepresentationDataset(AbstractDataset):
         lng_col = pd.Series(lng_list, name='lng')
         lat_col = pd.Series(lat_list, name='lat')
         idx_col = geo_df['geo_id']
-        self.coor_df = pd.concat([idx_col, lat_col, lng_col], axis=1)
+        if 'venue_category_name' in geo_df.columns:
+            category_list=list(geo_df.venue_category_name.unique())
+            c2i={name:i for i,name in enumerate(category_list)}
+            cid_list=[]
+            for name in geo_df.venue_category_name:
+                cid_list.append(c2i[name])
+            cid_list=pd.Series(cid_list,name='category')
+            self.coor_df = pd.concat([idx_col, lat_col, lng_col, cid_list], axis=1)
+        else:
+            self.coor_df = pd.concat([idx_col, lat_col, lng_col], axis=1)
 
     def _load_dyna(self):
         dyna_df = pd.read_csv(os.path.join(self.data_path, self.dyna_file + '.dyna'))
@@ -364,7 +373,8 @@ class POIRepresentationDataset(AbstractDataset):
             "w2v_data": self.w2v_data,
             "coor_mat": self.coor_mat,
             "id2coor_df": self.id2coor_df,
-            "theta" : self.theta
+            "theta" : self.theta,
+            "coor_df" : self.coor_df
         }
 
     def gen_sequence(self, min_len=None, select_days=None, include_delta=False):
