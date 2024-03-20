@@ -173,7 +173,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         labels=category.category.to_numpy()
         num_class = labels.max()+1
 
-        node_embedding=embed_layer(torch.tensor(inputs))
+        node_embedding=embed_layer(torch.tensor(inputs)).cpu()
         self.evaluation_cluster(labels,node_embedding,num_class)
         
 
@@ -204,13 +204,11 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         task_name = self.config.get('downstream_task', 'loc_clu')
         self._logger.info('Downstream Model: {}'.format(self.model_name))
         self._logger.info('Downstream Task: {}'.format(task_name))
-        if task_name == 'loc_pre':
-            self.evaluate_loc_pre()
-        if task_name == 'traj_clf':
-            self.evaluate_traj_clf()
-        if task_name == 'loc_clf':
+        
+        # self.evaluate_loc_pre()
+        # self.evaluate_traj_clf()
+        if 'foursquare' in self.config.get('dataset'):
             self.evaluate_loc_clf()
-        if task_name == 'loc_clu':
             self.evaluate_loc_cluster()
 
     def save_result(self, save_path, filename=None):
