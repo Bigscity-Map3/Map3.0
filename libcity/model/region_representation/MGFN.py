@@ -5,9 +5,9 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
-class MGFN(AbstractTraditionModel):
+class MGFN(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.device = config.get('device')
