@@ -131,22 +131,15 @@ class HyperRoadDataset(AbstractDataset):
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
         # 加载所有road的tag标签
-        # self.road_geo_path = self.data_path + 'road_' + self.dataset + '.csv'
         data_cache_dir = os.path.join(cache_dir, self.dataset)
         self.road_geo_path = os.path.join(data_cache_dir, 'road.csv')
         self.road_geo_df = pd.read_csv(self.road_geo_path, delimiter=',')
         self.road_tag = np.array(self.road_geo_df['highway'])
         self.road_length = np.array(self.road_geo_df['length'])
         self.road_num = len(self.road_length)
-        # self.traj_path = self.data_path + 'traj_' + self.dataset + '_11.csv'
         self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
-        # self.adj_json_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_neighbor_' + self.dataset + '.json'
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
-        # self.road2region_path = self.data_path + 'road2region_'+self.dataset+'.json'
-        # self.road_mob_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'roadmap_' + self.dataset + '.mob'
-        # self.road_feature_path = self.data_path + 'roadmap_' + self.dataset + '/' + 'road_features_' + self.dataset + '.csv'
         self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
-        # self.region_geo_path = self.data_path+'region_'+self.dataset+'.csv'
         self.region_geo_path = os.path.join(data_cache_dir, 'region.csv')
         self.region_geo_df = pd.read_csv(self.region_geo_path, delimiter=',')
         self.region_num = len(self.region_geo_df)

@@ -15,14 +15,6 @@ def gen_index_map(df, column, offset=0):
     return index_map
 
 
-def convert_to_seconds_in_day(time_string):
-    # 解析时间字符串为datetime对象
-    dt = datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
-    # 将小时、分钟、秒转换为秒数并相加
-    seconds_in_day = dt.hour * 3600 + dt.minute * 60 + dt.second
-    return seconds_in_day
-
-
 class ReMVCDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         self.config = config
@@ -73,7 +65,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
                 region_dict[region_id]['poi'].append(poi_dict[poi_id])
 
             # matrix
-            traj_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
+            traj_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
             for _, row in traj_df.iterrows():
                 tmp1 = row['path'].split(',')
                 tmp2 = row['tlist'].split(',')
@@ -163,6 +155,9 @@ class ReMVCDataset(TrafficRepresentationDataset):
             poi_features[i] = np.zeros(self.num_poi_types)
             for j in self.region_dict[i]['poi']:
                 poi_features[i][j] += 1
+            poi_features[i] /= np.sum(poi_features[i])
+            where_are_NaNs = np.isnan(poi_features[i])
+            poi_features[i][where_are_NaNs] = 0
         model_poi = {}
         for i in range(self.num_regions):
             model_poi[i] = [1.0 / (self.num_regions - 1)] * (self.num_regions - 1)
@@ -194,6 +189,8 @@ class ReMVCDataset(TrafficRepresentationDataset):
                 dropoff_matrix[where_are_NaNs] = 0
 
                 matrix_dict[idx] = csr_matrix(pickup_matrix), csr_matrix(dropoff_matrix)
+                self.region_dict[idx]["pickup_matrix"] = csr_matrix(pickup_matrix)
+                self.region_dict[idx]["dropoff_matrix"] = csr_matrix(dropoff_matrix)
             with open(matrix_dict_path, 'wb') as f:
                 pickle.dump(matrix_dict, f)
 

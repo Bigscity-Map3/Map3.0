@@ -1,6 +1,8 @@
+import math
 import numpy as np
 import pandas as pd
-from torch.utils.data import TensorDataset
+from torch.utils.data import TensorDataset, DataLoader
+from tqdm import tqdm
 from logging import getLogger
 from sklearn import manifold
 from sklearn.cluster import KMeans
@@ -18,6 +20,8 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.metrics import adjusted_rand_score
 from sklearn.metrics import normalized_mutual_info_score
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+import argparse
+from sklearn.ensemble import RandomForestRegressor
 import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -195,6 +199,7 @@ class HHGCLEvaluator(AbstractEvaluator):
 
     def __init__(self, config, data_feature):
         self._logger = getLogger()
+        self.config = config
         self.representation_object = config.get('representation_object', 'region')
         self.result = {}
         self.model = config.get('model', '')
@@ -254,9 +259,18 @@ class HHGCLEvaluator(AbstractEvaluator):
         road_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         road_label = road_data['road_highway'].dropna().astype(int).values
         label = road_label
+        num_classes = self.config.get('road_clf_num_classes', 5)
+        tmp = []
+        for i in range(label.min(), label.max() + 1):
+            tmp.append((label[label == i].shape[0], i))
+        assert num_classes <= len(tmp)
+        tmp.sort()
+        tmp = [item[1] for item in tmp]
+        useful_label = tmp[::-1][:num_classes]
+        relabel = {}
+        for i, j in enumerate(useful_label):
+            relabel[j] = i
         useful_index = []
-        useful_label = [2, 3, 4, 5, 6]
-        num_classes = 5
         self._logger.info('Road emb shape = {}, label shape = {}'.format(road_emb.shape, label.shape))
         assert len(label) == len(road_emb)
 
@@ -266,7 +280,7 @@ class HHGCLEvaluator(AbstractEvaluator):
             if label_i in useful_label:
                 useful_index.append(i)
                 X.append(road_emb[i: i + 1, :])
-                y.append(label_i - 2)
+                y.append(relabel[label_i])
         X = np.concatenate(X, axis=0)
         y = np.array(y)
 
@@ -282,9 +296,18 @@ class HHGCLEvaluator(AbstractEvaluator):
         region_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         region_label = region_data['region_FUNCTION'].dropna().astype(int).values
         label = region_label
-        useful_label = [1, 3, 4, 5, 6]
+        num_classes = self.config.get('region_clf_num_classes', 5)
+        tmp = []
+        for i in range(label.min(), label.max() + 1):
+            tmp.append((label[label == i].shape[0], i))
+        assert num_classes <= len(tmp)
+        tmp.sort()
+        tmp = [item[1] for item in tmp]
+        useful_label = tmp[::-1][:num_classes]
+        relabel = {}
+        for i, j in enumerate(useful_label):
+            relabel[j] = i
         useful_index = []
-        num_classes = 5
         self._logger.info('Region emb shape = {}, label shape = {}'.format(region_emb.shape, label.shape))
         assert len(label) == len(region_emb)
 
@@ -294,10 +317,7 @@ class HHGCLEvaluator(AbstractEvaluator):
             if label_i in useful_label:
                 useful_index.append(i)
                 X.append(region_emb[i: i + 1, :])
-                if label_i == 1:
-                    y.append(label_i - 1)
-                else:
-                    y.append(label_i - 2)
+                y.append(relabel[label_i])
         X = np.concatenate(X, axis=0)
         y = np.array(y)
         self._logger.info(

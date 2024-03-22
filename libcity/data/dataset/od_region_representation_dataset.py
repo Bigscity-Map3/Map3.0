@@ -8,11 +8,13 @@ from libcity.utils import ensure_dir
 from libcity.utils import geojson2geometry
 from tqdm import tqdm
 import copy
+from libcity.data.preprocess import cache_dir, preprocess_all
 
 
 class ODRegionRepresentationDataset(AbstractDataset):
     def __init__(self, config):
         self.config = config
+        preprocess_all(config)
         self.dataset = self.config.get('dataset', '')
         self.batch_size = self.config.get('batch_size', 64)
         self.cache_dataset = self.config.get('cache_dataset', True)
@@ -45,8 +47,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
                              "'./raw_data/{}/' exist!".format(self.dataset, self.dataset))
         ensure_dir('./libcity/cache/dataset_cache/{}'.format(self.dataset))
         self.od_label_path = './libcity/cache/dataset_cache/{}/od_mx.npy'.format(self.dataset)
-        self.traj_road_path = './libcity/cache/dataset_cache/{}/traj_road.txt'.format(self.dataset)
-        self.traj_time_path = './libcity/cache/dataset_cache/{}/traj_time.txt'.format(self.dataset)
         # 加载数据集的config.json文件
         self.weight_col = self.config.get('weight_col', '')
         self.data_col = self.config.get('data_col', '')
@@ -85,6 +85,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.num_roads = 0
         self.num_pois = 0
         self.traj_road = []
+        self.traj_region = []
         self.traj_time = []
         self.road2region = None
         self.region2road = None
@@ -149,8 +150,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
             distance = self.centroid[origin_region_id].distance(self.centroid[destination_region_id])
             self.adj_mx[origin_region_id][destination_region_id] = distance
         self._logger.info("Loaded file " + self.rel_file + '.rel and finish constructing adj_mx')
-
-    def _load_rel(self):
         """
         加载各个实体的联系，格式['rel_id','type','origin_id','destination_id','rel_type']
         后续可能会将两种实体之间的对应做成1-->n的映射
@@ -165,67 +164,13 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self._logger.info("Loaded file " + self.rel_file + '.rel')
 
     def _load_dyna(self):
-        """
-        加载轨迹数据，格式['dyna_id','type','time','entity_id','traj_id','geo_id','total_traj_id']
-        目前将轨迹数据整理成若干[road0,road1...road]的集合,以及[time0,time1.....,time]的集合
-        构造图在模型的dataset子类中实现
-        """
-        if os.path.exists(self.traj_road_path) and os.path.exists(self.traj_region_path) and os.path.exists(self.traj_time_path):
-            f1 = open(self.traj_road_path, 'r')
-            f2 = open(self.traj_time_path, 'r')
-            f3 = open(self.traj_region_path, 'r')
-            road_lines = f1.readlines()
-            time_lines = f2.readlines()
-            region_lines = f3.readlines()
-            for line in road_lines:
-                self.traj_road.append([int(road_str) for road_str in line.split(',')])
-            for line in region_lines:
-                self.traj_region.append([int(region_str) for region_str in line.split(',')])
-            for line in time_lines:
-                line = line[:-1]
-                self.traj_time.append(line.split(','))
-            f1.close()
-            f2.close()
-            f3.close()
-            self._logger.info("Loaded file " + self.dyna_file + '.dyna')
-        else:
-            dynafile = pd.read_csv(self.data_path + self.dyna_file + '.dyna')
-            traj_num = dynafile['total_traj_id'].max() + 1
-            traj_road_str = ""
-            traj_region_str = ""
-            traj_time_str = ""
-            # 将traj_road存成road0,road1...road(一行一条轨迹）的格式
-            # 将traj_time存成time0,time1.....,time（一行一条轨迹）的格式
-            road_list = [[] for _ in range(traj_num)]
-            region_list = [[] for _ in range(traj_num)]
-            time_list = [[] for _ in range(traj_num)]
-            for _, row in dynafile.iterrows():
-                id = row['total_traj_id']
-                road_list[id].append(row['geo_id'])
-                tmp = list(self.road2region[self.road2region['origin_id'] == row['geo_id'] + self.num_regions]['destination_id'])
-                region_list[id].append(tmp[0])
-                time_list[id].append(row['time'])
-            for i in tqdm(range(traj_num)):
-                self.traj_road.append(road_list[i])
-                self.traj_region.append(region_list[i])
-                self.traj_time.append(time_list[i])
-                traj_road_str += ','.join([str(road) for road in road_list[i]])
-                traj_road_str += '\n'
-                traj_region_str += ','.join([str(region) for region in region_list[i]])
-                traj_region_str += '\n'
-                traj_time_str += ','.join(time_list[i])
-                traj_time_str += '\n'
-            f1 = open(self.traj_road_path, 'w')
-            f1.write(traj_road_str)
-            f1.close()
-            f3 = open(self.traj_region_path, 'w')
-            f3.write(traj_region_str)
-            f3.close()
-            f2 = open(self.traj_time_path, 'w')
-            f2.write(traj_time_str)
-            f2.close()
-            self._logger.info("Dyna file has been saved")
-            self._logger.info("Loaded file " + self.dyna_file + '.dyna')
+        traj_road_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_road.csv'))
+        for _, row in traj_road_df.iterrows():
+            self.traj_road.append([int(road) for road in row['path'][1:-1].split(',')])
+        traj_region_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
+        for _, row in traj_region_df.iterrows():
+            self.traj_region.append([int(region) for region in row['path'][1:-1].split(',')])
+        self._logger.info("Loaded file " + self.dyna_file + '.dyna')
 
     def _load_od(self):
         """
@@ -259,7 +204,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
             return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_road:
+        for traj in self.traj_region:
             origin_region = traj[0]
             destination_region = traj[-1]
             self.od_label[origin_region][destination_region] += 1

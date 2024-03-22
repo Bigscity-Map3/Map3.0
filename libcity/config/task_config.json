@@ -4,7 +4,7 @@
             "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad","SARN"
         ],
         "allowed_dataset": [
-            "BJ_roadmap","xa","bj","cd","xa_road","bj_road","cd_road"
+            "xa","bj","cd"
         ],
         "ChebConv": {
             "dataset_class": "ChebConvDataset",
@@ -62,7 +62,7 @@
             "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL","ReMVC"
         ],
         "allowed_dataset": [
-            "bj_dataset","xa_dataset","bj_dataset_tiny","xa","cd","bj","bj_region"
+            "xa","cd","bj"
         ],
          "Node2Vec": {
             "dataset_class": "Node2VecDataset",
@@ -102,7 +102,7 @@
         "ReMVC": {
             "dataset_class": "ReMVCDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         }
     },
     "poi_representation": {

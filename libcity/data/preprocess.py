@@ -46,6 +46,8 @@ class preprocess_traj(PreProcess):
             traj_id = []
             start_time = []
             lst_traj_id, lst_usr_id = None, None
+            geo_df = pd.read_csv(self.geo_file)
+            num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
             for _, row in tqdm(dyna_df.iterrows(), total=dyna_df.shape[0]):
                 idx = int(row['total_traj_id'])
                 if lst_traj_id != row['traj_id'] or lst_usr_id != row['entity_id']:  # 轨迹划分依据还存疑，靠 traj_id 和 total_traj_id 都不行
@@ -61,7 +63,7 @@ class preprocess_traj(PreProcess):
                     traj_id.append(row['traj_id'])
                     start_time.append(row['time'].split(' ')[0])
                 tlist[idx].append(str2timestamp(row['time']))
-                path[idx].append(row['geo_id'])
+                path[idx].append(row['geo_id'] - num_regions)
                 lst_traj_id = row['traj_id']
                 lst_usr_id = row['entity_id']
             for i in range(id[-1]):
@@ -98,8 +100,6 @@ class preprocess_traj(PreProcess):
             data_file = os.path.join(self.data_dir, file_name)
             rel_df = pd.read_csv(self.rel_file)
             road2region_df = rel_df[rel_df['rel_type'] == 'road2region']
-            geo_df = pd.read_csv(self.geo_file)
-            num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
             road2region = {}
             for _, row in road2region_df.iterrows():
                 x = int(row['origin_id']) - num_regions
@@ -284,7 +284,7 @@ def preprocess_all(config):
 if __name__ == '__main__':
     # pd.set_option('display.max_rows', None)  # 设置行数为无限制
     # pd.set_option('display.max_columns', None)  # 设置列数为无限制
-    os.chdir('/home/tangyb/private/tyb/remote/representation')
+    os.chdir('/home/tangyb/private/tyb/remote/Map3.0')
     # os.chdir('/home/zhangwt/tyb/tyb/remote/representation')
-    config = {'dataset': 'test'}
+    config = {'dataset': 'test_bj'}
     preprocess_all(config)

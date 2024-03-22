@@ -33,45 +33,20 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
         """
         assert self.representation_object == "road"
         self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-
-        for traj in self.traj_road:
-            o_list = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])
-            d_list = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])
-            if not o_list or not d_list:
-                continue
-            origin_region = o_list[0]
-            destination_region = d_list[0]
+        for traj in self.traj_region:
+            origin_region = traj[0]
+            destination_region = traj[-1]
             self.adj_mx[origin_region][destination_region] += 1
             self.edge_index.append((origin_region, destination_region))
-
-        # 上面的代码默认轨迹是 road 的轨迹，但轨迹有可能是 region 或 POI 的轨迹，或同时包含了多种元素
-        # TODO：可以增加判断
-
-        # for traj in self.traj_road:
-        #     origin_region = traj[0]
-        #     destination_region = traj[-1]
-        #     self.adj_mx[origin_region][destination_region] += 1
-        #     self.edge_index.append((origin_region, destination_region))
         return self.adj_mx
 
     def construct_od_matrix(self):
         assert self.representation_object == "road"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_road:
-            o_list = list(self.road2region[self.road2region['origin_id'] == traj[0]]['destination_id'])
-            d_list = list(self.road2region[self.road2region['origin_id'] == traj[-1]]['destination_id'])
-            if not o_list or not d_list:
-                continue
-            origin_region = o_list[0]
-            destination_region = d_list[0]
+        for traj in self.traj_region:
+            origin_region = traj[0]
+            destination_region = traj[-1]
             self.od_label[origin_region][destination_region] += 1
-
-        # 问题同上
-
-        # for traj in self.traj_road:
-        #     origin_region = traj[0]
-        #     destination_region = traj[-1]
-        #     self.od_label[origin_region][destination_region] += 1
         return self.od_label
 
     def read_processed_data(self):

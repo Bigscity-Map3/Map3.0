@@ -5,9 +5,9 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
 
-class MGFN(AbstractReprLearningModel):
+class MGFN(AbstractTraditionModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.device = config.get('device')
@@ -24,11 +24,11 @@ class MGFN(AbstractReprLearningModel):
         self.n_cluster = data_feature.get("n_cluster")
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.txt'. \
+        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/embedding_{}_{}_{}.npy'. \
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
