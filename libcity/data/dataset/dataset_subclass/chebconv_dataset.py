@@ -103,10 +103,12 @@ class ChebConvDataset(AbstractDataset):
         # 'lanes', 'highway'是类别 47+6
         # 'length', 'maxspeed', 'width'是浮点 1+1+1 共61
         node_features = pd.read_csv(os.path.join(cache_dir, self.dataset, 'road.csv'))
-        node_features = node_features.drop(
-            ['id', 'geometry', 'u', 'v', 's_lon', 's_lat', 
+        drop_features = ['id', 'geometry', 'u', 'v', 's_lon', 's_lat', 
              'e_lon', 'e_lat', 'm_lon', 'm_lat', 'coordinates',
-             'type'], axis=1)
+             'type']
+        for drop_feature in drop_features:
+            if drop_feature in node_features.keys():
+                node_features = node_features.drop([drop_feature], axis=1)
         # TODO：应该保留哪些属性？
 
         # node_features = self.road_info[self.road_info.columns[3:]]
