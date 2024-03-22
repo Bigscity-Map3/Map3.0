@@ -7,9 +7,9 @@ import dgl
 import torch.nn.functional as F
 from dgl.nn.pytorch import GATConv
 import torch.optim as optim
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 #[2020-IJCAI Multi-View Joint Graph Representation Learning for Urban Region Embedding]
-class MVURE(AbstractTraditionModel):
+class MVURE(AbstractReprLearningModel):
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)
         self.mob_adj = data_feature.get("mob_adj")

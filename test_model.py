@@ -1,7 +1,9 @@
+import random
+
 from libcity.config import ConfigParser
 from libcity.data import get_dataset
 from libcity.utils import get_model, get_executor, get_logger, set_random_seed
-import random
+
 
 """
 取一个batch的数据进行初步测试

@@ -10,7 +10,7 @@ from libcity.utils import StandardScaler, NormalScaler, NoneScaler, \
     MinMax01Scaler, MinMax11Scaler, LogScaler, ensure_dir
 
 
-class TrafficStateDataset(AbstractDataset):
+class GeneralDataset(AbstractDataset):
     """
     交通状态预测数据集的基类。
     默认使用`input_window`的数据预测`output_window`对应的数据，即一个X，一个y。
@@ -41,7 +41,7 @@ class TrafficStateDataset(AbstractDataset):
             + str(self.batch_size) + '_' + str(self.load_external) + '_' + str(self.add_time_in_day) + '_' \
             + str(self.add_day_in_week) + '_' + str(self.pad_with_last_sample)
         self.cache_file_name = os.path.join('./libcity/cache/dataset_cache/',
-                                            'traffic_state_{}.npz'.format(self.parameters_str))
+                                            'general_{}.npz'.format(self.parameters_str))
         self.cache_file_folder = './libcity/cache/dataset_cache/'
         ensure_dir(self.cache_file_folder)
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -583,7 +583,7 @@ class TrafficStateDataset(AbstractDataset):
         Returns:
             np.ndarray: 融合后的外部数据和交通状态数据
         """
-        raise NotImplementedError('Please implement the function `_add_external_information()`.')
+        return self._add_external_information_3d(df, ext_data)
 
     def _add_external_information_3d(self, df, ext_data=None):
         """
@@ -974,9 +974,12 @@ class TrafficStateDataset(AbstractDataset):
 
     def get_data_feature(self):
         """
-        返回数据集特征，子类必须实现这个函数，返回必要的特征
+        返回数据集特征，scaler是归一化方法，adj_mx是邻接矩阵，num_nodes是点的个数，
+        feature_dim是输入数据的维度，output_dim是模型输出的维度
 
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        raise NotImplementedError('Please implement the function `get_data_feature()`.')
+        return {"scaler": self.scaler, "adj_mx": self.adj_mx, "ext_dim": self.ext_dim,
+                "num_nodes": self.num_nodes, "feature_dim": self.feature_dim,
+                "output_dim": self.output_dim, "num_batches": self.num_batches}

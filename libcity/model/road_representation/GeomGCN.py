@@ -6,7 +6,7 @@ import dgl.function as fn
 from dgl import DGLGraph
 from logging import getLogger
 import networkx as nx
-from libcity.model.abstract_traffic_state_model import AbstractTrafficStateModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 from libcity.model import loss
 
 
@@ -100,7 +100,7 @@ class GeomGCNNet(nn.Module):
             return torch.mean(torch.stack(all_attention_head_outputs), dim=0)
 
 
-class GeomGCN(AbstractTrafficStateModel):
+class GeomGCN(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.device = config.get('device')

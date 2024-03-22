@@ -11,7 +11,7 @@ from libcity.model import loss
 from functools import partial
 
 
-class TrafficStateExecutor(AbstractExecutor):
+class GeneralExecutor(AbstractExecutor):
     def __init__(self, config, model, data_feature):
         self.evaluator = get_evaluator(config,data_feature)
         self.config = config

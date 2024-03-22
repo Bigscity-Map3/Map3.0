@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import math
 
 from logging import getLogger
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
 
 FType = torch.FloatTensor
@@ -468,7 +468,7 @@ class FLOW_SSL(torch.nn.Module):
         return np.array(output)
 
 
-class ReMVC(AbstractTraditionModel):
+class ReMVC(AbstractReprLearningModel):
 
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)

@@ -1,10 +1,10 @@
 import os
 import numpy as np
 
-from libcity.data.dataset import TrafficStatePointDataset
+from libcity.data.dataset import GeneralDataset
 
 
-class CONVGCNDataset(TrafficStatePointDataset):
+class CONVGCNDataset(GeneralDataset):
 
     def __init__(self, config):
         super().__init__(config)

@@ -3,12 +3,11 @@ import time
 import torch
 from ray import tune
 from libcity.model import loss
-from libcity.executor.traffic_state_executor import TrafficStateExecutor
+from libcity.executor.general_executor import GeneralExecutor
 
-
-class ChebConvExecutor(TrafficStateExecutor):
+class ChebConvExecutor(GeneralExecutor):
     def __init__(self, config, model, data_feature):
-        TrafficStateExecutor.__init__(self, config, model, data_feature)
+        GeneralExecutor.__init__(self, config, model, data_feature)
         self.loss_func = None
 
     def evaluate(self, test_dataloader):

@@ -2,7 +2,7 @@ from logging import getLogger
 import numpy as np
 import torch
 
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 from libcity.model.region_representation import utils
 
 import torch
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 import dgl.function as fn
 
-class GMEL(AbstractTraditionModel):
+class GMEL(AbstractReprLearningModel):
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)
         self.device = config.get('device', torch.device('cpu'))

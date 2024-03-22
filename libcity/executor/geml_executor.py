@@ -5,13 +5,13 @@ import numpy as np
 import torch
 import os
 
-from libcity.executor.traffic_state_executor import TrafficStateExecutor
+from libcity.executor.general_executor import GeneralExecutor
 from libcity.model import loss
 
 
-class GEMLExecutor(TrafficStateExecutor):
+class GEMLExecutor(GeneralExecutor):
     def __init__(self, config, model, data_feature):
-        TrafficStateExecutor.__init__(self, config, model, data_feature)
+        GeneralExecutor.__init__(self, config, model, data_feature)
         self.loss_p0 = config.get("loss_p0", 0.5)
         self.loss_p1 = config.get("loss_p1", 0.25)
         self.loss_p2 = config.get("loss_p2", 0.25)

@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 import torch.nn.functional as F
 import numpy as np
 import math
 from torch.nn.parameter import Parameter
 import time
 
-class HyperRoad(AbstractTraditionModel):
+class HyperRoad(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.device = config.get('device')

@@ -7,10 +7,10 @@ import numpy as np
 from gensim.models import Word2Vec
 from tqdm import tqdm
 
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
 #[2017-CIKM region Representation Learning via Mobility Flow]
-class HDGE(AbstractTraditionModel):
+class HDGE(AbstractReprLearningModel):
 
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)

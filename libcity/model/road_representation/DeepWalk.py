@@ -2,7 +2,7 @@ import numpy as np
 from gensim.models import Word2Vec
 import json
 from logging import getLogger
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
 from io import open
 from time import time
@@ -175,7 +175,7 @@ def learn_embeddings(walks, dimensions, window_size, workers, iters, min_count=0
     return model
 
 
-class DeepWalk(AbstractTraditionModel):
+class DeepWalk(AbstractReprLearningModel):
 
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)

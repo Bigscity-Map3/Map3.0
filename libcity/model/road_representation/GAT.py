@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from logging import getLogger
-from libcity.model.abstract_traffic_state_model import AbstractTrafficStateModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 from libcity.model import loss
 from libcity.model import utils
 
@@ -21,7 +21,7 @@ class LayerType:
     IMP2 = 1,
     IMP3 = 2
 
-class GAT(AbstractTrafficStateModel):
+class GAT(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.adj_mx = data_feature.get('adj_mx')

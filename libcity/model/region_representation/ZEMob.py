@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 
 from logging import getLogger
-from libcity.model.abstract_traffic_tradition_model import AbstractTraditionModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
 
-class ZEMob(AbstractTraditionModel):
+class ZEMob(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
 

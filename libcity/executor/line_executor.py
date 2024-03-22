@@ -1,12 +1,12 @@
 import numpy as np
 import torch
 
-from libcity.executor.traffic_state_executor import TrafficStateExecutor
+from libcity.executor.general_executor import GeneralExecutor
 
 
-class LINEExecutor(TrafficStateExecutor):
+class LINEExecutor(GeneralExecutor):
     def __init__(self, config, model, data_feature):
-        TrafficStateExecutor.__init__(self, config, model, data_feature)
+        GeneralExecutor.__init__(self, config, model, data_feature)
         self.loss_func = None
 
     def evaluate(self, test_dataloader):
