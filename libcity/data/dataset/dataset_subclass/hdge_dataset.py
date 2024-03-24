@@ -47,7 +47,7 @@ class HDGEDataset(AbstractDataset):
         self._logger.info("finish constructing flow graph")
         return
     time_each_slice = 24 // self.time_slice
-    traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
+    traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
     self.flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
     for i in tqdm(range(len(traj_file))):
         path = traj_file.loc[i, 'path']

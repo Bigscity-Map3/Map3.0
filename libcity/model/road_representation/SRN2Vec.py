@@ -48,8 +48,7 @@ class SRN2Vec(AbstractReprLearningModel):
                 loss.backward()
                 self.optim.step()
                 total_loss += loss.item()
-            if epoch % 100 == 0:
-                self._logger.info("Epoch {}, Loss {}".format(epoch, total_loss))
+            self._logger.info("Epoch {}, Loss {}".format(epoch, total_loss))
         t1 = time.time() - start_time
         self._logger.info("cost time is " + str(t1 / self.iter))
         node_embedding = self.model.embedding.weight.data.cpu().detach().numpy()

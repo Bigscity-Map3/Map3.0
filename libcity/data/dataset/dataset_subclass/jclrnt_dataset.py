@@ -47,7 +47,7 @@ class JCLRNTDataset(AbstractDataset):
         self.edge_threshold = self.config.get("edge_threshold", 0.6)
         self.centroid = self.road_geometry.centroid
         self.road_num = len(self.road_tag)
-        self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
+        self.traj_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
         self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
         self.number_negative = config.get('number_negative',3)

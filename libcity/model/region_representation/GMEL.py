@@ -15,15 +15,13 @@ class GMEL(AbstractReprLearningModel):
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)
         self.device = config.get('device', torch.device('cpu'))
+        self.exp_id = config.get('exp_id', None)
+        self.dataset = config.get('dataset', '')
+        self.model = config.get('model', '')
         self.num_nodes = data_feature.get("num_nodes")
         self._logger = getLogger()
         self.output_dim = config.get('output_dim', 96)
-        self.dataset = config.get('dataset', '')
-        self.iter = config.get('max_epoch', 10)
-        self.model = config.get('model', '')
-        self.exp_id = config.get('exp_id', None)
-        self._logger = getLogger()
-        self.mini_batch_size = config.get('batch_size',1000)
+        assert self.output_dim % 2 == 0
         self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
@@ -32,6 +30,12 @@ class GMEL(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.dst_npy_cache_file = './libcity/cache/{}/evaluate_cache/dst_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
+            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.output_dim //= 2
+        self.iter = config.get('max_epoch', 10)
+        self._logger = getLogger()
+        self.mini_batch_size = config.get('batch_size',1000)
         self.num_hidden_layers = config.get('num_hidden_layers',3)
         self.learning_rate = config.get('learning_rate', 1e-3)
         self.multitask_ratio = config.get('multitask_ratio',[1,0,0])
@@ -39,7 +43,7 @@ class GMEL(AbstractReprLearningModel):
 
     def run(self,data=None):
         g,num_nodes,node_feats,train_data,train_inflow,train_outflow,trip_od_valid,trip_volume_valid,trip_od_train,trip_volume_train = self.data_post_process()
-        model = GMELModel(g,num_nodes,in_dim=node_feats.shape[1],h_dim = self.output_dim,num_hidden_layers=self.num_hidden_layers,dropout=0, device=self.device, reg_param=0)
+        model = GMELModel(g,num_nodes,in_dim=node_feats.shape[1],h_dim = self.output_dim,num_hidden_layers=self.num_hidden_layers,dropout=0, device=self.device, reg_param=0).to(self.device)
         best_rmse = 1e6
         optimizer = torch.optim.Adam(model.parameters(), self.learning_rate)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.1)
@@ -75,11 +79,13 @@ class GMEL(AbstractReprLearningModel):
                     best_rmse = rmse
                     src_embedding = model(g).detach().cpu().numpy()  # get embeddings
                     dst_embedding = model.forward2(g).detach().cpu().numpy()  # get embeddings
+                    region_embedding = np.concatenate([src_embedding, dst_embedding], axis=1)
                     self._logger.info('Best RMSE found on epoch {}'.format(epoch))
         np.save(self.org_npy_cache_file,src_embedding)
         np.save(self.dst_npy_cache_file, dst_embedding)
+        np.save(self.npy_cache_file, region_embedding)
         self._logger.info('词向量和模型保存完成')
-        self._logger.info('词向量维度：(' + str(len(src_embedding)) + ',' + str(len(src_embedding[0])) + ')')
+        self._logger.info('词向量维度：(' + str(len(region_embedding)) + ',' + str(len(region_embedding[0])) + ')')
 
 
     def data_post_process(self):
@@ -96,8 +102,8 @@ class GMEL(AbstractReprLearningModel):
         trip_volume_train = train_data[:, -1].float().to(self.device)
         trip_od_valid = torch.from_numpy(valid_data[:, :2]).long().to(self.device)
         trip_volume_valid = torch.from_numpy(valid_data[:, -1]).float().to(self.device)
-        trip_od_test = torch.from_numpy(test_data[:, :2]).long().to(self.device)
-        trip_volume_test = torch.from_numpy(test_data[:, -1]).float().to(self.device)
+        # trip_od_test = torch.from_numpy(test_data[:, :2]).long().to(self.device)
+        # trip_volume_test = torch.from_numpy(test_data[:, -1]).float().to(self.device)
         # in/out flow data for multitask target in/out flow
         train_inflow = torch.from_numpy(train_inflow).view(-1, 1).float().to(self.device)
         train_outflow = torch.from_numpy(train_outflow).view(-1, 1).float().to(self.device)
