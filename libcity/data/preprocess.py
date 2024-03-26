@@ -83,16 +83,12 @@ class preprocess_traj(PreProcess):
                     pd.Series(start_time, name='start_time')
                 ], axis=1)
             df.to_csv(self.data_file, index=False)
-            # 按照原数据，比例约为 3:1:1
+            # 没有分验证集的必要 4:1
             train_file = os.path.join(self.data_dir, 'traj_road_train.csv')
-            val_file = os.path.join(self.data_dir, 'traj_road_val.csv')
             test_file = os.path.join(self.data_dir, 'traj_road_test.csv')
-            train_df = df.sample(frac=3/5, random_state=1)
-            df = df.drop(train_df.index)
-            val_df = df.sample(frac=1/2, random_state=1)
-            test_df = df.drop(val_df.index)
+            train_df = df.sample(frac=4/5, random_state=1)
+            test_df = df.drop(train_df.index)
             train_df.to_csv(train_file, index=False)
-            val_df.to_csv(val_file, index=False)
             test_df.to_csv(test_file, index=False)
 
             # region traj
@@ -128,15 +124,12 @@ class preprocess_traj(PreProcess):
                     pd.Series(start_time, name='start_time')
                 ], axis=1)
             df.to_csv(data_file, index=False)
+            # 没有分验证集的必要 4:1
             train_file = os.path.join(self.data_dir, 'traj_region_train.csv')
-            val_file = os.path.join(self.data_dir, 'traj_region_val.csv')
             test_file = os.path.join(self.data_dir, 'traj_region_test.csv')
-            train_df = df.sample(frac=3/5, random_state=1)
-            df = df.drop(train_df.index)
-            val_df = df.sample(frac=1/2, random_state=1)
-            test_df = df.drop(val_df.index)
+            train_df = df.sample(frac=4/5, random_state=1)
+            test_df = df.drop(train_df.index)
             train_df.to_csv(train_file, index=False)
-            val_df.to_csv(val_file, index=False)
             test_df.to_csv(test_file, index=False)
             logger.info('Finish preprocess traj.')
         

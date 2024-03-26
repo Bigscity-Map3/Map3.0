@@ -1,0 +1,9 @@
+{
+    "embedding_size": 144,
+    "output_dim": 144,
+    "learning_rate": 0.001,
+    "max_epoch": 1,
+    "dropout": 0.1,
+    "gcn_layers": 3,
+    "importance_k": 10
+}

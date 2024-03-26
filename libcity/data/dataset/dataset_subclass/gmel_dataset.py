@@ -38,7 +38,6 @@ class GMELDataset(ODRegionRepresentationDataset):
         self.feature = np.random.uniform(-1, 1, size=(self.num_nodes, 250))
 
     def construct_geo_adj(self):
-
         self.adj_mx = self.adj_mx / self.adj_mx.max().max()
 
     def construct_distance_mx(self):

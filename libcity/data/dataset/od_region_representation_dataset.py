@@ -149,7 +149,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
             destination_region_id = self.region2region.loc[i, "destination_id"]
             distance = self.centroid[origin_region_id].distance(self.centroid[destination_region_id])
             self.adj_mx[origin_region_id][destination_region_id] = distance
-        self._logger.info("Loaded file " + self.rel_file + '.rel and finish constructing adj_mx')
+        # self._logger.info("Loaded file " + self.rel_file + '.rel and finish constructing adj_mx')
         """
         加载各个实体的联系，格式['rel_id','type','origin_id','destination_id','rel_type']
         后续可能会将两种实体之间的对应做成1-->n的映射

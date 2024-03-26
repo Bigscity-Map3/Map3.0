@@ -1,5 +1,6 @@
 {
     "output_dim": 96,
     "max_epoch": 10,
-    "representation_object": "region"
+    "representation_object": "region",
+    "evaluate_tasks": ["od_matrix_predict"]
 }

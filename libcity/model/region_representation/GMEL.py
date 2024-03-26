@@ -64,7 +64,7 @@ class GMEL(AbstractReprLearningModel):
             scheduler.step()
             
             #eval
-            if epoch % 5 == 0:
+            if (epoch + 1) % 5 == 0:
                 model.eval()
                 with torch.no_grad():
                     loss = model.get_loss(trip_od_valid, trip_volume_valid, train_inflow, train_outflow, g,multitask_weights=self.multitask_ratio)
