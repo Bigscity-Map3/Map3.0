@@ -36,8 +36,8 @@ class JCLRNT(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_train_embedding_file = './libcity/cache/{}/evaluate_cache/traj_train_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.traj_val_embedding_file = './libcity/cache/{}/evaluate_cache/traj_val_embedding_{}_{}_{}.npy'. \
-            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        # self.traj_val_embedding_file = './libcity/cache/{}/evaluate_cache/traj_val_embedding_{}_{}_{}.npy'. \
+        #     format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_test_embedding_file = './libcity/cache/{}/evaluate_cache/traj_test_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         # self.traj_origin_test_embedding_file = './libcity/cache/{}/evaluate_cache/traj_origin_test_embedding_{}_{}_{}.npy'. \
@@ -106,7 +106,7 @@ class JCLRNT(AbstractReprLearningModel):
         np.save(self.road_embedding_path,node_embedding)
         torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
         self.save_traj_embedding(self.traj_train,self.traj_train_embedding_file)
-        self.save_traj_embedding(self.traj_eval, self.traj_val_embedding_file)
+        # self.save_traj_embedding(self.traj_eval, self.traj_val_embedding_file)
         self.save_traj_embedding(self.traj_test,self.traj_test_embedding_file)
         # self.save_traj_embedding(self.traj_origin_test,self.traj_origin_test_embedding_file)
         # self.save_traj_embedding(self.traj_detour_test,self.traj_detour_test_embedding_file)

@@ -6,6 +6,7 @@ from libcity.model.region_representation.LINE import LINE
 from libcity.model.region_representation.MVURE import MVURE
 from libcity.model.region_representation.GMEL import GMEL
 from libcity.model.region_representation.ReMVC import ReMVC
+from libcity.model.region_representation.HREP import HREP
 __all__ = [
     "Node2Vec",
     "HDGE",
@@ -14,5 +15,6 @@ __all__ = [
     "LINE",
     "MVURE",
     "GMEL",
-    "ReMVC"
+    "ReMVC",
+    "HREP"
 ]

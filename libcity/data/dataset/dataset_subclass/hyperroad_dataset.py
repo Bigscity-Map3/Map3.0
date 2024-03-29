@@ -137,7 +137,7 @@ class HyperRoadDataset(AbstractDataset):
         self.road_tag = np.array(self.road_geo_df['highway'])
         self.road_length = np.array(self.road_geo_df['length'])
         self.road_num = len(self.road_length)
-        self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
+        self.traj_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
         self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
         self.region_geo_path = os.path.join(data_cache_dir, 'region.csv')

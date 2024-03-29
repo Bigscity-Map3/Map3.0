@@ -1,7 +1,11 @@
-class AbstractReprLearningModel:
+import torch.nn as nn
+
+
+class AbstractReprLearningModel(nn.Module):
 
     def __init__(self, config, data_feature):
-        self.config=config
+        nn.Module.__init__(self)
+        self.config = config
         self.data_feature = data_feature
 
     def run(self, train_dataloader=None,eval_dataloader=None):

@@ -54,16 +54,6 @@ class MVUREDataset(AbstractDataset):
     def get_data(self):
         return None,None,None
 
-    def get_cos_similarity(self,v1,v2):
-        if np.linalg.norm(v1) == 0:
-            return 0
-        if np.linalg.norm(v2) == 0:
-            return 0
-        num = float(np.dot(v1, v2))
-        denom = np.linalg.norm(v1) * np.linalg.norm(v2)
-        return num / denom
-
-
     def construct_flow_adj(self):
         if os.path.exists(self.in_flow_adj_path) and os.path.exists(self.out_flow_adj_path):
             self.inflow_adj = np.load(self.in_flow_adj_path)

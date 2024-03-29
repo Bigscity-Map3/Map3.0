@@ -2,7 +2,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from libcity.model.abstract_traffic_state_model import AbstractTrafficStateModel
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
 
 class LINE_FIRST(nn.Module):
@@ -52,7 +52,7 @@ class LINE_SECOND(nn.Module):
         return self.node_emb.weight.data
 
 
-class LINE(AbstractTrafficStateModel):
+class LINE(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         self.device = config.get('device')

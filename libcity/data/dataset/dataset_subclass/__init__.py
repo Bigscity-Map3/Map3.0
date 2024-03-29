@@ -12,6 +12,7 @@ from libcity.data.dataset.dataset_subclass.remvc_dataset import ReMVCDataset
 from libcity.data.dataset.dataset_subclass.jclrnt_dataset import JCLRNTDataset
 from libcity.data.dataset.dataset_subclass.srn2vec_dataset import SRN2VecDataset
 from libcity.data.dataset.dataset_subclass.hyperroad_dataset import HyperRoadDataset
+from libcity.data.dataset.dataset_subclass.hrep_dataset import HREPDataset
 __all__ = [
     'CONVGCNDataset',
     'ChebConvDataset',\
@@ -27,5 +28,6 @@ __all__ = [
     "SRN2VecDataset",
     "JCLRNTDataset",
     "HyperRoadDataset",
-    "ReMVCDataset"
+    "ReMVCDataset",
+    "HREPDataset"
 ]

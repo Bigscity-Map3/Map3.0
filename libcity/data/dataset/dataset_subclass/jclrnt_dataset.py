@@ -47,7 +47,7 @@ class JCLRNTDataset(AbstractDataset):
         self.edge_threshold = self.config.get("edge_threshold", 0.6)
         self.centroid = self.road_geometry.centroid
         self.road_num = len(self.road_tag)
-        self.traj_path = os.path.join(data_cache_dir, 'traj_road.csv')
+        self.traj_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
         self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
         self.number_negative = config.get('number_negative',3)
@@ -58,10 +58,10 @@ class JCLRNTDataset(AbstractDataset):
         self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.traj_arr = self.prepare_traj_data()
         train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
-        eval_path = os.path.join(data_cache_dir, 'traj_road_val.csv')
+        # eval_path = os.path.join(data_cache_dir, 'traj_road_val.csv')
         test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
         self.traj_arr_train = self.prepare_traj_test_data(train_path)
-        self.traj_arr_eval = self.prepare_traj_test_data(eval_path)
+        # self.traj_arr_eval = self.prepare_traj_test_data(eval_path)
         self.traj_arr_test = self.prepare_traj_test_data(test_path)
         self.generate_train_data()
 
@@ -147,7 +147,8 @@ class JCLRNTDataset(AbstractDataset):
             dict: 包含数据集的相关特征的字典
         """
         return {'dataloader':self.train_dataloader,'num_nodes':self.road_num,"edge_index":self.edge_index,
-                "edge_index_aug":self.edge_index_aug,"traj_arr_test":self.traj_arr_test,"traj_arr_eval":self.traj_arr_eval,"traj_arr_train":self.traj_arr_train}
+                "edge_index_aug":self.edge_index_aug,"traj_arr_test":self.traj_arr_test,"traj_arr_train":self.traj_arr_train}
+                #"traj_arr_eval":self.traj_arr_eval,
                 #"traj_arr_origin_test":self.traj_arr_origin_test
                 #"traj_arr_detour_test":self.traj_arr_detour_test,
                 #"traj_arr_detour_others":self.traj_arr_detour_others}

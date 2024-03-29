@@ -11,7 +11,7 @@ from random import *
 from itertools import zip_longest
 
 from libcity.data.dataset import AbstractDataset
-from libcity.model.poi_representation.utils import next_batch
+from libcity.model.poi_representation.utils import next_batch, init_seed
 from libcity.model.poi_representation.tale import TaleData
 from libcity.model.poi_representation.poi2vec import P2VData
 from libcity.model.poi_representation.teaser import TeaserData
@@ -32,6 +32,8 @@ class POIRepresentationDataLoader:
         w2v_data = self.data_feature.get('w2v_data')
         self.embed_train_users, self.embed_train_sentences, self.embed_train_weekdays, \
         self.embed_train_timestamp, _length = zip(*w2v_data)
+        seed = self.config.get('seed', 0)
+        init_seed(seed)
 
     def next_batch(self):
         pass
@@ -323,6 +325,7 @@ class POIRepresentationDataset(AbstractDataset):
         days = data['day'].drop_duplicates().to_list()
         if len(days) <= 1:
             raise ValueError('Dataset contains only one day!')
+        shuffle(days)
         test_count = max(1, min(math.ceil(len(days) * self.test_scale), len(days)))
         self.split_days = [days[:-test_count], days[-test_count:]]
         self._logger.info('Days for train: {}'.format(self.split_days[0]))

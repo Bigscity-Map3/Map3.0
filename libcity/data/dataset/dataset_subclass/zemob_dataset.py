@@ -82,7 +82,7 @@ class ZEMobDataset(AbstractDataset):
         :return:
         """
         mobility_event_index = 0
-        traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
+        traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
         for i in tqdm(range(len(traj_file))):
             # 得到起始zone和起始zone对应的mobility_event
             path = traj_file.loc[i, 'path']

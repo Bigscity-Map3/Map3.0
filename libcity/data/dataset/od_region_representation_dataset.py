@@ -149,7 +149,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
             destination_region_id = self.region2region.loc[i, "destination_id"]
             distance = self.centroid[origin_region_id].distance(self.centroid[destination_region_id])
             self.adj_mx[origin_region_id][destination_region_id] = distance
-        self._logger.info("Loaded file " + self.rel_file + '.rel and finish constructing adj_mx')
+        # self._logger.info("Loaded file " + self.rel_file + '.rel and finish constructing adj_mx')
         """
         加载各个实体的联系，格式['rel_id','type','origin_id','destination_id','rel_type']
         后续可能会将两种实体之间的对应做成1-->n的映射
@@ -164,10 +164,10 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self._logger.info("Loaded file " + self.rel_file + '.rel')
 
     def _load_dyna(self):
-        traj_road_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_road.csv'))
+        traj_road_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_road_train.csv'))
         for _, row in traj_road_df.iterrows():
             self.traj_road.append([int(road) for road in row['path'][1:-1].split(',')])
-        traj_region_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region.csv'))
+        traj_region_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
         for _, row in traj_region_df.iterrows():
             self.traj_region.append([int(region) for region in row['path'][1:-1].split(',')])
         self._logger.info("Loaded file " + self.dyna_file + '.dyna')

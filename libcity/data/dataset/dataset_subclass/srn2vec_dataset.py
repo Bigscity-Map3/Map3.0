@@ -26,7 +26,6 @@ class SRN2VecDataset(AbstractDataset):
         self.data_path = './raw_data/' + self.dataset + '/'
         data_cache_dir = os.path.join(cache_dir, self.dataset)
         #加载所有road的tag标签
-        # self.road_geo_path = self.data_path+'road_'+self.dataset+'.csv'
         self.road_geo_path = os.path.join(data_cache_dir, 'road.csv')
         self.road_geo_df = pd.read_csv(self.road_geo_path,delimiter=',')
         self.road_tag = np.array(self.road_geo_df['lanes'])
@@ -34,9 +33,7 @@ class SRN2VecDataset(AbstractDataset):
         self.road_geometry = gpd.GeoSeries.from_wkt(self.road_geo_df['geometry'])
         self.centroid = self.road_geometry.centroid
         self.road_num = len(self.road_tag)
-        # self.adj_json_path = self.data_path+'roadmap_'+self.dataset+'/'+'road_neighbor_'+self.dataset+'.json'
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
-        # self.road_mob_path = self.data_path+'roadmap_'+self.dataset+'/'+'roadmap_'+self.dataset+'.mob'
         self.construct_road_adj()
         self.n_short_paths = config.get('n_short_paths',1280)
         self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
