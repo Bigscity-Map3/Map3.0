@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import logging
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GATConv
+from dgl.nn import GATConv
 
 import logging
 import time
@@ -523,13 +523,13 @@ class GAT(nn.Module):
 
         self.nlayer = nlayer
         self.layers = nn.ModuleList()
-        self.layers.append(GATConv(nfeat, nhid, heads = nhead, 
-                                    dropout = 0.2, negative_slope = 0.2))
+        self.layers.append(GATConv(nfeat, nhid, nhead, 
+                                    feat_drop = 0.2, negative_slope = 0.2))
         for _ in range(nlayer - 1):
-            self.layers.append(GATConv(nhid * nhead, nhid, heads = nhead, 
-                                    dropout = 0.2, negative_slope = 0.2))
-        self.layer_out = GATConv(nhead * nhid, nout, heads = 1, concat=False,
-                            dropout = 0.2, negative_slope = 0.2)
+            self.layers.append(GATConv(nhid * nhead, nhid, nhead, 
+                                    feat_drop = 0.2, negative_slope = 0.2))
+        self.layer_out = GATConv(nhead * nhid, nout, 1,
+                            feat_drop = 0.2, negative_slope = 0.2)
 
     # x = [2708, 1433]
     # edge_index = [2, 10556], pair-wise adj edges
@@ -537,10 +537,10 @@ class GAT(nn.Module):
 
         for l in range(self.nlayer):
             x = F.dropout(x, p = 0.2, training = self.training)
-            x = self.layers[l](x, edge_index)
+            x = self.layers[l](edge_index,x)
             x = F.elu(x)
         # output projection
         x = F.dropout(x, p = 0.2, training = self.training)
-        x = self.layer_out(x, edge_index)
+        x = self.layer_out(edge_index,x)
 
         return x

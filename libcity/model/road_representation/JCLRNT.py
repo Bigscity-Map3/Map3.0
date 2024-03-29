@@ -9,7 +9,7 @@ import math
 from datetime import datetime
 import torch.nn.functional as F
 import time
-from torch_geometric.nn import GATConv
+from dgl.nn import GATConv
 
 class JCLRNT(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
@@ -237,20 +237,20 @@ class TransformerModel(nn.Module):
 
 
 class GraphEncoder(nn.Module):
-    def __init__(self, input_size, output_size, encoder_layer, num_layers, activation):
+    def __init__(self, input_size, output_size, encoder_layer, num_layers, activation,heads=1):
         super(GraphEncoder, self).__init__()
 
         self.num_layers = num_layers
         self.activation = activation
 
-        self.layers = [encoder_layer(input_size, output_size)]
+        self.layers = [encoder_layer(input_size, output_size,heads)]
         for _ in range(1, num_layers):
-            self.layers.append(encoder_layer(output_size, output_size))
+            self.layers.append(encoder_layer(output_size, output_size,heads))
         self.layers = nn.ModuleList(self.layers)
 
     def forward(self, x, edge_index):
         for i in range(self.num_layers):
-            x = self.activation(self.layers[i](x, edge_index))
+            x = self.activation(self.layers[i](edge_index, x))
         return x
 
 
@@ -270,8 +270,8 @@ class MultiViewModel(nn.Module):
 
     def encode_graph(self):
         node_emb = self.node_embedding.weight
-        node_enc1 = self.graph_encoder1(node_emb, self.edge_index1)
-        node_enc2 = self.graph_encoder2(node_emb, self.edge_index2)
+        node_enc1 = self.graph_encoder1(self.edge_index1,node_emb)
+        node_enc2 = self.graph_encoder2(self.edge_index2,node_emb)
         return node_enc1 + node_enc2, node_enc1, node_enc2
 
     def encode_sequence(self, sequences):
