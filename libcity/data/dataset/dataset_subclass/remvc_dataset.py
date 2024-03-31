@@ -4,7 +4,6 @@ import multiprocessing
 import pandas as pd
 import numpy as np
 from scipy.sparse import csr_matrix
-from datetime import datetime
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
 from libcity.data.preprocess import cache_dir
 

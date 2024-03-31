@@ -2,7 +2,6 @@ from datetime import datetime
 import os
 from logging import getLogger
 
-import numpy
 import numpy as np
 import pandas as pd
 

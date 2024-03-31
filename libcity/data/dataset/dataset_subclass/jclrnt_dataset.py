@@ -1,4 +1,3 @@
-from itertools import chain, combinations
 from logging import getLogger
 
 import numpy as np
@@ -6,10 +5,8 @@ import pandas as pd
 import geopandas as gpd
 import os
 import json
-from sklearn.preprocessing import StandardScaler
 import torch
-from scipy.sparse.csgraph import shortest_path
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset
 from libcity.data.dataset import AbstractDataset
@@ -38,7 +35,6 @@ class JCLRNTDataset(AbstractDataset):
         self.data_path = './raw_data/' + self.dataset + '/'
         data_cache_dir = os.path.join(cache_dir, self.dataset)
         #加载所有road的tag标签
-        # self.road_geo_path = self.data_path+'road_'+self.dataset+'.csv'
         self.road_geo_path = os.path.join(data_cache_dir, 'road.csv')
         self.road_geo_df = pd.read_csv(self.road_geo_path,delimiter=',')
         self.road_tag = np.array(self.road_geo_df['highway'])
@@ -58,10 +54,8 @@ class JCLRNTDataset(AbstractDataset):
         self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.traj_arr = self.prepare_traj_data()
         train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
-        # eval_path = os.path.join(data_cache_dir, 'traj_road_val.csv')
         test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
         self.traj_arr_train = self.prepare_traj_test_data(train_path)
-        # self.traj_arr_eval = self.prepare_traj_test_data(eval_path)
         self.traj_arr_test = self.prepare_traj_test_data(test_path)
         self.generate_train_data()
 
@@ -148,9 +142,4 @@ class JCLRNTDataset(AbstractDataset):
         """
         return {'dataloader':self.train_dataloader,'num_nodes':self.road_num,"edge_index":self.edge_index,
                 "edge_index_aug":self.edge_index_aug,"traj_arr_test":self.traj_arr_test,"traj_arr_train":self.traj_arr_train}
-                #"traj_arr_eval":self.traj_arr_eval,
-                #"traj_arr_origin_test":self.traj_arr_origin_test
-                #"traj_arr_detour_test":self.traj_arr_detour_test,
-                #"traj_arr_detour_others":self.traj_arr_detour_others}
-                #"traj_arr_detour_test":self.traj_arr_detour_test,"traj_arr_detour_others":self.traj_arr_detour_others,
 

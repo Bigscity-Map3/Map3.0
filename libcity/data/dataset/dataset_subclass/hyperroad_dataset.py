@@ -2,7 +2,6 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import networkx as nx
 import json
 import sys, os
 import torch

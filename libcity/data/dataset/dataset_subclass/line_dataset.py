@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 
 from libcity.data.dataset import AbstractDataset
-from libcity.data.dataset import RoadNetWorkDataset
 from libcity.data.utils import generate_dataloader
 from libcity.utils import ensure_dir
 from libcity.evaluator.utils import generate_road_representaion_downstream_data

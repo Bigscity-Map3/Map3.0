@@ -1,7 +1,6 @@
 import random
 from libcity.data.dataset import ODRegionRepresentationDataset
 import numpy as np
-import os
 from libcity.data.utils import split_list
 
 
