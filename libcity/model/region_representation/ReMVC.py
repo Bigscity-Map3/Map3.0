@@ -1,10 +1,8 @@
-from re import I
 import numpy as np
 import random
 import torch
 import torch.nn as nn
-from torch.optim import SGD, Adam, ASGD, RMSprop
-from torch.nn.functional import log_softmax, softmax
+from torch.optim import Adam
 import torch.nn.functional as F
 import math
 
@@ -289,7 +287,6 @@ class POI_SSL(torch.nn.Module):
         scores /= self.temp
 
         loss = -(F.log_softmax(scores, dim=0) * labels).sum() / labels.sum()
-
         return loss, base_region_emb, neg_region_emb
 
     def model_train(self, region_id):

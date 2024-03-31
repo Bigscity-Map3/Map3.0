@@ -1,3 +1,4 @@
+import importlib
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset
@@ -432,7 +433,15 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['region_nmi'] = [region_nmi]
         self.result['region_ars'] = [region_ars]
 
+    def get_downstream_model(self, model):
+        try:
+            return getattr(importlib.import_module('libcity.evaluator.downstream_models'), model)(self.config)
+        except AttributeError:
+            raise AttributeError('evaluate model is not found')
+
     def evaluate(self):
+        downstream_model = self.get_downstream_model('SimilaritySearchModel')
+        downstream_model.run()
         if self.representation_object == 'region':
             self.evaluate_region_embedding()
         else:
