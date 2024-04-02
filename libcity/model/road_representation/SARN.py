@@ -69,7 +69,7 @@ class SARN(nn.Module):
        
         self.sarn_seg_feat_dim = config.get("sarn_seg_feat_dim", 176)
         self.sarn_embedding_dim = config.get("sarn_embedding_dim", 128)
-        self.sarn_out_dim = config.get("sarn_out_dim", 32)
+        self.sarn_out_dim = config.get("output_dim", 32)
         self.sarn_moco_each_queue_size = self.osm_data.sarn_moco_each_queue_size
         self.sarn_moco_temperature = config.get("sarn_moco_temperature", 0.05)
         self.sarn_moco_total_queue_size = config.get("sarn_moco_total_queue_size", 1000)

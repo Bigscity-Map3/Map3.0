@@ -1,3 +1,4 @@
 {
-    "representation_object": "road"
+    "representation_object": "road",
+    "output_dim": 128
 }

@@ -440,18 +440,15 @@ class HHGCLEvaluator(AbstractEvaluator):
             raise AttributeError('evaluate model is not found')
 
     def evaluate(self):
-        downstream_model = self.get_downstream_model('SimilaritySearchModel')
-        downstream_model.run()
         if self.representation_object == 'region':
             self.evaluate_region_embedding()
         else:
             self.evaluate_road_embedding()
+        downstream_model = self.get_downstream_model('SimilaritySearchModel')
+        self.result.update(downstream_model.run())
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
         self._logger.info(self.result)
-        # json.dump(self.result, open(result_path, 'w'), indent=4)
-        # self._logger.info('Evaluate result is saved at {}'.format(result_path))
-
         df = pd.DataFrame.from_dict(self.result, orient='columns')
         self._logger.info(df)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \

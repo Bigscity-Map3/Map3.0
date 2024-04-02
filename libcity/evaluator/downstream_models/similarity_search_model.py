@@ -1,7 +1,6 @@
 import sys
 sys.path.append('../../../')
 import os
-import json
 import math
 import pandas as pd
 import numpy as np
@@ -68,6 +67,7 @@ class CLModel(nn.Module):
 class SimilaritySearchModel(AbstractModel):
     def __init__(self, config):
         self._logger = getLogger()
+        self._logger.warning('Evaluating Trajectory Similarity Search')
         self.config = config
         self.device = config.get('device')
         self.dataset = config.get('dataset')
@@ -95,7 +95,6 @@ class SimilaritySearchModel(AbstractModel):
         self.embedding = np.load(self.embedding_path)
         new_row = np.zeros((1, self.embedding.shape[1]))
         self.embedding = np.concatenate((self.embedding, new_row), axis=0)  # embedding[padding_id] = 0
-        self._logger.info('Load road emb {}, shape = {}'.format(self.embedding_path, self.embedding.shape))
 
     def filter_traj(self, file_path):
         df = pd.read_csv(file_path)
@@ -123,7 +122,7 @@ class SimilaritySearchModel(AbstractModel):
         valid_length = len(new_path)
         return new_path, valid_length
 
-    def data_loader(self, padding_id, num_queries, detour_rate=0.1):        
+    def data_loader(self, padding_id, num_queries):        
         num_samples = len(self.test_traj_df)
         x_arr = np.full([num_samples, self.max_len], padding_id, dtype=np.int32)
         x_len = np.zeros([num_samples], dtype=np.int32)
@@ -158,10 +157,9 @@ class SimilaritySearchModel(AbstractModel):
                     batch_index = index[bs * i: bs * (i + 1)]
                 yield batch_index
         
-        self._logger.info("--- Trajectory Similarity Search ---")
         num_nodes = self.num_nodes
         batch_size = 64
-        num_queries = 5000
+        num_queries = self.config.get('num_queries', 5000)
         data, data_len, queries, queries_len, y = self.data_loader(num_nodes, num_queries)
         data_size = data.shape[0]
 
@@ -199,10 +197,10 @@ class SimilaritySearchModel(AbstractModel):
                 else:
                     no_hit += 1
             self.result['Mean Rank'] = rank_sum / num_queries
-            self.result['no_hit'] = no_hit 
+            self.result['No Hit'] = no_hit 
             self.result['HR@' + str(k)] =  hit / (num_queries - no_hit)
             self._logger.info(f'HR@{k}: {hit / (num_queries - no_hit)}')
-        self._logger.info('Mean Rank: {}, No Hit: {}'.format(self.result['Mean Rank'], self.result['no_hit']))
+        self._logger.info('Mean Rank: {}, No Hit: {}'.format(self.result['Mean Rank'], self.result['No Hit']))
 
     def positive_sampling(self, path):
         return [self.detour(path, 'add'), self.detour(path, 'delete'), self.detour(path, 'replace')]
@@ -240,21 +238,10 @@ class SimilaritySearchModel(AbstractModel):
                 optimizer.step()
             self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
         self.evaluation()
-        file_name = '{}_evaluate_similaritysearch_{}_{}_{}.json'.format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.save_result('libcity/cache/{}/evaluate_cache'.format(self.exp_id), file_name)
         return self.result
 
     def save_result(self, save_path, filename=None):
-        """
-        将评估结果保存到 save_path 文件夹下的 filename 文件中
-
-        Args:
-            save_path: 保存路径
-            filename: 保存文件名
-        """
-        with open(os.path.join(save_path, filename), 'w') as f:
-            json.dump(self.result, f)
-        self._logger.info('result save in {}'.format(os.path.join(save_path, filename)))
+        pass
 
     def clear(self):
         pass
