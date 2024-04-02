@@ -1,4 +1,5 @@
 {
+  "representation_object": "region",
   "rs_type": "random",
   "extractor": "MLP",
   "type": "avg",

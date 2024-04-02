@@ -59,7 +59,7 @@ class JCLRNT(AbstractReprLearningModel):
         self.mode = config.get('mode', 's')
         self.l_st = config.get('lambda_st', 0.8)
         self.traj_train = torch.from_numpy(data_feature.get('traj_arr_train'))
-        self.traj_eval = torch.from_numpy(data_feature.get('traj_arr_eval'))
+        # self.traj_eval = torch.from_numpy(data_feature.get('traj_arr_eval'))
         self.traj_test = torch.from_numpy(data_feature.get('traj_arr_test'))
         # self.traj_origin_test = torch.from_numpy(data_feature.get('traj_arr_origin_test'))
         # self.traj_detour_test = torch.from_numpy(data_feature.get('traj_arr_detour_test'))
