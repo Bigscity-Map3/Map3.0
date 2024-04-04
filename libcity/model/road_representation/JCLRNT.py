@@ -36,16 +36,8 @@ class JCLRNT(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_train_embedding_file = './libcity/cache/{}/evaluate_cache/traj_train_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        # self.traj_val_embedding_file = './libcity/cache/{}/evaluate_cache/traj_val_embedding_{}_{}_{}.npy'. \
-        #     format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_test_embedding_file = './libcity/cache/{}/evaluate_cache/traj_test_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        # self.traj_origin_test_embedding_file = './libcity/cache/{}/evaluate_cache/traj_origin_test_embedding_{}_{}_{}.npy'. \
-        #     format(self.exp_id, self.model, self.dataset, self.output_dim)
-        # self.traj_detour_test_embedding_file = './libcity/cache/{}/evaluate_cache/traj_detour_test_embedding_{}_{}_{}.npy'. \
-        #     format(self.exp_id, self.model, self.dataset, self.output_dim)
-        # self.traj_detour_others_embedding_file = './libcity/cache/{}/evaluate_cache/traj_detour_others_embedding_{}_{}_{}.npy'. \
-        #     format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.hidden_size = config.get('hidden_size',128)
@@ -59,11 +51,7 @@ class JCLRNT(AbstractReprLearningModel):
         self.mode = config.get('mode', 's')
         self.l_st = config.get('lambda_st', 0.8)
         self.traj_train = torch.from_numpy(data_feature.get('traj_arr_train'))
-        # self.traj_eval = torch.from_numpy(data_feature.get('traj_arr_eval'))
         self.traj_test = torch.from_numpy(data_feature.get('traj_arr_test'))
-        # self.traj_origin_test = torch.from_numpy(data_feature.get('traj_arr_origin_test'))
-        # self.traj_detour_test = torch.from_numpy(data_feature.get('traj_arr_detour_test'))
-        # self.traj_detour_others = torch.from_numpy(data_feature.get('traj_arr_detour_others'))
         self.l_ss = self.l_tt = 0.5 * (1 - self.l_st)
         self.activation = {'relu': nn.ReLU(), 'prelu': nn.PReLU()}[config.get("activation", "relu")]
         self.num_epochs = config.get('num_epochs', 5)
@@ -106,11 +94,7 @@ class JCLRNT(AbstractReprLearningModel):
         np.save(self.road_embedding_path,node_embedding)
         torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
         self.save_traj_embedding(self.traj_train,self.traj_train_embedding_file)
-        # self.save_traj_embedding(self.traj_eval, self.traj_val_embedding_file)
         self.save_traj_embedding(self.traj_test,self.traj_test_embedding_file)
-        # self.save_traj_embedding(self.traj_origin_test,self.traj_origin_test_embedding_file)
-        # self.save_traj_embedding(self.traj_detour_test,self.traj_detour_test_embedding_file)
-        # self.save_traj_embedding(self.traj_detour_others,self.traj_detour_others_embedding_file)
         
     def save_traj_embedding(self,traj_test,traj_embedding_file):
         result_list = []
@@ -169,7 +153,6 @@ def seq_seq_loss(seq_rep1, seq_rep2, measure,device):
     batch_size = seq_rep1.shape[0]
 
     pos_mask = torch.eye(batch_size).to(device)
-
     if measure == 'jsd':
         return jsd(seq_rep1, seq_rep2, pos_mask)
     elif measure == 'nce':

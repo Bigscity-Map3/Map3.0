@@ -45,23 +45,22 @@ class CLModel(nn.Module):
         super().__init__()
         self.device = device
         self.tau = tau
+        self.hidden_dim = hidden_dim
         self.traj_encoder = TrajEncoder(input_dim, hidden_dim, n_layers, embedding, device)
 
-    def forward(self, path, pos_list, neg_list):
-        valid_len = len(path)
-        pos_path, pos_valid_len = zip(*pos_list)
-        neg_path, neg_valid_len = zip(*neg_list)
-        base_embedding = self.traj_encoder(torch.LongTensor(path).unsqueeze(0), torch.LongTensor([valid_len])).squeeze(0)
-        pos_embedding = self.traj_encoder(torch.LongTensor(pos_path), torch.LongTensor(pos_valid_len))
-        neg_embedding = self.traj_encoder(torch.LongTensor(neg_path), torch.LongTensor(neg_valid_len))
-        pos_scores = torch.matmul(pos_embedding, base_embedding)
-        pos_label = torch.Tensor([1 for _ in range(pos_scores.size(0))]).type(torch.FloatTensor).to(self.device)
-        neg_scores = torch.matmul(neg_embedding, base_embedding)
-        neg_label = torch.Tensor([0 for _ in range(neg_scores.size(0))]).type(torch.FloatTensor).to(self.device)
-        scores = torch.cat([pos_scores, neg_scores])
-        labels = torch.cat([pos_label, neg_label])
+    def forward(self, path, valid_len, pos_path, pos_valid_len, neg_path, neg_valid_len):
+        batch_size = path.shape[0]
+        base_embedding = self.traj_encoder(path, valid_len).unsqueeze(-1)
+        pos_embedding = self.traj_encoder(pos_path, pos_valid_len).view(batch_size, -1, self.hidden_dim)
+        neg_embedding = self.traj_encoder(neg_path, neg_valid_len).view(batch_size, -1, self.hidden_dim)
+        pos_scores = torch.bmm(pos_embedding, base_embedding).view(batch_size, -1)
+        pos_label = torch.Tensor(np.full(pos_scores.shape, 1)).type(torch.FloatTensor).to(self.device)
+        neg_scores = torch.bmm(neg_embedding, base_embedding).view(batch_size, -1)
+        neg_label = torch.Tensor(np.full(neg_scores.shape, 0)).type(torch.FloatTensor).to(self.device)
+        scores = torch.cat([pos_scores, neg_scores], axis=1)
+        labels = torch.cat([pos_label, neg_label], axis=1)
         scores /= self.tau
-        loss = -(F.log_softmax(scores, dim=0) * labels).sum() / labels.sum()
+        loss = -(F.log_softmax(scores, dim=1) * labels).sum() / labels.sum()
         return loss
 
 class SimilaritySearchModel(AbstractModel):
@@ -81,9 +80,11 @@ class SimilaritySearchModel(AbstractModel):
         self.max_len = config.get('max_len', 50)
         self.detour_rate = config.get('detour_rate', 0.8)
         self.downstream_epoch = config.get('downstream_epoch', 10)
+        self.batch_size = config.get('downstream_batch_size', 64)
         self.learning_rate = self.config.get('learning_rate', 0.001)
         self.weight_decay = self.config.get('weight_decay', 1e-5)
         self.hidden_dim = self.config.get('downstream_hidden_dim', 512)
+        self.pos_size = 3
         self.neg_size = self.config.get('neg_size', 10)
         self.train_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
             self.dataset, 'traj_' + self.representation_object + '_train.csv'))
@@ -101,6 +102,7 @@ class SimilaritySearchModel(AbstractModel):
         df['path'] = df['path'].map(eval)
         df['path_len'] = df['path'].map(len)
         df = df.loc[(df['path_len'] >= self.min_len) & (df['path_len'] <= self.max_len)]
+        df = df.reset_index(drop=True)
         return df
     
     def detour(self, path, aug_type):
@@ -144,28 +146,28 @@ class SimilaritySearchModel(AbstractModel):
         y = random_index[:num_queries]
         return torch.Tensor(x_arr), torch.LongTensor(x_len), torch.Tensor(q_arr), torch.LongTensor(q_len), y
     
+    def next_batch_index(self, ds, bs, shuffle=True):
+        num_batches = math.ceil(ds / bs)
+        index = np.arange(ds)
+        if shuffle:
+            index = np.random.permutation(index)
+        for i in range(num_batches):
+            if i == num_batches - 1:
+                batch_index = index[bs * i:]
+            else:
+                batch_index = index[bs * i: bs * (i + 1)]
+            yield batch_index
+
     def evaluation(self):
-        def next_batch_index(ds, bs, shuffle=True):
-            num_batches = math.ceil(ds / bs)
-            index = np.arange(ds)
-            if shuffle:
-                index = np.random.permutation(index)
-            for i in range(num_batches):
-                if i == num_batches - 1:
-                    batch_index = index[bs * i:]
-                else:
-                    batch_index = index[bs * i: bs * (i + 1)]
-                yield batch_index
-        
         num_nodes = self.num_nodes
-        batch_size = 64
+        batch_size = self.batch_size
         num_queries = self.config.get('num_queries', 5000)
         data, data_len, queries, queries_len, y = self.data_loader(num_nodes, num_queries)
         data_size = data.shape[0]
 
         self.downstream_model.eval()
         x = []
-        for batch_idx in next_batch_index(data_size, batch_size, shuffle=False):
+        for batch_idx in self.next_batch_index(data_size, batch_size, shuffle=False):
             seq_rep = self.downstream_model.traj_encoder(data[batch_idx], data_len[batch_idx])
             if isinstance(seq_rep, tuple):
                 seq_rep = seq_rep[0]
@@ -173,7 +175,7 @@ class SimilaritySearchModel(AbstractModel):
         x = torch.cat(x, dim=0).numpy()
 
         q = []
-        for batch_idx in next_batch_index(num_queries, batch_size, shuffle=False):
+        for batch_idx in self.next_batch_index(num_queries, batch_size, shuffle=False):
             seq_rep = self.downstream_model.traj_encoder(queries[batch_idx], queries_len[batch_idx])
             if isinstance(seq_rep, tuple):
                 seq_rep = seq_rep[0]
@@ -218,20 +220,45 @@ class SimilaritySearchModel(AbstractModel):
         """
         返回评估结果
         """
-        self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim, embedding=self.embedding, device=self.device)
+        self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim,
+                                        embedding=self.embedding, device=self.device)
         self.downstream_model.to(self.device)
         optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
         self._logger.info('Start training downstream model...')
         for epoch in range(self.downstream_epoch):
             total_loss = 0.0
+            path = np.full([len(self.train_traj_df), self.max_len], self.num_nodes, dtype=np.int32)
+            pos_path = np.full([len(self.train_traj_df) * self.pos_size, self.max_len], self.num_nodes, dtype=np.int32)
+            neg_path = np.full([len(self.train_traj_df) * self.neg_size, self.max_len], self.num_nodes, dtype=np.int32)
+            valid_len = [0] * len(self.train_traj_df)
+            pos_valid_len = [0] * (len(self.train_traj_df) * self.pos_size)
+            neg_valid_len = [0] * (len(self.train_traj_df) * self.neg_size)
             for i, row in self.train_traj_df.iterrows():
                 pos_list = self.positive_sampling(row['path'])
                 neg_list = self.negative_sampling(i)
-                for path in pos_list:
-                    path[0].extend([self.num_nodes] * (self.max_len - len(path[0])))
-                for path in neg_list:
-                    path[0].extend([self.num_nodes] * (self.max_len - len(path[0])))
-                loss = self.downstream_model(row['path'], pos_list, neg_list)
+                valid_len[i] = len(row['path'])
+                path[i, :valid_len[i]] = np.array(row['path'], dtype=np.int32)
+                for j, (p, l) in enumerate(pos_list):
+                    id = i * self.pos_size + j
+                    pos_valid_len[id] = l
+                    pos_path[id, :l] = np.array(p, dtype=np.int32)
+                for j, (p, l) in enumerate(neg_list):
+                    id = i * self.neg_size + j
+                    neg_valid_len[id] = l
+                    neg_path[id, :l] = np.array(p, dtype=np.int32)
+            path = torch.LongTensor(path)
+            pos_path = torch.LongTensor(pos_path)
+            neg_path = torch.LongTensor(neg_path)
+            valid_len = torch.LongTensor(valid_len)
+            pos_valid_len = torch.LongTensor(pos_valid_len)
+            neg_valid_len = torch.LongTensor(neg_valid_len)
+            for i in range(0, path.shape[0], self.batch_size):
+                r1 = min(i + self.batch_size, path.shape[0])
+                r2 = min((i + self.batch_size) * self.pos_size, pos_path.shape[0])
+                r3 = min((i + self.batch_size) * self.neg_size, neg_path.shape[0])
+                loss = self.downstream_model(path[i:r1], valid_len[i:r1],
+                                             pos_path[i * self.pos_size:r2], pos_valid_len[i * self.pos_size:r2],
+                                             neg_path[i * self.neg_size:r3], neg_valid_len[i * self.neg_size:r3])
                 optimizer.zero_grad()
                 total_loss += loss.item()
                 loss.backward()
