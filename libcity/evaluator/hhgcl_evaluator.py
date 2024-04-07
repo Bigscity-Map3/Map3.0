@@ -227,10 +227,6 @@ class HHGCLEvaluator(AbstractEvaluator):
         # CH指数
         ch = float(metrics.calinski_harabasz_score(node_emb, labels))
         self._logger.info("Evaluate result is sc = {:6f}, db = {:6f}, ch = {:6f}, nmi = {:6f}, ars = {:6f}".format(sc, db, ch, nmi, ars))
-        # result_path = './libcity/cache/{}/evaluate_cache/kmeans_evaluate_{}_{}_{}_{}_{}.json'. \
-        #     format(self.exp_id, item_type, self.model, self.dataset, str(self.output_dim), str(kinds))
-        # json.dump(self.result, open(result_path, 'w'), indent=4)
-        # self._logger.info('Evaluate result is saved at {}'.format(result_path))
 
         # TSNE可视化
         plt.figure()

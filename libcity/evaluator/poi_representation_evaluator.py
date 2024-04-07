@@ -91,9 +91,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         # 只有foursquare数据集可以执行
         embed_layer = self.data_feature.get('embed_layer')
         num_loc = self.data_feature.get('num_loc')
-        num_user = self.data_feature.get('num_user')
         embed_size = self.config.get('embed_size', 128)
-        hidden_size = embed_size * 4
         task_epoch = self.config.get('task_epoch', 5)
         category = self.data_feature.get('coor_df')
         device=self.config.get('device','cuda:0')
@@ -164,9 +162,6 @@ class POIRepresentationEvaluator(AbstractEvaluator):
 
     def evaluate_loc_cluster(self):
         embed_layer = self.data_feature.get('embed_layer')
-        num_loc = self.data_feature.get('num_loc')
-        num_user = self.data_feature.get('num_user')
-        embed_size = self.config.get('embed_size', 128)
         category = self.data_feature.get('coor_df')
 
         inputs=category.geo_id.to_numpy()
@@ -195,9 +190,6 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         ch = float(metrics.calinski_harabasz_score(node_emb, labels))
         self._logger.info("Evaluate result [loc_cluaster] is sc = {:6f}, db = {:6f}, ch = {:6f}, nmi = {:6f}, ars = {:6f}".format(sc, db, ch, nmi, ars))
         return sc, db, ch, nmi, ars
-        
-    
-    # def evaluate_clf(self):
 
     def evaluate(self):
         self._logger.info('Start evaluating ...')

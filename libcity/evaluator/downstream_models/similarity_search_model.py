@@ -1,5 +1,3 @@
-import sys
-sys.path.append('../../../')
 import os
 import math
 import pandas as pd
@@ -272,19 +270,3 @@ class SimilaritySearchModel(AbstractModel):
 
     def clear(self):
         pass
-
-
-if __name__ == '__main__':
-    os.chdir('/home/tangyb/private/tyb/remote/representation')
-    config = {
-        'dataset': 'new_xa',
-        'representation_object': 'region',
-        'device': 'cuda:2',
-        'model': 'HREP',
-        'output_dim': 144,
-        'exp_id': 6
-    }
-    embedding_path = '/home/tangyb/private/tyb/remote/representation/libcity/cache/6/evaluate_cache/region_embedding_HREP_new_xa_144.npy' 
-    downstream_model = SimilaritySearchModel(config)
-    pdb.set_trace()
-    # downstream_model.run()

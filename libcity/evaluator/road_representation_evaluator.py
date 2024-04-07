@@ -1,10 +1,8 @@
 import importlib
-import math
 import json
 import numpy as np
 import pandas as pd
 from logging import getLogger
-from sklearn.cluster import KMeans
 from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 
 

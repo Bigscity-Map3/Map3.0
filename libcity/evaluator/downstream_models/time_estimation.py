@@ -1,5 +1,3 @@
-import os
-import pandas as pd
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -51,10 +49,6 @@ class TimeEstimationModel(AbstractModel):
         self.exp_id = config.get('exp_id', None)
         self.result_path = './libcity/cache/{}/evaluate_cache/regression_{}_{}.npy'. \
             format(self.exp_id, self.alpha, self.n_split)
-
-
-
-
 
     def run(self, x, label):
         min_len, max_len = 1, 100
@@ -134,8 +128,6 @@ class TimeEstimationModel(AbstractModel):
                     print("Best epoch: {}, MAE:{}, RMSE:{}".format(best['best epoch'], best['mae'], best["rmse"]))
                     break
         return best
-
-
 
     def clear(self):
         pass
