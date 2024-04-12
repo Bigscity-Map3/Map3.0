@@ -241,11 +241,13 @@ class HHGCLEvaluator(AbstractEvaluator):
         # self._logger.info('Kmeans result for TSNE is saved at {}'.format(result_path))
         return sc, db, ch, nmi, ars
 
-    def _valid_road_clf(self, road_emb):
-        road_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
-        road_label = road_data['road_highway'].dropna().astype(int).values
-        label = road_label
-        num_classes = self.config.get('road_clf_num_classes', 5)
+    def _valid_clf(self, emb):
+        data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        if self.representation_object == 'region':
+            label = data['region_FUNCTION'].dropna().astype(int).values
+        else:
+            label = data['road_highway'].dropna().astype(int).values
+        num_classes = self.config.get('clf_num_classes', 5)
         tmp = []
         for i in range(label.min(), label.max() + 1):
             tmp.append((label[label == i].shape[0], i))
@@ -257,15 +259,15 @@ class HHGCLEvaluator(AbstractEvaluator):
         for i, j in enumerate(useful_label):
             relabel[j] = i
         useful_index = []
-        self._logger.info('Road emb shape = {}, label shape = {}'.format(road_emb.shape, label.shape))
-        assert len(label) == len(road_emb)
+        self._logger.info('Road emb shape = {}, label shape = {}'.format(emb.shape, label.shape))
+        assert len(label) == len(emb)
 
         X = []
         y = []
         for i, label_i in enumerate(label):
             if label_i in useful_label:
                 useful_index.append(i)
-                X.append(road_emb[i: i + 1, :])
+                X.append(emb[i: i + 1, :])
                 y.append(relabel[label_i])
         X = np.concatenate(X, axis=0)
         y = np.array(y)
@@ -277,157 +279,64 @@ class HHGCLEvaluator(AbstractEvaluator):
                                                            output_dim=self.output_dim)
         self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(road_micro_f1, road_macro_f1))
         return y,useful_index,road_micro_f1, road_macro_f1
-
-    def _valid_region_clf(self, region_emb):
-        region_data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
-        region_label = region_data['region_FUNCTION'].dropna().astype(int).values
-        label = region_label
-        num_classes = self.config.get('region_clf_num_classes', 5)
-        tmp = []
-        for i in range(label.min(), label.max() + 1):
-            tmp.append((label[label == i].shape[0], i))
-        assert num_classes <= len(tmp)
-        tmp.sort()
-        tmp = [item[1] for item in tmp]
-        useful_label = tmp[::-1][:num_classes]
-        relabel = {}
-        for i, j in enumerate(useful_label):
-            relabel[j] = i
-        useful_index = []
-        self._logger.info('Region emb shape = {}, label shape = {}'.format(region_emb.shape, label.shape))
-        assert len(label) == len(region_emb)
-
-        X = []
-        y = []
-        for i, label_i in enumerate(label):
-            if label_i in useful_label:
-                useful_index.append(i)
-                X.append(region_emb[i: i + 1, :])
-                y.append(relabel[label_i])
-        X = np.concatenate(X, axis=0)
-        y = np.array(y)
-        self._logger.info(
-            'Selected Region emb shape = {}, label shape = {}, label min = {}, label max = {}, num_classes = {}'.format(
-                X.shape, y.shape, y.min(), y.max(), num_classes))
-        region_micro_f1, region_macro_f1 = evaluation_classify(X, y, kfold=5, num_classes=num_classes, seed=self.seed,
-                                                               output_dim=self.output_dim)
-        self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(region_micro_f1, region_macro_f1))
-        return y,useful_index,region_micro_f1, region_macro_f1
     
-    def _valid_road_flow_using_bilinear(self,road_emb):
-        self._logger.warning('Evaluating Road OD-Flow Prediction Using Bilinear Module')
-        od_flow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_od.npy')).astype('float32')
-        road_mae,road_rmse,road_mape,road_r2 = evaluation_bilinear_reg(road_emb,od_flow,kfold=5, seed=self.seed, output_dim=self.output_dim)
-        self._logger.info("Result of {} bilinear estimation in {}:".format('odflow', self.dataset))
-        self._logger.info(
-            'MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(road_mae,road_rmse,road_r2,road_mape))
-        return road_mae, road_rmse, road_r2, road_mape
+    def _valid_flow_using_bilinear(self, emb):
+        self._logger.warning(f'Evaluating {self.representation_object} OD-Flow Prediction Using Bilinear Module')
+        od_flow = np.load(os.path.join(cache_dir, self.dataset, f'traj_{self.representation_object}_test_od.npy')).astype('float32')
+        mae,rmse,mape,r2 = evaluation_bilinear_reg(emb, od_flow, kfold=5, seed=self.seed, output_dim=self.output_dim)
+        self._logger.info(f"Result of odflow bilinear estimation in {self.dataset}:")
+        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(mae,rmse,r2,mape))
+        return mae, rmse, r2, mape
     
-    def _valid_region_flow_using_bilinear(self,region_emb):
-        self._logger.warning('Evaluating Region OD-Flow Prediction Using Bilinear Module')
-        od_flow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_od.npy')).astype('float32')
-        region_mae,region_rmse,region_mape,region_r2 = evaluation_bilinear_reg(region_emb,od_flow,kfold=5, seed=self.seed, output_dim=self.output_dim)
-        self._logger.info("Result of {} bilinear estimation in {}:".format('odflow', self.dataset))
-        self._logger.info(
-            'MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae,region_rmse,region_r2,region_mape))
-        return region_mae,region_rmse,region_r2,region_mape
+    def _valid_flow(self, emb):
+        self._logger.warning(f'Evaluating {self.representation_object} In-Flow Prediction')
+        inflow = np.load(os.path.join(cache_dir, self.dataset, f'traj_{self.representation_object}_test_in_avg.npy')).astype('float32')
+        in_mae, in_rmse, in_mape, in_r2 = evaluation_reg(emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
+        self._logger.info(f"Result of inflow estimation in {self.dataset}:")
+        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_mae, in_rmse, in_r2, in_mape))
 
-    def _valid_road_flow(self, road_emb):
-        self._logger.warning('Evaluating Road In-Flow Prediction')
-        inflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_in_avg.npy')).astype('float32')
-        in_road_mae, in_road_rmse, in_road_mape, in_road_r2 = evaluation_reg(road_emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
-        self._logger.info("Result of {} estimation in {}:".format('inflow', self.dataset))
-        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_road_mae, in_road_rmse, in_road_r2, in_road_mape))
-
-        self._logger.warning('Evaluating Road Out-Flow Prediction')
-        outflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_road_test_out_avg.npy')).astype('float32')
-        out_road_mae, out_road_rmse, out_road_mape, out_road_r2 = evaluation_reg(road_emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
+        self._logger.warning(f'Evaluating {self.representation_object} Out-Flow Prediction')
+        outflow = np.load(os.path.join(cache_dir, self.dataset, f'traj_{self.representation_object}_test_out_avg.npy')).astype('float32')
+        out_mae, out_rmse, out_mape, out_r2 = evaluation_reg(emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
-        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_road_mae, out_road_rmse, out_road_r2, out_road_mape))
+        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_mae, out_rmse, out_r2, out_mape))
 
-        road_mae = (in_road_mae + out_road_mae) / 2
-        road_rmse = (in_road_rmse + out_road_rmse) / 2
-        road_mape = (in_road_mape + out_road_mape) / 2
-        road_r2 = (in_road_r2 + out_road_r2) / 2
+        mae = (in_mae + out_mae) / 2
+        rmse = (in_rmse + out_rmse) / 2
+        mape = (in_mape + out_mape) / 2
+        r2 = (in_r2 + out_r2) / 2
         self._logger.info("Result of road flow estimation in {}:".format(self.dataset))
-        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(road_mae, road_rmse, road_r2, road_mape))
-        return road_mae, road_rmse, road_r2, road_mape
-
-    def _valid_region_flow(self, region_emb):
-        self._logger.warning('Evaluating Region In-Flow Prediction')
-        inflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_in_avg.npy')).astype('float32')
-        in_region_mae, in_region_rmse, in_region_mape, in_region_r2 = evaluation_reg(region_emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
-        self._logger.info("Result of {} estimation in {}:".format('inflow', self.dataset))
-        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_region_mae, in_region_rmse, in_region_r2, in_region_mape))
-
-        self._logger.warning('Evaluating Region Out-Flow Prediction')
-        outflow = np.load(os.path.join(cache_dir, self.dataset, 'traj_region_test_out_avg.npy')).astype('float32')
-        out_region_mae, out_region_rmse, out_region_mape, out_region_r2 = evaluation_reg(region_emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
-        self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
-        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_region_mae, out_region_rmse, out_region_r2, out_region_mape))
-
-        region_mae = (in_region_mae + out_region_mae) / 2
-        region_rmse = (in_region_rmse + out_region_rmse) / 2
-        region_mape = (in_region_mape + out_region_mape) / 2
-        region_r2 = (in_region_r2 + out_region_r2) / 2
-        self._logger.info("Result of region flow estimation in {}:".format(self.dataset))
-        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(region_mae, region_rmse, region_r2, region_mape))
-        return region_mae, region_rmse, region_mape, region_r2
+        self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(mae, rmse, r2, mape))
+        return mae, rmse, r2, mape
     
-    def evaluate_road_embedding(self):
-        road_emb = np.load(self.road_embedding_path)
-        self._logger.info('Load road emb {}, shape = {}'.format(self.road_embedding_path, road_emb.shape))
+    def evaluate_embedding(self):
+        if self.representation_object == 'road':
+            embedding_path = self.road_embedding_path
+        else:
+            embedding_path = self.region_embedding_path
+        emb = np.load(embedding_path)
+        self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
         self._logger.warning('Evaluating Road Classification')
-        y_truth,useful_index,road_micro_f1, road_macro_f1 = self._valid_road_clf(road_emb)
-        road_mae, road_rmse, road_r2, road_mape = self._valid_road_flow(road_emb)
-        road_bilinear_mae,road_bilinear_rmse,road_bilinear_r2,road_bilinear_mape = self._valid_road_flow_using_bilinear(road_emb)
+        y_truth,useful_index,micro_f1, macro_f1 = self._valid_clf(emb)
+        mae, rmse, r2, mape = self._valid_flow(emb)
+        bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
         self._logger.warning('Evaluating Road Emb by TSNE ans Kmeans')
-        road_sc, road_db, road_ch, road_nmi, road_ars = self.evaluation_cluster(y_truth,useful_index,road_emb, 'Road')
-        self.result['road_micro_f1'] = [road_micro_f1]
-        self.result['road_macro_f1'] = [road_macro_f1]
-        self.result['road_mae'] = [road_mae]
-        self.result['road_rmse'] = [road_rmse]
-        self.result['road_mape'] = [road_mape]
-        self.result['road_r2'] = [road_r2]
-        self.result['road_bilinear_mae'] = [road_bilinear_mae]
-        self.result['road_bilinear_rmse'] = [road_bilinear_rmse]
-        self.result['road_bilinear_mape'] = [road_bilinear_mape]
-        self.result['road_bilinear_r2'] = [road_bilinear_r2]
-        self.result['road_sc'] = [road_sc]
-        self.result['road_db'] = [road_db]
-        self.result['road_ch'] = [road_ch]
-        self.result['road_nmi'] = [road_nmi]
-        self.result['road_ars'] = [road_ars]
-
-    def evaluate_region_embedding(self):
-        region_emb = np.load(self.region_embedding_path)
-        self._logger.info('Load region emb {}, shape = {}'.format(self.region_embedding_path, region_emb.shape))
-
-        self._logger.warning('Evaluating Region Classification')
-        y_truth,useful_index,region_micro_f1, region_macro_f1 = self._valid_region_clf(region_emb)
-
-        region_mae, region_rmse, region_mape, region_r2 = self._valid_region_flow(region_emb)
-        region_bilinear_mae, region_bilinear_rmse, region_bilinear_r2 , region_bilinear_mape = self._valid_region_flow_using_bilinear(region_emb)
-
-        self._logger.warning('Evaluating Region Emb by TSNE ans Kmeans')
-        region_sc, region_db, region_ch, region_nmi, region_ars = self.evaluation_cluster(y_truth,useful_index,region_emb, 'Region')
-
-
-        self.result['region_micro_f1'] = [region_micro_f1]
-        self.result['region_macro_f1'] = [region_macro_f1]
-        self.result['region_mae'] = [region_mae]
-        self.result['region_rmse'] = [region_rmse]
-        self.result['region_mape'] = [region_mape]
-        self.result['region_r2'] = [region_r2]
-        self.result['region_bilinear_mae'] = [region_bilinear_mae]
-        self.result['region_bilinear_rmse'] = [region_bilinear_rmse]
-        self.result['region_bilinear_mape'] = [region_bilinear_mape]
-        self.result['region_bilinear_r2'] = [region_bilinear_r2]
-        self.result['region_sc'] = [region_sc]
-        self.result['region_db'] = [region_db]
-        self.result['region_ch'] = [region_ch]
-        self.result['region_nmi'] = [region_nmi]
-        self.result['region_ars'] = [region_ars]
+        sc, db, ch, nmi, ars = self.evaluation_cluster(y_truth,useful_index,emb, self.representation_object)
+        self.result['micro_f1'] = [micro_f1]
+        self.result['macro_f1'] = [macro_f1]
+        self.result['mae'] = [mae]
+        self.result['rmse'] = [rmse]
+        self.result['mape'] = [mape]
+        self.result['r2'] = [r2]
+        self.result['bilinear_mae'] = [bilinear_mae]
+        self.result['bilinear_rmse'] = [bilinear_rmse]
+        self.result['bilinear_mape'] = [bilinear_mape]
+        self.result['bilinear_r2'] = [bilinear_r2]
+        self.result['sc'] = [sc]
+        self.result['db'] = [db]
+        self.result['ch'] = [ch]
+        self.result['nmi'] = [nmi]
+        self.result['ars'] = [ars]
 
     def get_downstream_model(self, model):
         try:
@@ -436,10 +345,7 @@ class HHGCLEvaluator(AbstractEvaluator):
             raise AttributeError('evaluate model is not found')
 
     def evaluate(self):
-        if self.representation_object == 'region':
-            self.evaluate_region_embedding()
-        else:
-            self.evaluate_road_embedding()
+        self.evaluate_embedding()
         downstream_model = self.get_downstream_model('SimilaritySearchModel')
         self.result.update(downstream_model.run())
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
