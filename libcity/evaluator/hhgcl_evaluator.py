@@ -259,7 +259,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         for i, j in enumerate(useful_label):
             relabel[j] = i
         useful_index = []
-        self._logger.info('Road emb shape = {}, label shape = {}'.format(emb.shape, label.shape))
+        self._logger.info(f'{self.representation_object} emb shape = {emb.shape}, label shape = {label.shape}')
         assert len(label) == len(emb)
 
         X = []
@@ -273,12 +273,12 @@ class HHGCLEvaluator(AbstractEvaluator):
         y = np.array(y)
 
         self._logger.info(
-            'Selected Road emb shape = {}, label shape = {}, label min = {}, label max = {}, num_classes = {}'.format(
-                X.shape, y.shape, y.min(), y.max(), num_classes))
-        road_micro_f1, road_macro_f1 = evaluation_classify(X, y, kfold=5, num_classes=num_classes, seed=self.seed,
+            f'Selected {self.representation_object} emb shape = {X.shape}, label shape = {y.shape},
+            label min = {y.min()}, label max = {y.max()}, num_classes = {num_classes}')
+        micro_f1, macro_f1 = evaluation_classify(X, y, kfold=5, num_classes=num_classes, seed=self.seed,
                                                            output_dim=self.output_dim)
-        self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(road_micro_f1, road_macro_f1))
-        return y,useful_index,road_micro_f1, road_macro_f1
+        self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(micro_f1, macro_f1))
+        return y,useful_index,micro_f1, macro_f1
     
     def _valid_flow_using_bilinear(self, emb):
         self._logger.warning(f'Evaluating {self.representation_object} OD-Flow Prediction Using Bilinear Module')
@@ -305,7 +305,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         rmse = (in_rmse + out_rmse) / 2
         mape = (in_mape + out_mape) / 2
         r2 = (in_r2 + out_r2) / 2
-        self._logger.info("Result of road flow estimation in {}:".format(self.dataset))
+        self._logger.info(f"Result of {self.representation_object} flow estimation in {self.dataset}:")
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(mae, rmse, r2, mape))
         return mae, rmse, r2, mape
     
@@ -337,6 +337,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['ch'] = [ch]
         self.result['nmi'] = [nmi]
         self.result['ars'] = [ars]
+        downstream_model = self.get_downstream_model('SimilaritySearchModel')
+        self.result.update(downstream_model.run())
 
     def get_downstream_model(self, model):
         try:
@@ -346,8 +348,6 @@ class HHGCLEvaluator(AbstractEvaluator):
 
     def evaluate(self):
         self.evaluate_embedding()
-        downstream_model = self.get_downstream_model('SimilaritySearchModel')
-        self.result.update(downstream_model.run())
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
         self._logger.info(self.result)
