@@ -4,22 +4,15 @@ sys.path.append('..')
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import logging
-import torch
-import torch.nn as nn
 from dgl.nn import GATConv
-
 import logging
 import time
 import copy
 import random
 import typing
-import torch
-import torch.nn.functional as F
 import numpy as np
 import pickle
-
+import dgl
 from libcity.utils import tool_funcs
 from libcity.utils import OSMLoader
 from libcity.utils import EdgeIndex
@@ -112,10 +105,6 @@ class SARN(nn.Module):
                             self.sarn_moco_each_queue_size, \
                             self.sarn_moco_each_queue_size * self.osm_data.cellspace.lon_size * self.osm_data.cellspace.lat_size, \
                             self.sarn_moco_loss_local_weight))
-        
-        # if Config.task_encoder_mode == 'finetune':
-        #     self.t_edge_index = copy.deepcopy(self.osm_data.edge_index.edges.T)
-        #     self.t_edge_index = torch.tensor(self.t_edge_index, dtype = torch.long, device = Config.device)
 
         self.seg_id_to_idx = self.osm_data.seg_id_to_idx_in_adj_seg_graph
         self.seg_idx_to_id = self.osm_data.seg_idx_to_id_in_adj_seg_graph
@@ -162,7 +151,7 @@ class SARN(nn.Module):
             edge_index_2 = copy.deepcopy(self.osm_data.edge_index)
             edge_index_2 = graph_aug_edgeindex(edge_index_2)
 
-            for i_batch, batch in enumerate(self.__train_data_generator_batchi(edge_index_1, edge_index_2, shuffle = True)):
+            for i_batch, batch in enumerate(self.__train_data_generator_batchi(edge_index_1, edge_index_2, shuffle=True)):
                 _time_batch = time.time()
                 
                 optimizer.zero_grad()
@@ -513,7 +502,7 @@ def graph_aug_edgeindex(edge_index: EdgeIndex):
     logging.debug("[Graph Augment] @={:.0f}, #original_edges={}, #edges_broken={} ({}+{}), #edges_left={}" \
                     .format(time.time() - _time, n_ori_edges, len(edges_idxs_to_remove), \
                             n_topo_remove, n_spatial_remove, edge_index.length() ))
-
+    
     return edge_index
 
 class GAT(nn.Module):
@@ -530,11 +519,16 @@ class GAT(nn.Module):
                                     feat_drop = 0.2, negative_slope = 0.2))
         self.layer_out = GATConv(nhead * nhid, nout, 1,
                             feat_drop = 0.2, negative_slope = 0.2)
+        print(self.layers)
+        print(self.layer_out)
 
     # x = [2708, 1433]
     # edge_index = [2, 10556], pair-wise adj edges
     def forward(self, x, edge_index):
-
+        edge_index = dgl.graph((edge_index[0], edge_index[1]))
+        edge_index = dgl.add_self_loop(edge_index)
+        print(edge_index)
+        print(x.shape)
         for l in range(self.nlayer):
             x = F.dropout(x, p = 0.2, training = self.training)
             x = self.layers[l](edge_index,x)

@@ -1,4 +1,3 @@
-from libcity.data.dataset.dataset_subclass.convgcn_dataset import CONVGCNDataset
 from libcity.data.dataset.dataset_subclass.chebconv_dataset import ChebConvDataset
 from libcity.data.dataset.dataset_subclass.line_dataset import LINEDataset
 from libcity.data.dataset.dataset_subclass.node2vec_dataset import Node2VecDataset

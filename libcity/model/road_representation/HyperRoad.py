@@ -17,7 +17,7 @@ class HyperRoad(AbstractReprLearningModel):
         self.dataloader = data_feature.get('dataloader')
         self.num_nodes = data_feature.get("num_nodes")
         self.num_class = data_feature.get("num_classes")
-        self.emb_size = config.get('embed_dim',128)
+        self.emb_size = config.get('output_dim',128)
         self.agg = config.get('agg')
         self.layer_num = config.get('layer_num')
         self.lamb = config.get('lamb')

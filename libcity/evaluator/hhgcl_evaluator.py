@@ -1,7 +1,6 @@
 import importlib
 import numpy as np
 import pandas as pd
-from torch.utils.data import TensorDataset
 from logging import getLogger
 from sklearn import manifold
 from sklearn.cluster import KMeans
@@ -126,10 +125,6 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
         opt = torch.optim.Adam(model.parameters(),lr=0.01)
         best_mse = 100000
         best_pred = 0
-        dataset = TensorDataset(X_train, y_train)
-
-        #batch_size = 1280
-        #shuffle = True
 
         # 创建 DataLoader
         #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
@@ -166,15 +161,8 @@ def evaluation_reg(X, y, kfold=5, seed=42, output_dim=128):
         y_train, y_test = y[train_idx], y[test_idx]
 
         reg = linear_model.Ridge(alpha=1.0, random_state=seed)
-        # reg = linear_model.LinearRegression()
-        # reg = RandomForestRegressor()
         reg.fit(X_train, y_train)
         y_pred = reg.predict(X_test)
-        # plt.plot(np.arange(len(y_pred)), y_pred, label='pred')
-        # plt.plot(np.arange(len(y_test)), y_test, label='label')
-        # plt.legend()
-        # plt.title(str(fold_num))
-        # plt.show()
 
         y_preds.append(y_pred)
         y_truths.append(y_test)
@@ -273,8 +261,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         y = np.array(y)
 
         self._logger.info(
-            f'Selected {self.representation_object} emb shape = {X.shape}, label shape = {y.shape},
-            label min = {y.min()}, label max = {y.max()}, num_classes = {num_classes}')
+            f'Selected {self.representation_object} emb shape = {X.shape}, label shape = {y.shape}, label min = {y.min()}, label max = {y.max()}, num_classes = {num_classes}')
         micro_f1, macro_f1 = evaluation_classify(X, y, kfold=5, num_classes=num_classes, seed=self.seed,
                                                            output_dim=self.output_dim)
         self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(micro_f1, macro_f1))

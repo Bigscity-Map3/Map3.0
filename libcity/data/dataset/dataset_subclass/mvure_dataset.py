@@ -60,27 +60,6 @@ class MVUREDataset(AbstractDataset):
             self._logger.info("finish construct flow graph")
             return
         self.od_label = self.mob_adj
-        # inflow_adj = numpy.zeros([self.num_regions,self.num_regions])
-        # outflow_adj = numpy.zeros([self.num_regions,self.num_regions])
-        # for i in tqdm(range(self.num_regions)):
-        #
-        #     for j in range(self.num_regions):
-        #         p_i_in = self.od_label[:,i]
-        #         p_i_out = self.od_label[i,:]
-        #         p_j_in = self.od_label[:,j]
-        #         p_j_out = self.od_label[j,:]
-        #         if self.od_label[:i].sum() > 0:
-        #             p_i_in = self.od_label[:, i] / self.od_label[:i].sum()
-        #         if self.od_label[i,:].sum() > 0:
-        #             p_i_out = self.od_label[i,:]/self.od_label[i,:].sum()
-        #         if self.od_label[:,j].sum() > 0:
-        #             p_j_in = self.od_label[:,j]/self.od_label[:,j].sum()
-        #         if self.od_label[j,:].sum() > 0:
-        #             p_j_out = self.od_label[j,:]/self.od_label[j,:].sum()
-        #         inflow_adj[i][j] = self.get_cos_similarity(p_i_in, p_j_in)
-        #         outflow_adj[i][j] = self.get_cos_similarity(p_i_out, p_j_out)
-        # self.inflow_adj = inflow_adj
-        # self.outflow_adj = outflow_adj
         self.od_label = self.od_label + np.eye(self.num_nodes)
         row_norms = np.linalg.norm(self.od_label,axis=1,keepdims=True)
         in_flow_vector = self.od_label/row_norms

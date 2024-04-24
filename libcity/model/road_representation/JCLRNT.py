@@ -4,11 +4,10 @@ from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 import numpy as np
 import torch
 import torch.nn as nn
-import os
 import math
-from datetime import datetime
 import torch.nn.functional as F
 import time
+import dgl
 from dgl.nn import GATConv
 
 class JCLRNT(AbstractReprLearningModel):
@@ -17,17 +16,18 @@ class JCLRNT(AbstractReprLearningModel):
         self.device = config.get('device')
         self.dataloader = data_feature.get('dataloader')
         self.num_nodes = data_feature.get("num_nodes")
-        print(self.num_nodes)
         self._logger = getLogger()
         self.output_dim = config.get('output_dim', 128)
         self.iter = config.get('max_epoch', 5)
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset', '')
-        self.edge_index1 = data_feature.get('edge_index')
-        self.edge_index2 = data_feature.get('edge_index_aug')
-        self.edge_cache_file = './libcity/cache/{}/evaluate_cache/edge_{}_{}_{}'. \
-            format(self.exp_id, self.model, self.dataset, self.output_dim)
+        e1 = data_feature.get('edge_index')
+        e2 = data_feature.get('edge_index_aug')
+        self.edge_index1 = dgl.graph((e1[0], e1[1]))
+        self.edge_index2 = dgl.graph((e2[0], e2[1]))
+        self.edge_index1 = dgl.add_self_loop(self.edge_index1)
+        self.edge_index2 = dgl.add_self_loop(self.edge_index2)
         self.txt_cache_file = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.txt'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
@@ -63,7 +63,6 @@ class JCLRNT(AbstractReprLearningModel):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
     def run(self, data=None):
-        np.save(self.edge_cache_file, self.edge_index1.cpu())
         start_time = time.time()
         for epoch in tqdm(range(self.iter)):
             total_loss = 0
@@ -231,7 +230,7 @@ class GraphEncoder(nn.Module):
             self.layers.append(encoder_layer(output_size, output_size,heads))
         self.layers = nn.ModuleList(self.layers)
 
-    def forward(self, x, edge_index):
+    def forward(self, edge_index, x):
         for i in range(self.num_layers):
             x = self.activation(self.layers[i](edge_index, x))
         return x
@@ -252,10 +251,10 @@ class MultiViewModel(nn.Module):
         self.seq_encoder = seq_encoder
 
     def encode_graph(self):
-        node_emb = self.node_embedding.weight
+        node_emb = self.node_embedding.weight.detach()
         node_enc1 = self.graph_encoder1(self.edge_index1,node_emb)
         node_enc2 = self.graph_encoder2(self.edge_index2,node_emb)
-        return node_enc1 + node_enc2, node_enc1, node_enc2
+        return node_enc1 + node_enc2, node_enc1.view(self.vocab_size, -1), node_enc2.view(self.vocab_size, -1)
 
     def encode_sequence(self, sequences):
         _, node_enc1, node_enc2 = self.encode_graph()

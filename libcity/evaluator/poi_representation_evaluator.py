@@ -1,12 +1,9 @@
-import importlib
-import math
-import json
+import csv
 import numpy as np
 import pandas as pd
 from logging import getLogger
 from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 from libcity.evaluator.downstream_models.loc_pred_model import *
-
 from sklearn.model_selection import  StratifiedKFold
 from sklearn.cluster import KMeans
 from sklearn import metrics
@@ -23,6 +20,11 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self.data_feature = data_feature
         self.model_name = self.config.get('downstream_model', '')
         self.device = self.config.get('device')
+        self.result = {}
+        self.model = config.get('model')
+        self.dataset = config.get('dataset')
+        self.exp_id = config.get('exp_id')
+        self.embed_size = config.get('embed_size')
 
     def collect(self, batch):
         pass
@@ -66,6 +68,8 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         else:
             pre_model = Seq2SeqLocPredictor(embed_layer, input_size=embed_size, hidden_size=hidden_size,
                                             output_size=num_loc, num_layers=2)
+            
+        self.result['loc_pre_acc'], self.result['loc_pre_pre'], self.result['loc_pre_recall'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
                        num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
     
@@ -83,8 +87,10 @@ class POIRepresentationEvaluator(AbstractEvaluator):
 
         clf_model=LstmUserPredictor(embed_layer,embed_size,hidden_size,hidden_size,num_user,num_layers=2,device=self.device)
         
+        self.result['traj_clf_acc'], self.result['traj_clf_pre'], self.result['traj_clf_recall'], self.result['traj_clf_f1_micro'], self.result['traj_clf_f1_macro'] =\
         traj_user_classification(train_set, test_set, num_user, num_loc, clf_model,
                        num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+        
     
     def evaluate_loc_clf(self):
         logger=getLogger()
@@ -108,9 +114,11 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         # 记录num category
         num_class = labels.max()+1
         # 写mlp
+        hidden_size = 1024
         clf_model = nn.Sequential(
-            nn.Linear(embed_size,num_class),
-            nn.LogSoftmax(dim=1)
+            nn.Linear(embed_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, num_class)
         ).to(device)
 
         embed_layer=embed_layer.to(device)
@@ -158,6 +166,11 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.mean(score_log, axis=0)
         logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
             best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+        self.result['loc_clf_acc'] = best_acc
+        self.result['loc_clf_pre'] = best_pre
+        self.result['loc_clf_recall'] = best_recall
+        self.result['loc_clf_f1_micro'] = best_f1_micro
+        self.result['loc_clf_f1_macro'] = best_f1_macro
         # 记录结果
 
     def evaluate_loc_cluster(self):
@@ -189,19 +202,37 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         # CH指数
         ch = float(metrics.calinski_harabasz_score(node_emb, labels))
         self._logger.info("Evaluate result [loc_cluaster] is sc = {:6f}, db = {:6f}, ch = {:6f}, nmi = {:6f}, ars = {:6f}".format(sc, db, ch, nmi, ars))
+        self.result['sc'] = sc
+        self.result['db'] = db
+        self.result['ch'] = ch
+        self.result['nmi'] = nmi
+        self.result['ars'] = ars
         return sc, db, ch, nmi, ars
 
     def evaluate(self):
         self._logger.info('Start evaluating ...')
-        task_name = self.config.get('downstream_task', 'loc_clu')
-        self._logger.info('Downstream Model: {}'.format(self.model_name))
-        self._logger.info('Downstream Task: {}'.format(task_name))
+        # task_name = self.config.get('downstream_task', 'loc_clu')
+        # self._logger.info('Downstream Model: {}'.format(self.model_name))
+        # self._logger.info('Downstream Task: {}'.format(task_name))
         
-        # self.evaluate_loc_pre()
-        # self.evaluate_traj_clf()
+        self.evaluate_loc_pre()
+        self.evaluate_traj_clf()
         if 'foursquare' in self.config.get('dataset'):
             self.evaluate_loc_clf()
             self.evaluate_loc_cluster()
+        result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
+            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.embed_size))
+        self._logger.info(self.result)
+
+        def dict_to_csv(dictionary, filename):
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=dictionary.keys())
+                writer.writeheader()
+                writer.writerow(dictionary)
+        result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.embed_size))
+        dict_to_csv(self.result, result_path)
+        self._logger.info('Evaluate result is saved at {}'.format(result_path))
 
     def save_result(self, save_path, filename=None):
         pass

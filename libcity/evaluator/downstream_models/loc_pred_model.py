@@ -328,8 +328,6 @@ class LstmUserPredictor(nn.Module, ABC):
     
         self.apply(weight_init)
 
-        self.softmax=torch.nn.LogSoftmax(dim=1)
-
     def forward(self, seq,valid_len,**kwargs):
         
         full_embed = self.embed_layer(seq, downstream=True, **kwargs)
@@ -344,7 +342,6 @@ class LstmUserPredictor(nn.Module, ABC):
         out = torch.stack([out[i,ind-1,:] for i,ind in enumerate(valid_len)])
         
         pred = self.fc(out)
-        pred = self.softmax(pred)
         return pred
 
 def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, num_epoch, batch_size, device):
@@ -402,6 +399,7 @@ def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, 
     logger.info(
         'Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
             best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+    return best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro
 
 
 def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, batch_size, device):
@@ -471,6 +469,7 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
     logger.info(
         'Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
             best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+    return best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro
 
 
 class MCLocPredictor:

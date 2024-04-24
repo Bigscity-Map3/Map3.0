@@ -33,7 +33,7 @@
         },
         "DeepWalk": {
             "dataset_class": "RoadNetWorkDataset",
-            "executor": "GensimExecutor",
+            "executor": "TwoStepExecutor",
             "evaluator": "RoadRepresentationEvaluator"
         },
         "SRN2Vec": {

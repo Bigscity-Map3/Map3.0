@@ -96,12 +96,6 @@ class ChebConvDataset(AbstractDataset):
         self._logger.info('Adj_mx is saved at {}'.format(save_path))
 
     def _split_train_val_test(self):
-        # TODO: 这里进行规范化，相关内容抽象成函数，通过外部设置参数确定对哪些列进行数据预处理，即可统一
-        # node_features = self.road_info[['highway', 'length', 'lanes', 'tunnel', 'bridge',
-        #                                 'maxspeed', 'width', 'service', 'junction', 'key']].values
-        # 'tunnel', 'bridge', 'service', 'junction', 'key'是01 1+1+1+1+1
-        # 'lanes', 'highway'是类别 47+6
-        # 'length', 'maxspeed', 'width'是浮点 1+1+1 共61
         node_features = pd.read_csv(os.path.join(cache_dir, self.dataset, 'road.csv'))
         drop_features = ['id', 'geometry', 'u', 'v', 's_lon', 's_lat', 
              'e_lon', 'e_lat', 'm_lon', 'm_lat', 'coordinates',
@@ -109,29 +103,6 @@ class ChebConvDataset(AbstractDataset):
         for drop_feature in drop_features:
             if drop_feature in node_features.keys():
                 node_features = node_features.drop([drop_feature], axis=1)
-        # TODO：应该保留哪些属性？
-
-        # node_features = self.road_info[self.road_info.columns[3:]]
-        # 对部分列进行归一化
-        # norm_dict = {
-        #     'length': 1,
-        #     'maxspeed': 5,
-        #     'width': 6
-        # }
-        # for k, v in norm_dict.items():
-        #     d = node_features[k]
-        #     min_ = d.min()
-        #     max_ = d.max()
-        #     dnew = (d - min_) / (max_ - min_)
-        #     node_features = node_features.drop(k, 1)
-        #     node_features.insert(v, k, dnew)
-
-        # # 对部分列进行独热编码
-        # onehot_list = ['lanes', 'highway']
-        # for col in onehot_list:
-        #     dum_col = pd.get_dummies(node_features[col], col)
-        #     node_features = node_features.drop(col, axis=1)
-        #     node_features = pd.concat([node_features, dum_col], axis=1)
 
         node_features = node_features.values
         np.save(self.cache_file_folder + '{}_node_features.npy'.format(self.dataset), node_features)
@@ -222,10 +193,10 @@ class ChebConvDataset(AbstractDataset):
             batch_data: dict
         """
         # 加载数据集
-        if self.cache_dataset and os.path.exists(self.cache_file_name):
-            node_features, train_mask, valid_mask, test_mask = self._load_cache_train_val_test()
-        else:
-            node_features, train_mask, valid_mask, test_mask = self._split_train_val_test()
+        # if self.cache_dataset and os.path.exists(self.cache_file_name):
+        #     node_features, train_mask, valid_mask, test_mask = self._load_cache_train_val_test()
+        # else:
+        node_features, train_mask, valid_mask, test_mask = self._split_train_val_test()
         # 数据归一化
         self.feature_dim = node_features.shape[-1]
         self.scaler = self._get_scalar(self.scaler_type, node_features)
