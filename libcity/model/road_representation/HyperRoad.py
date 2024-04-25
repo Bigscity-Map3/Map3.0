@@ -6,10 +6,13 @@ import numpy as np
 import math
 from torch.nn.parameter import Parameter
 import time
+from logging import getLogger
+
 
 class HyperRoad(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+        self._logger = getLogger()
         self.device = config.get('device')
         self.exp_id = config.get('exp_id', None)
         self.model = config.get('model', '')
@@ -76,11 +79,10 @@ class HyperRoad(AbstractReprLearningModel):
                 loss.backward()
                 self.optimizer.step()
             
-            print("epoch num:", epoch, "loss:", loss_data)
-            loss_res = "epoch num: " + str(epoch) + "loss: " + str(loss_data) + "\n"
+            self._logger.info(f"epoch num: {epoch}  loss: {loss_data}")
             
         t1 = time.time()-start_time
-        print('cost time is '+str(t1/self.epoches))
+        self._logger.info('cost time is '+str(t1/self.epoches))
         node_embedding,_ = self.network.update()
         node_embedding=node_embedding.cpu().detach().numpy()
         np.save(self.road_embedding_path,node_embedding)

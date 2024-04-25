@@ -41,40 +41,29 @@ class Teaser(AbstractModel):
         @param neg_ne: negative unvisited locations, shape (batch_size, num_ne_neg)
         @param neg_nn: negative non-neighborhood locations, shape (batch_size, num_nn_neg)
         """
-        # print('=======')
-        # print(pos_u.shape, pos_v.shape, neg_v.shape, user.shape, weekday.shape, neg_ne.shape, neg_nn.shape)
         embed_u = self.u_embeddings(pos_u)  # (batch_size, embed_size)
         embed_week = self.week_embeddings(weekday)  # (batch_size, week_embed_size)
         embed_cat = torch.cat([embed_u, embed_week], dim=-1)  # (batch_size, embed_size + week_embed_size)
-        # print(embed_u.shape, embed_week.shape, embed_cat.shape)
 
         embed_v = self.v_embeddings(pos_v)  # (batch_size, window_size * 2, embed_size + week_embed_size)
-        # print(embed_v.shape)
         score = torch.mul(embed_cat.unsqueeze(1), embed_v).squeeze()
         # (batch_size, window_size * 2, embed_size + week_embed_size)
-        # print(score.shape)
         score = torch.sum(score, dim=-1)  # (batch_size, window_size * 2)
-        # print(score.shape)
         score = F.logsigmoid(score)
 
         neg_embed_v = self.v_embeddings(neg_v)  # (batch_size, num_neg, embed_size + week_embed_size)
-        # print(neg_embed_v.shape)
         neg_score = torch.bmm(neg_embed_v, embed_cat.unsqueeze(2)).squeeze()  # (batch_size, num_neg)
-        # print(neg_score.shape)
         neg_score = F.logsigmoid(-1 * neg_score)
 
         embed_user = self.user_embeddings(user)  # (batch_size, embed_size + week_embed_size)
         neg_embed_ne = self.v_embeddings(neg_ne)  # (batch_size, N, embed_size + week_embed_size)
         neg_embed_nn = self.v_embeddings(neg_nn)
-        # print(embed_user.shape, neg_embed_ne.shape, neg_embed_nn.shape)
 
         neg_ne_score = torch.bmm(embed_cat.unsqueeze(1) - neg_embed_ne, embed_user.unsqueeze(2)).squeeze()
         # (batch_size, N)
         neg_ne_score = F.logsigmoid(neg_ne_score)
         neg_nn_score = torch.bmm(embed_cat.unsqueeze(1) - neg_embed_nn, embed_user.unsqueeze(2)).squeeze()
         neg_nn_score = F.logsigmoid(neg_nn_score)
-        # print(neg_ne_score.shape, neg_nn_score.shape)
-        # print(torch.sum(score), torch.sum(neg_score), torch.sum(neg_ne_score), torch.sum(neg_nn_score))
 
         return -1 * (self.alpha * (torch.sum(score) + torch.sum(neg_score)) +
                      self.beta * (torch.sum(neg_ne_score) + torch.sum(neg_nn_score)))

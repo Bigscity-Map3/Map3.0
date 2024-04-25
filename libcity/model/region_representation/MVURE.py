@@ -44,7 +44,7 @@ class MVURE(AbstractReprLearningModel):
         model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],
                                  self.feature.shape[2], self.output_dim, self.device)
         model.to(self.device)
-        print(model)
+        self._logger.info(model)
         total_num = sum([param.nelement() for param in model.parameters()])
         self._logger.info('Total parameter numbers: {}'.format(total_num))
         optimizer = optim.Adam(model.parameters(),lr=self.learning_rate, weight_decay=self.weight_dacay)

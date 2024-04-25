@@ -222,17 +222,6 @@ class HREP(AbstractReprLearningModel):
             loss.backward()
             optimizer.step()
 
-            # with torch.no_grad():
-            #     mae, rmse, r2 = predict_crime(region_emb.detach().cpu().numpy())
-            #     # nmi, ari = clustering(region_emb.detach().cpu().numpy())
-            #     # print(nmi, ari)
-            #     if rmse < best_rmse and mae < best_mae and best_r2 < r2:
-            #         best_rmse = rmse
-            #         best_mae = mae
-            #         best_r2 = r2
-            #         best_epoch = epoch
-            #     print(epoch, rmse, mae, r2, loss.item())
-            #     # np.save('emb', region_emb.detach().cpu().numpy())
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
 
 

@@ -59,7 +59,6 @@ class HDGEDataset(AbstractDataset):
         t_list = [int(s) for s in t_list]
         time = datetime.utcfromtimestamp(t_list[-1])
         self.flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
-    print(self.flow_graph.sum())
     return self.flow_graph
 
  def construct_spatial_graph(self):
@@ -72,7 +71,7 @@ class HDGEDataset(AbstractDataset):
         self._logger.info("finish constructing spatial graph")
         return
     region_geo_file = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
-    self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'])
+    self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'].dropna())
     self.centroid = self.region_geometry.centroid
     self.spatial_graph = np.zeros([self.num_nodes,self.num_nodes])
     for i in range(self.num_nodes):

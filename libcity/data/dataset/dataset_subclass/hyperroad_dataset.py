@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import json
-import sys, os
+import os
 import torch
 import pickle
 import time
@@ -155,8 +155,8 @@ class HyperRoadDataset(AbstractDataset):
         self.road_feature = self.construct_road_feature()
         self.hyper_feature = self.construct_hyper_feature()
 
-        print('road_netword:',self.road_adj.sum())
-        print('hyper_netword:', self.hyper_adj.sum())
+        self._logger.info(f'road_netword: {int(self.road_adj.sum())}')
+        self._logger.info(f'hyper_netword: {int(self.hyper_adj.sum())}')
 
         self.neg_edge_size = config.get('neg_edge_size',5)
         self.neg_hyper_size = config.get('neg_hyper_size',2)
@@ -169,9 +169,7 @@ class HyperRoadDataset(AbstractDataset):
             clusterset.add(cluster)
         self.num_classes = len(clusterset)
 
-        print("num_roads", self.num_roads, "num_hypers", self.num_hypers, "num_classes", self.num_classes)
-        print(sys.getsizeof(self.road_adj), sys.getsizeof(self.hyper_adj),
-              sys.getsizeof(self.road_feature), sys.getsizeof(self.hyper_feature))
+        self._logger.info(f"num_roads: {self.num_roads} num_hypers: {self.num_hypers} num_classes: {self.num_classes}")
         
         coords, input_x = [], []
         input_feats = []
@@ -201,7 +199,7 @@ class HyperRoadDataset(AbstractDataset):
                     self.road2hyper[road] = []
                 self.road2hyper[road].append(hyperedge)
             num_roads += len(roadset)
-        print("road2hyper", len(self.road2hyper), "hyper2road", len(self.hyper2road), "Num", num_roads)
+        self._logger.info(f"road2hyper: {len(self.road2hyper)} hyper2road: {len(self.hyper2road)} Num: {num_roads}")
 
         edges = np.nonzero(self.road_adj)
         self.edges = set()
@@ -210,25 +208,25 @@ class HyperRoadDataset(AbstractDataset):
             key = (roadi, roadj)
             self.edges.add(key)
         self.edges = list(self.edges)
-        print("edges in roadnetwork", len(self.edges))
+        self._logger.info(f"edges in roadnetwork {len(self.edges)}")
 
         self.G = sp.coo_matrix(self.road_adj)
         self.H = sp.coo_matrix(self.hyper_adj)
-        print("graph for GNN", self.G.shape)
-        print("hypergraph for HGNN", self.H.shape)
+        self._logger.info(f"graph for GNN {self.G.shape}")
+        self._logger.info(f"hypergraph for HGNN {self.H.shape}")
 
         DvG = np.sum(self.road_adj, axis=1) ** (-1/2)
         DvG[np.isinf(DvG)] = 0.0
         DvG = sp.diags(DvG)
-        print("DvG", DvG.shape)
+        self._logger.info(f"DvG {DvG.shape}")
 
         DH = np.sum(self.hyper_adj, axis=0) ** (-1.0)
         DH = sp.diags(DH)
-        print("DH", DH.shape)
+        self._logger.info(f"DH {DH.shape}")
 
         DvH = np.sum(self.hyper_adj, axis=1) ** (-1/2)
         DvH = sp.diags(DvH)
-        print("DvH", DvH.shape)
+        self._logger.info(f"DvH {DvH.shape}")
 
         # self.norm_GG = DvG  * DvG * self.G
         norm_GG = DvG * self.G * DvG
@@ -240,7 +238,6 @@ class HyperRoadDataset(AbstractDataset):
         self.norm_HH = self.sparse_to_tensor(norm_HH)
         self.norm_HG = self.sparse_to_tensor(norm_HG)
         self.norm_GraphSAGE = self.sparse_to_tensor(norm_GraphSAGE)
-        print(self.norm_GG.size(), self.norm_HH.size(), self.norm_HG.size())
 
         if self.sampling == "geo_sampling":
             road_dis_matrix = self.get_geo_dis(self.dataset)
@@ -333,7 +330,7 @@ class HyperRoadDataset(AbstractDataset):
             for i, road in enumerate(self.road2hyper):
                 if (i+1) % 2000 == 0:
                     end = time.time()
-                    print(i + 1, "nodes have been sampled, cost time", end - start)
+                    self._logger.info(f"{i + 1} nodes have been sampled, cost time {end - start}")
                 for j, hyperedge in enumerate(self.hyper2road):
                     dist = self.get_dist(road, hyperedge)
                     hyper_dis_matrix[road][hyperedge] = dist
@@ -367,14 +364,13 @@ class HyperRoadDataset(AbstractDataset):
         else:
             G, road_feature = preproces_network_dgl(city)
             nodes = list(G.nodes())
-            print(len(nodes))
             geo_dis_matrix = np.zeros((len(nodes), len(nodes)))
 
             start = time.time()
             for i in range(len(nodes)):
                 if (i+1) % 100 == 0:
                     end = time.time()
-                    print(i + 1, "nodes have been sampled, cost time", end - start)
+                    self._logger.info(f"{i + 1} nodes have been sampled, cost time {end - start}")
 
                 for j in range(i+1, len(nodes)):
                     nodei, nodej = nodes[i], nodes[j]

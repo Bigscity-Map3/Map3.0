@@ -78,7 +78,6 @@ def evaluation_classify(X, y, kfold=5, num_classes=5, seed=42, output_dim=128):
             model.eval()
             y_pred = torch.argmax(model(X_eval), -1).detach().cpu()
             acc = accuracy_score(y_eval.cpu(), y_pred, normalize=True)
-            # print('Epoch {}, acc@1 = {}'.format(e, acc))
             if acc > best_acc:
                 best_acc = acc
                 best_pred = y_pred

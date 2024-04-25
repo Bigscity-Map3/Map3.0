@@ -388,11 +388,10 @@ def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, 
                 f1_micro, f1_macro = f1_score(labels, pres, average='micro'), f1_score(labels, pres, average='macro')
                 score_log.append([acc, pre, recall, f1_micro, f1_macro])
                 best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
-                logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
+                
+        logger.info('epoch {} complete!'.format(epoch))
+        logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
                     best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
-            
-        if (epoch + 1) % 5 == 0:
-            logger.info('epoch {} complete!'.format(epoch))
 
     best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
     logger.info('Finished Evaluation.')
@@ -459,10 +458,10 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
                 f1_micro, f1_macro = f1_score(labels, pres, average='micro'), f1_score(labels, pres, average='macro')
                 score_log.append([acc, pre, recall, f1_micro, f1_macro])
                 best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
-                logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
-                    best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
-        if (epoch + 1) % 5 == 0:
-            logger.info('epoch {} complete!'.format(epoch))
+                
+        logger.info('epoch {} complete!'.format(epoch))
+        logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
+                best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
 
     best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
     logger.info('Finished Evaluation.')

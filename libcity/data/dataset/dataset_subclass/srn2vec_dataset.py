@@ -142,10 +142,6 @@ class SRN2VecDataset(AbstractDataset):
                 while j + mask < len(lengths) and sum + lengths[j + mask] < window_size:
                     sum += lengths[j + mask]
                     mask += 1
-                # mask = (lengths[j:].cumsum() < window_size).sum()
-                # assert (lengths[j:].cumsum() < window_size).sum() == mask
-                # print(mask, len(lengths) - j)
-                # idx = (np.abs(lengths[j:].cumsum() - window_size)).argmin()
                 window = node_paths[i][j: j + mask]
                 if len(window) > 1:
                     combs = tuple(combinations(window, 2))

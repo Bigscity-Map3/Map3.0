@@ -98,7 +98,7 @@ class JCLRNT(AbstractReprLearningModel):
     def save_traj_embedding(self,traj_test,traj_embedding_file):
         result_list = []
         traj_num = traj_test.shape[0]
-        print('traj_num=' + str(traj_num))
+        self._logger.info('traj_num=' + str(traj_num))
         start_index = 0
         while start_index < traj_num:
             end_index = min(traj_num, start_index + 1280)

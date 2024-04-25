@@ -193,8 +193,7 @@ class ZEMobDataset(AbstractDataset):
             self._logger.info("finish constructing distance matrix")
             return
         region_geo_file = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
-        # region_geo_file =  pd.read_csv(self.data_path + "regionmap_" + self.dataset +"/regionmap_" + self.dataset + ".geo", delimiter=',')
-        self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'])
+        self.region_geometry = gpd.GeoSeries.from_wkt(region_geo_file['region_geometry'].dropna())
         centroid = self.region_geometry.centroid
         for i in range(self.zone_num):
             for j in range(i, self.zone_num):

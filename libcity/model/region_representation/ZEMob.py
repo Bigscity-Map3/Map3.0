@@ -91,7 +91,7 @@ class ZEMobModel(nn.Module):
         super(ZEMobModel, self).__init__()
 
         self.device = device
-
+        self._logger = getLogger()
         self.zone_num = zone_num
         self.mobility_event_num = mobility_event_num
         self.embedding_dim = embedding_dim
@@ -117,16 +117,16 @@ class ZEMobModel(nn.Module):
             memory_usage = self.G_matrix.element_size() * self.G_matrix.nelement()\
                            +self.ppmi_matrix.element_size() * self.ppmi_matrix.nelement()
             memory_allocated = torch.cuda.max_memory_allocated(self.device)
-            print("GPU : {} Memory is sufficient, {}/{}"
+            self._logger.info("GPU : {} Memory is sufficient, {}/{}"
                                   .format(self.device,memory_usage,total_memory))
             if memory_usage + memory_allocated <= total_memory:
                 self.G_matrix = self.G_matrix.to(self.device)
                 self.ppmi_matrix = self.ppmi_matrix.to(self.device)
                 self.memory_sufficient = True
-                print("G_matrix and ppmi are already on GPU")
+                self._logger.info("G_matrix and ppmi are already on GPU")
 
         else:
-            print("CUDA is not available")
+            self._logger.info("CUDA is not available")
 
     # 前向传播，公式即为文章中需要最小化的函数，得到的结果即为loss
     # 注意ppmi和G在cpu上
@@ -140,9 +140,6 @@ class ZEMobModel(nn.Module):
         if not self.memory_sufficient:
             batch_ppmi = batch_ppmi.to(self.device)
             batch_G = batch_G.to(self.device)
-        # print(batch_zone.device,batch_event.device,batch_G.device,batch_ppmi.device)
-        # import pdb
-        # pdb.set_trace()
         return torch.sum(torch.pow(torch.sub(batch_ppmi, torch.mm(batch_zone, batch_event.t())), 2) * batch_G) / 2
 
 # 数据加载

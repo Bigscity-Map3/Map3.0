@@ -200,16 +200,7 @@ class POI2Vec(HS):
         super().__init__(config, data_feature)
         self.__dict__.update(locals())
         w2v_data = data_feature.get('w2v_data')
-        embed_train_users, embed_train_sentences, embed_train_weekdays, \
-        embed_train_timestamp, _length = zip(*w2v_data)
-        poi2vec_theta = data_feature.get('theta', 0.1)
-        poi2vec_indi_context = config.get('indi_context', False)
-        num_vocab = data_feature.get('num_loc')
         embed_dimension = config.get('embed_size', 128)
-        id2coor_df = data_feature.get('id2coor_df')
-        # self.poi2vec_data = P2VData(embed_train_sentences, id2coor_df, theta=poi2vec_theta,
-        #                        indi_context=poi2vec_indi_context)
-        # num_inner_nodes = self.poi2vec_data.total_offset
 
         self.w_embeddings = nn.Embedding(num_inner_nodes, embed_dimension, padding_idx=0, sparse=True)
         self.w_embeddings.weight.data.uniform_(-0, 0)

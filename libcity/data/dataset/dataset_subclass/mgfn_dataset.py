@@ -185,7 +185,6 @@ class MGFNDataset(AbstractDataset):
             n_clusters=n_clusters, linkage=linkage, affinity="precomputed", )
         estimator.fit(dis_matrix)
         label_pred = estimator.labels_
-        # print("The time consuming of clustering (known disMatrix)：", time.time() - t1)
         return label_pred
 
     def getPatternWithMGD(self,m_graphs):
