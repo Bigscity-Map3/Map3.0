@@ -13,9 +13,7 @@ import typing
 import numpy as np
 import pickle
 import dgl
-from libcity.utils import tool_funcs
-from libcity.utils import OSMLoader
-from libcity.utils import EdgeIndex
+from libcity.utils import tool_funcs, OSMLoader, EdgeIndex
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
@@ -58,9 +56,10 @@ class SARN(nn.Module):
         self.device = config.get('device')
         self.osm_data = OSMLoader(self.dataset_path, schema = 'SARN', device=self.device)
         self.osm_data.load_cikm_data(self.dataset)
-        self.model='SARN'
+        self.model = 'SARN'
        
         self.sarn_seg_feat_dim = config.get("sarn_seg_feat_dim", 176)
+        assert self.sarn_seg_feat_dim % 4 == 0
         self.sarn_embedding_dim = config.get("sarn_embedding_dim", 128)
         self.sarn_out_dim = config.get("output_dim", 32)
         self.sarn_moco_each_queue_size = self.osm_data.sarn_moco_each_queue_size
@@ -205,15 +204,7 @@ class SARN(nn.Module):
                 break
         t1 = time.time()-start_time
         logging.info('cost time is '+str(t1/self.sarn_epochs))
-        
         logging.info("enc_train_time:{} \n enc_train_gpu:{} \n enc_train_ram:{} \n".format(time.time()-training_starttime, training_gpu_usage, training_ram_usage))
-        # return {'enc_train_time': time.time()-training_starttime, \
-        #         'enc_train_gpu': training_gpu_usage, \
-        #         'enc_train_ram': training_ram_usage}
-
-
-    def test(self):
-        pass
 
 
     def finetune_forward(self, sub_seg_idxs, is_training: bool):
@@ -305,7 +296,6 @@ class SARN(nn.Module):
 
             embs = F.normalize(embs, dim = 1) # dim=0 feature norm, dim=1 obj norm
             return embs
-        return None
 
 
     @torch.no_grad()
@@ -347,7 +337,7 @@ class MoCo(nn.Module):
         self.nqueue = nqueue
         self.mmt = mmt
         self.temperature = temperature
-
+        self.nfeat = nfeat
         # for simplicity, initialize gat objects here
         self.encoder_q = GAT(nfeat = nfeat, nhid = nfeat // 2, nout = nemb, nhead = 4, nlayer = 2)
         self.encoder_k = GAT(nfeat = nfeat, nhid = nfeat // 2, nout = nemb, nhead = 4, nlayer = 2)
@@ -383,8 +373,7 @@ class MoCo(nn.Module):
                         inputs_k, edge_index_k, idx_in_adjsub_k,
                         q_ids, elem_ids):
         # length of different parameteres may be different
-
-        # compute query features
+        # compute query features        
         q = self.mlp_q(self.encoder_q(inputs_q, edge_index_q)) # q: [?, nfeat]
         q = nn.functional.normalize(q, dim=1)
 
@@ -453,9 +442,7 @@ class MomentumQueue(nn.Module):
 
         self.register_buffer("queue", torch.randn(nqueue, nhid, queue_size))
         self.queue = nn.functional.normalize(self.queue, dim = 1)
-
         self.register_buffer("ids", torch.full([nqueue, queue_size], -1, dtype = torch.long))
-
         self.register_buffer("queue_ptr", torch.zeros((nqueue), dtype = torch.long))
 
     @torch.no_grad()
@@ -509,7 +496,8 @@ class GAT(nn.Module):
     def __init__(self, nfeat, nhid, nout, nhead, nlayer = 1):
         super(GAT, self).__init__()
         assert nlayer >= 1
-
+        self.nfeat = nfeat
+        self.nout = nout
         self.nlayer = nlayer
         self.layers = nn.ModuleList()
         self.layers.append(GATConv(nfeat, nhid, nhead, 
@@ -519,22 +507,15 @@ class GAT(nn.Module):
                                     feat_drop = 0.2, negative_slope = 0.2))
         self.layer_out = GATConv(nhead * nhid, nout, 1,
                             feat_drop = 0.2, negative_slope = 0.2)
-        print(self.layers)
-        print(self.layer_out)
 
-    # x = [2708, 1433]
-    # edge_index = [2, 10556], pair-wise adj edges
     def forward(self, x, edge_index):
         edge_index = dgl.graph((edge_index[0], edge_index[1]))
         edge_index = dgl.add_self_loop(edge_index)
-        print(edge_index)
-        print(x.shape)
         for l in range(self.nlayer):
             x = F.dropout(x, p = 0.2, training = self.training)
-            x = self.layers[l](edge_index,x)
+            x = self.layers[l](edge_index,x).view(-1, self.nfeat * 2)
             x = F.elu(x)
         # output projection
         x = F.dropout(x, p = 0.2, training = self.training)
-        x = self.layer_out(edge_index,x)
-
+        x = self.layer_out(edge_index,x).view(-1, self.nout)
         return x

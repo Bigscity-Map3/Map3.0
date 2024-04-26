@@ -63,11 +63,9 @@ class OSMLoader:
         # ======== basis for all =========
         # self.cikm_data_path = 'raw_data/{}/'.format(dataset)
         data_cache_dir = os.path.join(cache_dir, dataset)
-        # self.segments_file_path = self.cikm_data_path + 'road_' + dataset + '.csv'
         self.segments_file_path = os.path.join(data_cache_dir, 'road.csv')
         self.segments = pd.read_csv(self.segments_file_path)
         self.road_num = len(self.segments)
-        # self.adj_json_path = self.cikm_data_path + 'roadmap_' + dataset + '/' + 'road_neighbor_' + dataset + '.json'
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
 
         def construct_road_adj():
@@ -82,7 +80,6 @@ class OSMLoader:
             return road_adj
 
         self.road_adj = construct_road_adj()
-        print(self.road_adj.sum())
 
         # bj dataset 没有 {s, e, m}_{lat, lon} 这几列，要手动添加
         if 'm_lat' not in self.segments:

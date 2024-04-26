@@ -272,12 +272,3 @@ def preprocess_all(config):
     preprocess_neighbor(config)
     preprocess_traj(config)
     preprocess_od(config)
-
-
-if __name__ == '__main__':
-    # pd.set_option('display.max_rows', None)  # 设置行数为无限制
-    # pd.set_option('display.max_columns', None)  # 设置列数为无限制
-    os.chdir('/home/tangyb/private/tyb/remote/Map3.0')
-    # os.chdir('/home/zhangwt/tyb/tyb/remote/representation')
-    config = {'dataset': 'test_bj'}
-    preprocess_all(config)

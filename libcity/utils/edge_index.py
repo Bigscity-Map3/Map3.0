@@ -2,6 +2,7 @@ import sys
 sys.path.append('..')
 import numpy as np
 import networkx as nx
+import dgl
 
 class EdgeIndex:
     def __init__(self, g: nx.DiGraph, seg_id_to_idx):
@@ -50,6 +51,7 @@ class EdgeIndex:
         sub_edge_index = [] # [, 2]
         for _i in idx:
             idx1.extend(self.node_neighbours[_i][0])
+            sub_edge_index.append((_i, _i))
             sub_edge_index.extend( list(map(lambda x: (x, _i), self.node_neighbours[_i][0])) )
 
         idx1 = idx1 + idx
@@ -63,5 +65,4 @@ class EdgeIndex:
         sub_edge_index = np.array(sub_edge_index, np.int64).T
         new_x_idx = idx1
         mapping_to_origin_idx = [idx1_to_newidx[_i] for _i in sub_idx]
-        
         return sub_edge_index, new_x_idx, mapping_to_origin_idx

@@ -89,7 +89,7 @@ class JCLRNT(AbstractReprLearningModel):
             self._logger.info("Epoch {}, Loss {}".format(epoch, total_loss))
         t1 = time.time()-start_time
         self._logger.info('cost time is '+str(t1/self.iter))
-        node_embedding = self.model.encode_graph()[0].cpu().detach().numpy()
+        node_embedding = self.model.encode_graph()[0].cpu().detach().numpy().squeeze((1,2))
         np.save(self.road_embedding_path,node_embedding)
         torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
         self.save_traj_embedding(self.traj_train,self.traj_train_embedding_file)

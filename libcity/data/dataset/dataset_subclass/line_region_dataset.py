@@ -136,7 +136,7 @@ class LINERegionDataset(TrafficRepresentationDataset):
                 self.od_label[origin_region][destination_region] += 1
         np.save(self.od_label_path, self.od_label)
         self._logger.info("finish construct od graph")
-        return self.od_label
+        return
 
 
     def _gen_sampling_table(self, POW=0.75):

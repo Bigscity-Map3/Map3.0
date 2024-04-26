@@ -471,7 +471,9 @@ class ReMVC(AbstractReprLearningModel):
         super().__init__(config, data_feature)
         self.device = config.get('device')
         extractor = config.get('extractor', 'MLP')
-        size = config.get('embedding_size', 16)
+        size = config.get('output_dim', 128)
+        assert size % 2 == 0
+        size //= 2
         mutual_reg = config.get('mutual', 1.0)
         poi_reg = config.get('reg', 0.0001)
         poi_neg_size = config.get('poi_neg_size', 10)
@@ -560,3 +562,4 @@ class ReMVC(AbstractReprLearningModel):
         output_poi = self.poi_model.get_emb()
         output = np.concatenate((output_flow, output_poi), axis=1)
         np.save(self.npy_cache_file, output)
+        self._logger.info('Embedding Saved at ' + self.npy_cache_file)

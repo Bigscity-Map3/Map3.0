@@ -294,11 +294,7 @@ class LINEDataset(AbstractDataset):
                 Returns:
                     batch_data: dict
                 """
-        # 加载数据集
-        if self.cache_dataset and os.path.exists(self.cache_file_name):
-            I_train, J_train, Neg_train, I_eval, J_eval, Neg_eval, I_test, J_test, Neg_test = self._load_cache()
-        else:
-            I_train, J_train, Neg_train, I_eval, J_eval, Neg_eval, I_test, J_test, Neg_test = self._generate_data()
+        I_train, J_train, Neg_train, I_eval, J_eval, Neg_eval, I_test, J_test, Neg_test = self._generate_data()
 
         train_data = list(zip(I_train, J_train, Neg_train))
         eval_data = list(zip(I_eval, J_eval, Neg_eval))
