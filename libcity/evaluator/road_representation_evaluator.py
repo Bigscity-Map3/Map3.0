@@ -1,3 +1,4 @@
+import csv
 import importlib
 import json
 import numpy as np
@@ -11,9 +12,9 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
     def __init__(self, config, data_feature):
         self._logger = getLogger()
         self.config = config
-        self.evaluate_tasks = self.config.get('evaluate_task', ["speed_inference"])
-        self.evaluate_model = self.config.get('evaluate_model', ["SpeedInferenceModel"])
-        self.all_result = []
+        self.evaluate_tasks = self.config.get('evaluate_task', ["speed_inference", "travel_time_estimation"])
+        self.evaluate_model = self.config.get('evaluate_model', ["SpeedInferenceModel", "TravelTimeEstimationModel"])
+        self.result = {}
         self.model = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
@@ -51,32 +52,33 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         return geofile
 
     def evaluate(self):
+        def add_prefix_to_keys(dictionary, prefix):
+            new_dictionary = {}
+            for key, value in dictionary.items():
+                new_key = prefix + str(key)
+                new_dictionary[new_key] = value
+            return new_dictionary
+        
+        def dict_to_csv(dictionary, filename):
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=dictionary.keys())
+                writer.writeheader()
+                writer.writerow(dictionary)
+
         road_emb = np.load(self.embedding_path)  # (N, F)
         for task, model in zip(self.evaluate_tasks, self.evaluate_model):
             downstream_model = self.get_downstream_model(model)
             x = road_emb
             label = self.data_feature["label"][task]
             result = downstream_model.run(x, label)
-            result = {task: result}
-            self.all_result.append(result)
-
-        result = self.all_result[0]['speed_inference']
-        df = pd.DataFrame({
-            'mae': [result['mae']],
-            'mse': [result['mse']],
-            'rmse': [result['rmse']]
-        })
+            self.result.update(add_prefix_to_keys(result, task + '_'))
+        del self.result['travel_time_estimation_best epoch']
+        print(f'Evaluate result: {self.result}')
+        self._logger.info(f'Evaluate result: {self.result}')
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
-            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
-        df.to_csv(result_path, index=False)
+            format(self.exp_id, self.exp_id, self.model, self.dataset, self.output_dim)
+        dict_to_csv(self.result, result_path)
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
-
-        for result in self.all_result:
-            for task in result:
-                result_string = ""
-                for key in result[task]:
-                    result_string += key + " = " + str(result[task][key]) + " "
-                self._logger.info('{} result: {}'.format(task, result_string))
         return
 
         # !这个load_geo必须跟dataset部分相同，也就是得到同样的geo_id和index的映射，否则就会乱码

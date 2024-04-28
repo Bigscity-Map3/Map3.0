@@ -211,10 +211,6 @@ class POIRepresentationEvaluator(AbstractEvaluator):
 
     def evaluate(self):
         self._logger.info('Start evaluating ...')
-        # task_name = self.config.get('downstream_task', 'loc_clu')
-        # self._logger.info('Downstream Model: {}'.format(self.model_name))
-        # self._logger.info('Downstream Task: {}'.format(task_name))
-        
         self.evaluate_loc_pre()
         self.evaluate_traj_clf()
         if 'foursquare' in self.config.get('dataset'):

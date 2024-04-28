@@ -212,7 +212,7 @@ class ChebConvDataset(AbstractDataset):
         data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
         if not os.path.exists(data_path1) or not os.path.exists(data_path2):
             generate_road_representaion_downstream_data(self.dataset)
-        self.label = {"speed_inference": {}, "time_estimation": {}}
+        self.label = {"speed_inference": {}, "travel_time_estimation": {}}
         self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
 
         self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
@@ -239,6 +239,6 @@ class ChebConvDataset(AbstractDataset):
                     "num_nodes": self.num_nodes, "feature_dim": self.feature_dim,
                     "label": {
                         'speed_inference': {'speed': self.speed_label},
-                        'time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
+                        'travel_time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
                     }
                 }

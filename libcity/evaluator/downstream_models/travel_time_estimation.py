@@ -1,4 +1,3 @@
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 from logging import getLogger
@@ -41,7 +40,7 @@ class TimeEstimationDataset(Dataset):
     def __len__(self):
         return len(self.x)
 
-class TimeEstimationModel(AbstractModel):
+class TravelTimeEstimationModel(AbstractModel):
     def __init__(self, config):
         self._logger = getLogger()
         self.alpha = config.get('alpha', 1)
@@ -59,7 +58,7 @@ class TimeEstimationModel(AbstractModel):
         padding_id = label['padding_id']
         x_arr = np.zeros([num_samples, max_len * embed_len],dtype=np.float32)
         y_arr = np.zeros([num_samples], dtype=np.float32)
-        for i in tqdm(range(num_samples)):
+        for i in range(num_samples):
             row = dfs.iloc[i]
             path_rep = []
             path = [int(x) for x in row['path']]
@@ -93,7 +92,7 @@ class TimeEstimationModel(AbstractModel):
 
         patience = 5
         best = {"best epoch": 0, "mae": 1e9, "rmse": 1e9}
-        for epoch in tqdm(range(1, 101)):
+        for epoch in range(1, 101):
             model.train()
             for batch_x, batch_y in train_dataloader:
                 opt.zero_grad()

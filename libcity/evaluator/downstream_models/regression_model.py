@@ -4,7 +4,7 @@ from sklearn import linear_model
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import numpy as np
-
+import csv
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 
 
@@ -12,11 +12,15 @@ class RegressionModel(AbstractModel):
 
     def __init__(self, config):
         self._logger = getLogger()
-        self.alpha = config.get('alpha',1)
-        self.n_split = config.get('n_split',5)
+        self.alpha = 1
+        self.n_split = 5
+        self.model = config.get('model', '')
+        self.dataset = config.get('dataset', '')
+        self.output_dim = config.get('output_dim', 32)
         self.exp_id = config.get('exp_id', None)
-        self.result_path = './libcity/cache/{}/evaluate_cache/regression_{}_{}.npy'.\
-            format(self.exp_id,self.alpha,self.n_split)
+        self.result = {}
+        self.result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+            format(self.exp_id, self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self,x,label):
         kf = KFold(n_splits=self.n_split)
@@ -33,18 +37,25 @@ class RegressionModel(AbstractModel):
             y_preds.append(y_pred)
             y_truths.append(y_test)
 
-        self.save_result(y_preds,self.result_path)
         y_pred[y_pred<0] = 0
+        y_truths = np.concatenate(y_truths)
+        y_preds = np.concatenate(y_preds)
         mae = mean_absolute_error(y_truths, y_preds)
         mse = mean_squared_error(y_truths, y_preds)
         r2 = r2_score(y_truths, y_preds)
 
-        result={'mae':mae,'mse':mse,'r2':r2}    
-        return result
+        self.result={'regression_mae':mae,'regression_mse':mse,'regression_r2':r2}
+        self.save_result(self.result_path)
+        return self.result
     
     def clear(self):
         pass
     
-    def save_result(self, predict,save_path, filename=None):
-        np.save(save_path,predict)
-        self._logger.info('Kmeans category is saved at {}'.format(save_path))
+    def save_result(self, save_path, filename=None):
+        def dict_to_csv(dictionary, filename):
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=dictionary.keys())
+                writer.writeheader()
+                writer.writerow(dictionary)
+        dict_to_csv(self.result, save_path)
+        self._logger.info('Results is saved at {}'.format(save_path))

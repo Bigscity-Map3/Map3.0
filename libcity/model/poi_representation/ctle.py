@@ -3,7 +3,6 @@ import math
 import numpy as np
 import torch
 from torch import nn
-from sklearn.utils import shuffle
 
 from libcity.model.poi_representation.utils import weight_init
 from libcity.model.abstract_model import AbstractModel

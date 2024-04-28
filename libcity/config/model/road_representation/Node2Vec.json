@@ -9,8 +9,8 @@
     "num_workers": 10,
     "max_epoch": 1,
     "representation_object":"road",
-    "evaluate_task": ["speed_inference","time_estimation"],
-    "evaluate_model": ["SpeedInferenceModel","TimeEstimationModel"],
+    "evaluate_task": ["speed_inference","travel_time_estimation"],
+    "evaluate_model": ["SpeedInferenceModel","TravelTimeEstimationModel"],
     "min_len": 1,
     "max_len": 100
 }

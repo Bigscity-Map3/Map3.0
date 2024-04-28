@@ -5,7 +5,6 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
 from sklearn.metrics import normalized_mutual_info_score
-import json
 from libcity.utils import geojson2geometry
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 
@@ -24,7 +23,7 @@ class KmeansModel(AbstractModel):
         self.result_path = './libcity/cache/{}/evaluate_cache/kmeans_category_{}_{}.json'.\
             format(self.exp_id,self.n_clusters,self.random_state)
         self.qgis_result_path = './libcity/cache/{}/evaluate_cache/kmeans_qgis_{}_{}_{}_{}.csv'. \
-            format(self.exp_id, self.model, self.dataset, str(self.output_dim), str(self.n_clusters))
+            format(self.exp_id, self.model, self.dataset, self.output_dim, self.n_clusters)
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = config.get('geo_file', self.dataset)
 
@@ -55,6 +54,7 @@ class KmeansModel(AbstractModel):
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         geofile_region = geofile[geofile['traffic_type'] == 'region']
         return geofile_region
+    
     def region_cluster_visualize(self,y_pred):
         #QGIS可视化
         geofile = self._load_geo()

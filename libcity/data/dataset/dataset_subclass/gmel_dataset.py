@@ -56,7 +56,7 @@ class GMELDataset(ODRegionRepresentationDataset):
                 "train_inflow": self.train_inflow, "train_outflow": self.train_outflow,
                 "num_nodes": self.num_nodes, "node_feats": self.feature, "ct_adjacency_withweight": self.adj_mx,
                 "distm": self.distance_mx,
-                "label": {"od_matrix_predict": self.od_label}}
+                "label": {"od_matrix_predict": self.od_label.flatten()}}
 
     def get_data(self):
         return None, None, None

@@ -1,10 +1,7 @@
-import math
 import json
 import numpy as np
 from logging import getLogger
 import importlib
-
-from tqdm import tqdm
 
 from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 
@@ -38,7 +35,6 @@ class RepresentationEvaluator(AbstractEvaluator):
         pass
 
     def evaluate(self):
-
         node_emb = np.load(self.embedding_path)  # (N, F)
         for task, model in zip(self.evaluate_tasks, self.evaluate_model):
             downstream_model = self.get_downstream_model(model)
@@ -48,7 +44,7 @@ class RepresentationEvaluator(AbstractEvaluator):
                 # 将起止点的向量拼接作为x
                 l = []
                 num_node = node_emb.shape[0]
-                for i in tqdm(range(num_node)):
+                for i in range(num_node):
                     for j in range(num_node):
                         o_embs = node_emb[i]
                         d_embs = node_emb[j]
