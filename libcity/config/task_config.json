@@ -14,7 +14,7 @@
         "LINE": {
             "dataset_class": "LINEDataset",
             "executor": "LINEExecutor",
-            "evaluator": "RoadRepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "GeomGCN": {
             "dataset_class": "ChebConvDataset",
@@ -29,12 +29,12 @@
         "Node2Vec": {
             "dataset_class": "RoadNetWorkDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RoadRepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "DeepWalk": {
             "dataset_class": "RoadNetWorkDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RoadRepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "SRN2Vec": {
             "dataset_class": "SRN2VecDataset",

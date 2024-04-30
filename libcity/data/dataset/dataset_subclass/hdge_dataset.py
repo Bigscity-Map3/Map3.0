@@ -2,7 +2,6 @@ from datetime import datetime
 import os
 from logging import getLogger
 import geopandas as gpd
-import numpy
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -30,7 +29,7 @@ class HDGEDataset(AbstractDataset):
      self.flow_graph_path = './libcity/cache/HDGE_{}/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
      self.spatial_graph_path = './libcity/cache/HDGE_{}/C={}_spatial_graph.npy'.format(self.dataset,self.C)
      self.combine_graph_path = './libcity/cache/HDGE_{}/C={} and {}_slice.npy'.format(self.dataset ,self.C ,self.time_slice)
-     self.construct_flow_graph()
+     self.flow_graph = self.construct_flow_graph()
      self.construct_spatial_graph()
      self.combine_graph = self.combine_matrix(self.flow_graph,self.spatial_graph)
 
@@ -43,29 +42,20 @@ class HDGEDataset(AbstractDataset):
     :return:
     """
     if os.path.exists(self.flow_graph_path):
-        self.flow_graph = np.load(self.flow_graph_path)
+        flow_graph = np.load(self.flow_graph_path)
         self._logger.info("finish constructing flow graph")
-        return
+        return flow_graph
     time_each_slice = 24 // self.time_slice
-    traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
-    self.flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
-    for i in tqdm(range(len(traj_file))):
-        path = traj_file.loc[i, 'path']
-        path = path[1:len(path) - 1].split(',')
-        origin_region = int(path[0])
-        destination_region = int(path[-1])
-        t_list = traj_file.loc[i, 'tlist']
-        t_list = t_list[1:len(t_list) - 1].split(',')
-        t_list = [int(s) for s in t_list]
-        time = datetime.utcfromtimestamp(t_list[-1])
-        self.flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
-    return self.flow_graph
+    od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
+    flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
+    for _, row in od_file.iterrows():
+        origin_region = row['origin_id']
+        destination_region = row['destination_id']
+        time = datetime.fromtimestamp(int(row['destination_time']))
+        flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
+    return flow_graph
 
  def construct_spatial_graph(self):
-    """
-
-    :return:
-    """
     if os.path.exists(self.spatial_graph_path):
         self.spatial_graph = np.load(self.spatial_graph_path)
         self._logger.info("finish constructing spatial graph")
@@ -77,11 +67,10 @@ class HDGEDataset(AbstractDataset):
     for i in range(self.num_nodes):
         for j in range(i,self.num_nodes):
             distance = self.centroid[i].distance(self.centroid[j])
-            self.spatial_graph[i][j] = numpy.exp(-self.C * distance)
-            self.spatial_graph[j][i] = numpy.exp(-self.C * distance)
+            self.spatial_graph[i][j] = np.exp(-self.C * distance)
+            self.spatial_graph[j][i] = np.exp(-self.C * distance)
     np.save(self.spatial_graph_path,self.spatial_graph)
     self._logger.info("finish consturcting spatial graph")
-
 
 
  def combine_matrix(self, flow_mx, spatial_mx):

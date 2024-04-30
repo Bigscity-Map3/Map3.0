@@ -75,8 +75,10 @@ class RoadRepresentationEvaluator(AbstractEvaluator):
         del self.result['travel_time_estimation_best epoch']
         print(f'Evaluate result: {self.result}')
         self._logger.info(f'Evaluate result: {self.result}')
-        result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+        result_path = './raw_data/new/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, self.output_dim)
+        # result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+        #     format(self.exp_id, self.exp_id, self.model, self.dataset, self.output_dim)
         dict_to_csv(self.result, result_path)
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
         return

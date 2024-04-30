@@ -21,6 +21,7 @@ import seaborn as sns
 from sklearn import manifold
 from sklearn.preprocessing import normalize
 from libcity.data.preprocess import cache_dir
+from libcity.evaluator.utils import generate_road_representaion_downstream_data
 
 
 class Classifier(nn.Module):
@@ -192,6 +193,9 @@ class HHGCLEvaluator(AbstractEvaluator):
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'\
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
+        geo_df = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
+        self.num_nodes = geo_df[geo_df['traffic_type'] == self.representation_object].shape[0]
+        self.label_data_path = os.path.join('libcity', 'cache', 'dataset_cache', self.dataset, 'label_data')
 
     def collect(self, batch):
         pass
@@ -295,6 +299,36 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(mae, rmse, r2, mape))
         return mae, rmse, r2, mape
     
+    def preprocesse_data(self):
+        data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
+        data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
+        if not os.path.exists(data_path1) or not os.path.exists(data_path2):
+            generate_road_representaion_downstream_data(self.dataset)
+        self.label = {"speed_inference": {}, "travel_time_estimation": {}}
+        self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
+
+        self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
+        self.speed_label.sort_values(by="index", inplace=True, ascending=True)
+
+        min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
+        self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
+
+        self.time_label['path'] = self.time_label['trajs'].map(eval)
+
+        self.time_label['path_len'] = self.time_label['path'].map(len)
+        self.time_label = self.time_label.loc[
+            (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
+        self.data_label = {
+            'speed_inference': {'speed': self.speed_label},
+            'travel_time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
+        }
+
+    def get_downstream_model(self, model):
+        try:
+            return getattr(importlib.import_module('libcity.evaluator.downstream_models'), model)(self.config)
+        except AttributeError:
+            raise AttributeError('evaluate model is not found')
+
     def evaluate_embedding(self):
         if self.representation_object == 'road':
             embedding_path = self.road_embedding_path
@@ -323,8 +357,23 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['ch'] = [ch]
         self.result['nmi'] = [nmi]
         self.result['ars'] = [ars]
-        downstream_model = self.get_downstream_model('SimilaritySearchModel')
-        self.result.update(downstream_model.run())
+        evaluate_tasks = ["tsi", "tte", "tc"]
+        evaluate_models = ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"]
+
+        def add_prefix_to_keys(dictionary, prefix):
+            new_dictionary = {}
+            for key, value in dictionary.items():
+                new_key = prefix + str(key)
+                new_dictionary[new_key] = value
+            return new_dictionary
+        
+        emb = np.load(embedding_path)  # (N, F)
+        for task, model in zip(evaluate_tasks, evaluate_models):
+            downstream_model = self.get_downstream_model(model)
+            label = self.data_label[task]
+            result = downstream_model.run(emb, label)
+            self.result.update(add_prefix_to_keys(result, task + '_'))
+        del self.result['tte_best epoch']
 
     def get_downstream_model(self, model):
         try:

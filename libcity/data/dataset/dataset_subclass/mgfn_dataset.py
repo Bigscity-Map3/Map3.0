@@ -44,18 +44,25 @@ class MGFNDataset(AbstractDataset):
     def construct_multi_graph(self):
         time_each_slice = 24 // self.time_slice
         traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
-        self.multi_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
-        for i in tqdm(range(len(traj_file))):
-            path = traj_file.loc[i, 'path']
-            path = path[1:len(path) - 1].split(',')
-            origin_region = int(path[0])
-            destination_region = int(path[-1])
-            t_list = traj_file.loc[i, 'tlist']
-            t_list = t_list[1:len(t_list) - 1].split(',')
-            t_list = [int(s) for s in t_list]
-            time = datetime.utcfromtimestamp(t_list[-1])
-            self.multi_graph[time.hour//time_each_slice][origin_region][destination_region] += 1
-        return self.multi_graph
+        od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
+        flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
+        if os.path.exists(traj_file):
+            for i in range(len(traj_file)):
+                path = traj_file.loc[i, 'path']
+                path = path[1:len(path) - 1].split(',')
+                origin_region = int(path[0])
+                destination_region = int(path[-1])
+                t_list = traj_file.loc[i, 'tlist']
+                t_list = t_list[1:len(t_list) - 1].split(',')
+                time = datetime.fromtimestamp(int(t_list[-1]))
+                flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
+        else:
+            for i, row in od_file.iterrows():
+                origin_region = row['origin_id']
+                destination_region = row['destination_id']
+                time = datetime.fromtimestamp(int(row['destination_time']))
+                flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
+        return flow_graph
 
     def propertyFunc_var(self,adj_matrix):
         return adj_matrix.var()

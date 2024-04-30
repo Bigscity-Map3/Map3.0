@@ -9,7 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
-import pdb
 
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 
@@ -196,7 +195,7 @@ class SimilaritySearchModel(AbstractModel):
                         hit += 1
                 else:
                     no_hit += 1
-            self.result['Mean Rank'] = rank_sum / num_queries
+            self.result['Mean Rank'] = rank_sum / num_queries + 1.0
             self.result['No Hit'] = no_hit 
             self.result['HR@' + str(k)] =  hit / (num_queries - no_hit)
             self._logger.info(f'HR@{k}: {hit / (num_queries - no_hit)}')
