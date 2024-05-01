@@ -63,7 +63,7 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.calculate_weight_adj = self.config.get('calculate_weight_adj', False)
         self.weight_adj_epsilon = self.config.get('weight_adj_epsilon', 0.1)
         self.distance_inverse = self.config.get('distance_inverse', False)
-        self.remove_node_type = self.config.get("remove_node_type", "od")
+        self.remove_node_type = self.config.get("remove_node_type", None)
         self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo_{}.npy'.format(self.dataset,
                                                                                            self.remove_node_type)
         self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,
@@ -108,12 +108,15 @@ class TrafficRepresentationDataset(AbstractDataset):
         if self.representation_object == "region":
             if self.remove_node_type == "traj":
                 self.remove_0_degree_nodes()
-            if self.remove_node_type == "od":
+            elif self.remove_node_type == "od":
                 self.keep_od_nodes()
-            if self.remove_node_type == "non_zero":
+            elif self.remove_node_type == "non_zero":
                 self.keep_non_zero_od_nodes()
-            if self.remove_node_type == "MVURE":
+            elif self.remove_node_type == "MVURE":
                 self.keep_mvure_nodes()
+            else:
+                geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
+                self.function = list(geofile[geofile['traffic_type'] == 'region']['region_FUNCTION'])
         elif self.representation_object == "road":
             self.geo_to_ind = {}
             self.ind_to_geo = {}

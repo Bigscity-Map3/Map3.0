@@ -64,18 +64,12 @@ class ReMVCDataset(TrafficRepresentationDataset):
                 region_dict[region_id]['poi'].append(poi_dict[poi_id])
 
             # matrix
-            traj_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
-            for _, row in traj_df.iterrows():
-                tmp1 = row['path'].split(',')
-                tmp2 = row['tlist'].split(',')
-                if len(tmp1) == 1:
-                    origin = destination = int(tmp1[0][1:-1])
-                    o_time_slice = d_time_slice = (int(tmp2[0][1:-1]) % 86400) // (86400 // time_slices_num)
-                else:
-                    origin = int(tmp1[0][1:])
-                    destination = int(tmp1[-1][:-1])
-                    o_time_slice = (int(tmp2[0][1:]) % 86400) // (86400 // time_slices_num)
-                    d_time_slice = (int(tmp2[-1][:-1]) % 86400) // (86400 // time_slices_num)
+            od_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
+            for _, row in od_df.iterrows():
+                origin = int(row['origin_id'])
+                destination = int(row['destination_id'])
+                o_time_slice = (int(row['start_time']) % 86400) // (86400 // time_slices_num)
+                d_time_slice = (int(row['end_time']) % 86400) // (86400 // time_slices_num)
                 region_dict[origin]['pickup_matrix'][o_time_slice][destination] += 1
                 region_dict[destination]['dropoff_matrix'][d_time_slice][origin] += 1
             for i in range(self.num_regions):

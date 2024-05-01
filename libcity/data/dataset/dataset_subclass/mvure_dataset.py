@@ -42,7 +42,7 @@ class MVUREDataset(AbstractDataset):
         self.in_flow_adj_path = './libcity/cache/MVURE_{}/in_flow_adj.npy'.format(self.dataset)
         self.out_flow_adj_path = './libcity/cache/MVURE_{}/out_flow_adj.npy'.format(self.dataset)
         self.poi_simi_path = './libcity/cache/MVURE_{}/poi_simi.npy'.format(self.dataset)
-        self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
         self.num_nodes = self.num_regions

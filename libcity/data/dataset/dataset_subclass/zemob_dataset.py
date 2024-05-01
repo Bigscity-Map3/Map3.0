@@ -19,7 +19,7 @@ class ZEMobDataset(AbstractDataset):
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
         self.device = config.get('device', torch.device('cpu'))
-        self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
         self.num_nodes = self.num_regions
@@ -82,23 +82,18 @@ class ZEMobDataset(AbstractDataset):
         :return:
         """
         mobility_event_index = 0
-        traj_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
-        for i in tqdm(range(len(traj_file))):
+        od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
+        for _, row in od_file.iterrows():
             # 得到起始zone和起始zone对应的mobility_event
-            path = traj_file.loc[i, 'path']
-            path = path[1:len(path) - 1].split(',')
-            origin_region = int(path[0])
-            t_list = traj_file.loc[i, 'tlist']
-            t_list = t_list[1:len(t_list) - 1].split(',')
-            t_list = [int(s) for s in t_list]
-            origin_date = datetime.utcfromtimestamp(t_list[0])
+            origin_region = int(row['origin_id'])
+            origin_date = datetime.fromtimestamp(row['start_time'])
             origin_hour = origin_date.hour
             origin_date_type = 1 if origin_date.weekday() in range(5) else 0
             origin_mobility_event = (origin_region, origin_hour, origin_date_type, 'o')
 
             # 得到目的zone和目的zone对应的mobility_event
-            destination_region = int(path[-1])
-            destination_date = datetime.utcfromtimestamp(t_list[-1])
+            destination_region = int(row['destination_id'])
+            destination_date = datetime.fromtimestamp(row['end_time'])
             destination_hour = destination_date.hour
             destination_date_type = 1 if destination_date.weekday() in range(5) else 0
             destination_mobility_event = (destination_region, destination_hour, destination_date_type, 'd')

@@ -82,7 +82,7 @@
         "LINE": {
             "dataset_class": "LINERegionDataset",
             "executor": "LINEExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "ZEMob": {
             "dataset_class": "ZEMobDataset",

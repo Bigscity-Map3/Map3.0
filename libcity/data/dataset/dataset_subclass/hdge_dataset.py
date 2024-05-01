@@ -51,7 +51,7 @@ class HDGEDataset(AbstractDataset):
     for _, row in od_file.iterrows():
         origin_region = row['origin_id']
         destination_region = row['destination_id']
-        time = datetime.fromtimestamp(int(row['destination_time']))
+        time = datetime.fromtimestamp(int(row['end_time']))
         flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
     return flow_graph
 

@@ -196,6 +196,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         geo_df = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         self.num_nodes = geo_df[geo_df['traffic_type'] == self.representation_object].shape[0]
         self.label_data_path = os.path.join('libcity', 'cache', 'dataset_cache', self.dataset, 'label_data')
+        self.preprocesse_data()
 
     def collect(self, batch):
         pass
@@ -304,7 +305,6 @@ class HHGCLEvaluator(AbstractEvaluator):
         data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
         if not os.path.exists(data_path1) or not os.path.exists(data_path2):
             generate_road_representaion_downstream_data(self.dataset)
-        self.label = {"speed_inference": {}, "travel_time_estimation": {}}
         self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
 
         self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
@@ -319,8 +319,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.time_label = self.time_label.loc[
             (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
         self.data_label = {
-            'speed_inference': {'speed': self.speed_label},
-            'travel_time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
+            'tsi': {'speed': self.speed_label},
+            'tte': {'time': self.time_label, 'padding_id': self.num_nodes}
         }
 
     def get_downstream_model(self, model):
@@ -357,23 +357,25 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['ch'] = [ch]
         self.result['nmi'] = [nmi]
         self.result['ars'] = [ars]
-        evaluate_tasks = ["tsi", "tte", "tc"]
-        evaluate_models = ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"]
 
-        def add_prefix_to_keys(dictionary, prefix):
-            new_dictionary = {}
-            for key, value in dictionary.items():
-                new_key = prefix + str(key)
-                new_dictionary[new_key] = value
-            return new_dictionary
-        
-        emb = np.load(embedding_path)  # (N, F)
-        for task, model in zip(evaluate_tasks, evaluate_models):
-            downstream_model = self.get_downstream_model(model)
-            label = self.data_label[task]
-            result = downstream_model.run(emb, label)
-            self.result.update(add_prefix_to_keys(result, task + '_'))
-        del self.result['tte_best epoch']
+        if self.representation_object == 'road':
+            evaluate_tasks = ["tsi", "tte", "tc"]
+            evaluate_models = ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"]
+
+            def add_prefix_to_keys(dictionary, prefix):
+                new_dictionary = {}
+                for key, value in dictionary.items():
+                    new_key = prefix + str(key)
+                    new_dictionary[new_key] = value
+                return new_dictionary
+            
+            emb = np.load(embedding_path)  # (N, F)
+            for task, model in zip(evaluate_tasks, evaluate_models):
+                downstream_model = self.get_downstream_model(model)
+                label = self.data_label[task]
+                result = downstream_model.run(emb, label)
+                self.result.update(add_prefix_to_keys(result, task + '_'))
+            del self.result['tte_best epoch']
 
     def get_downstream_model(self, model):
         try:

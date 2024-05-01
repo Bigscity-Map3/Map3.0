@@ -3,11 +3,12 @@ import random
 from logging import getLogger
 
 import numpy as np
-
+import pandas as pd
 
 from libcity.data.utils import generate_dataloader
 from libcity.utils import ensure_dir
 from libcity.data.dataset import TrafficRepresentationDataset
+from libcity.data.preprocess import cache_dir
 
 class Alias:
     def __init__(self, prob):
@@ -127,13 +128,11 @@ class LINERegionDataset(TrafficRepresentationDataset):
             return
         assert self.representation_object == "region"
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_region:
-            origin_region_geo_id = traj[0]
-            destination_region_geo_id = traj[-1]
-            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
-                origin_region = self.geo_to_ind[origin_region_geo_id]
-                destination_region = self.geo_to_ind[destination_region_geo_id]
-                self.od_label[origin_region][destination_region] += 1
+        od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
+        for _, row in od_file.iterrows():
+            origin_region = row['origin_id']
+            destination_region = row['destination_id']
+            self.od_label[origin_region][destination_region] += 1
         np.save(self.od_label_path, self.od_label)
         self._logger.info("finish construct od graph")
         return
@@ -290,6 +289,6 @@ class LINERegionDataset(TrafficRepresentationDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        self._logger.info(self.function.shape)
+        # self._logger.info(self.function.shape)
         return {"scaler": self.scaler, "num_edges": self.num_edges,
                 "num_nodes": self.num_nodes,"label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}
