@@ -372,8 +372,11 @@ class HHGCLEvaluator(AbstractEvaluator):
             emb = np.load(embedding_path)  # (N, F)
             for task, model in zip(evaluate_tasks, evaluate_models):
                 downstream_model = self.get_downstream_model(model)
-                label = self.data_label[task]
-                result = downstream_model.run(emb, label)
+                if task in ["tsi", "tte"]:
+                    label = self.data_label[task]
+                    result = downstream_model.run(emb, label)
+                else:
+                    result = downstream_model.run()
                 self.result.update(add_prefix_to_keys(result, task + '_'))
             del self.result['tte_best epoch']
 

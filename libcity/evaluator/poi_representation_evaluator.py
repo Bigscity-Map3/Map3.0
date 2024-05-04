@@ -1,6 +1,5 @@
 import csv
 import numpy as np
-import pandas as pd
 from logging import getLogger
 from libcity.evaluator.abstract_evaluator import AbstractEvaluator
 from libcity.evaluator.downstream_models.loc_pred_model import *

@@ -102,8 +102,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
             self._load_dyna()
-        else:
-            raise ValueError('Not found .dyna file!')
         if os.path.exists(self.data_path + self.od_file + '.od'):
             self._load_od()
         else:
@@ -115,7 +113,8 @@ class ODRegionRepresentationDataset(AbstractDataset):
         """
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         self.geofile = geofile
-        l = [geojson2geometry(coordinate) for coordinate in geofile[geofile['traffic_type'] == 'region']['coordinates']]
+        coordinates_list = geofile[geofile['traffic_type'] == 'region']['coordinates']
+        l = coordinates_list if coordinates_list[0][0].isalpha() else [geojson2geometry(coordinate) for coordinate in coordinates_list]
         self.region_geometry = gpd.GeoSeries.from_wkt(l)
         self.centroid = self.region_geometry.centroid
         self.geo_ids = list(geofile['geo_id'])
@@ -152,7 +151,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
         加载各个实体的联系，格式['rel_id','type','origin_id','destination_id','rel_type']
         后续可能会将两种实体之间的对应做成1-->n的映射
         """
-        relfile = pd.read_csv(self.data_path + self.rel_file + '.rel')
         self.road2region = relfile[relfile['rel_type'] == 'road2region']
         self.region2road = relfile[relfile['rel_type'] == 'region2road']
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']

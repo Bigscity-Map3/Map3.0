@@ -125,6 +125,7 @@ class preprocess_traj(PreProcess):
                 ], axis=1)
             df['origin_id'] = df['origin_id'].map(road2region)
             df['destination_id'] = df['destination_id'].map(road2region)
+            df['flow'] = [1] * len(df)
             df.to_csv(self.od_file, index=False)
             region_paths = []
             region_tlists = []
@@ -176,11 +177,20 @@ class preprocess_csv(PreProcess):
                     if key.startswith(traffic_type):
                         df_dict[traffic_type][key[len(traffic_type) + 1:]] = geo_df[key].dropna()
             for key in ['id']:
-                df_dict['poi'][key] = df_dict['poi'][key].astype(int)
+                try:
+                    df_dict['poi'][key] = df_dict['poi'][key].astype(int)
+                except:
+                    continue
             for key in ['id', 'PARCEL_ID', 'FUNCTION', 'BLD_Count', 'InCBD', 'FORM_TYPE']:
-                df_dict['region'][key] = df_dict['region'][key].astype(int)
+                try:
+                    df_dict['region'][key] = df_dict['region'][key].astype(int)
+                except:
+                    continue
             for key in ['id', 'highway', 'lanes', 'tunnel', 'bridge', 'roundabout', 'oneway', 'maxspeed', 'u', 'v']:
-                df_dict['road'][key] = df_dict['road'][key].astype(int)
+                try:
+                    df_dict['road'][key] = df_dict['road'][key].astype(int)
+                except:
+                    continue
             df_dict['poi'].to_csv(os.path.join(self.data_dir, 'POI.csv'), index=False)
             df_dict['region'].to_csv(os.path.join(self.data_dir, 'region.csv'), index=False)
             df_dict['road'].to_csv(os.path.join(self.data_dir, 'road.csv'), index=False)
@@ -320,6 +330,6 @@ class preprocess_neighbor(PreProcess):
 def preprocess_all(config):
     preprocess_csv(config)
     # preprocess_feature(config)
-    preprocess_neighbor(config)
+    # preprocess_neighbor(config)
     preprocess_traj(config)
     preprocess_od(config)

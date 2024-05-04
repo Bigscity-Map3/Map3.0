@@ -8,7 +8,6 @@ import pandas as pd
 from libcity.data.dataset import AbstractDataset
 from libcity.data.utils import generate_dataloader
 from libcity.utils import ensure_dir
-from libcity.evaluator.utils import generate_road_representaion_downstream_data
 
 
 class Alias:
@@ -101,29 +100,6 @@ class LINEDataset(AbstractDataset):
 
         # 采样条数
         self.num_samples = self.num_edges * (1 + self.negative_ratio) * self.times
-
-        self.read_processed_data()
-
-    def read_processed_data(self):
-        assert self.representation_object == "road"
-        data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
-        data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
-        if not os.path.exists(data_path1) or not os.path.exists(data_path2):
-            generate_road_representaion_downstream_data(self.dataset)
-        self.label = {"speed_inference": {}, "travel_time_estimation": {}}
-        self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
-
-        self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
-        self.speed_label.sort_values(by="index", inplace=True, ascending=True)
-
-        min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
-        self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
-
-        self.time_label['path'] = self.time_label['trajs'].map(eval)
-
-        self.time_label['path_len'] = self.time_label['path'].map(len)
-        self.time_label = self.time_label.loc[
-            (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
 
     def _load_geo(self):
         """
@@ -313,9 +289,5 @@ class LINEDataset(AbstractDataset):
             dict: 包含数据集的相关特征的字典
         """
         return {
-            "scaler": self.scaler, "num_edges": self.num_edges, "num_nodes": self.num_nodes,
-            "label": {
-                'speed_inference': {'speed': self.speed_label},
-                'travel_time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
-            }
+            "scaler": self.scaler, "num_edges": self.num_edges, "num_nodes": self.num_nodes
         }

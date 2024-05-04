@@ -9,8 +9,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import dgl.function as fn
-
 class GMEL(AbstractReprLearningModel):
     def __init__(self,config,data_feature):
         super().__init__(config,data_feature)
@@ -44,7 +42,7 @@ class GMEL(AbstractReprLearningModel):
     def run(self,data=None):
         g,num_nodes,node_feats,train_data,train_inflow,train_outflow,trip_od_valid,trip_volume_valid,trip_od_train,trip_volume_train = self.data_post_process()
         model = GMELModel(g,num_nodes,in_dim=node_feats.shape[1],h_dim = self.output_dim,num_hidden_layers=self.num_hidden_layers,dropout=0, device=self.device, reg_param=0).to(self.device)
-        best_rmse = 1e6
+        best_rmse = 1e20
         optimizer = torch.optim.Adam(model.parameters(), self.learning_rate)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.1)
         src_embedding = None
