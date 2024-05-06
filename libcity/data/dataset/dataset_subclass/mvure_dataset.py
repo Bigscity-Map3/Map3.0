@@ -91,7 +91,7 @@ class MVUREDataset(AbstractDataset):
         for _, row in poi2region.iterrows():
             poi_id = int(row['origin_id'])
             region_id = int(row['destination_id'])
-            poi_type = geo_df['poi_TYPE'][poi_id]
+            poi_type = geo_df['poi_type'][poi_id]
             if poi_type not in poi_type_dict.keys():
                 total += 1
                 poi_type_dict[poi_type] = total

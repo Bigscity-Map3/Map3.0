@@ -20,8 +20,13 @@ def timestamp2str(timestamp):
     return formatted_datetime
 
 
+def str2date(s):
+    return datetime.strptime(s, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+
+
 class PreProcess():
     def __init__(self, config):
+        self._logger = getLogger()
         self.dataset = config.get('dataset')
         self.data_dir = os.path.join(cache_dir, self.dataset)
         if not os.path.exists(self.data_dir):
@@ -41,8 +46,7 @@ class preprocess_traj(PreProcess):
         file_name = 'traj_road.csv'
         self.data_file = os.path.join(self.data_dir, file_name)
         if not os.path.exists(self.data_file) or not os.path.exists(self.od_file):
-            logger = getLogger()
-            logger.info('Start preprocess traj.')
+            self._logger.info('Start preprocess traj.')
             dyna_df = pd.read_csv(self.dyna_file)
             id = []
             path = []
@@ -157,15 +161,16 @@ class preprocess_traj(PreProcess):
             test_df = df.drop(train_df.index)
             train_df.to_csv(train_file, index=False)
             test_df.to_csv(test_file, index=False)
-            logger.info('Finish preprocess traj.')
+            self._logger.info('Finish preprocess traj.')
         
 
 class preprocess_csv(PreProcess):
     def __init__(self, config):
         super().__init__(config)
-        if not os.path.exists(os.path.join(self.data_dir, 'POI.csv')):
-            logger = getLogger()
-            logger.info('Start preprocess csv.')
+        if not os.path.exists(os.path.join(self.data_dir, 'POI.csv')) or\
+           not os.path.exists(os.path.join(self.data_dir, 'region.csv')) or\
+           not os.path.exists(os.path.join(self.data_dir, 'road.csv')):
+            self._logger.info('Start preprocess csv.')
             geo_df = pd.read_csv(self.geo_file)
             df_dict = {
                 'poi': pd.DataFrame(),
@@ -194,13 +199,13 @@ class preprocess_csv(PreProcess):
             df_dict['poi'].to_csv(os.path.join(self.data_dir, 'POI.csv'), index=False)
             df_dict['region'].to_csv(os.path.join(self.data_dir, 'region.csv'), index=False)
             df_dict['road'].to_csv(os.path.join(self.data_dir, 'road.csv'), index=False)
-            logger.info('Finish preprocess csv.')
+            self._logger.info('Finish preprocess csv.')
 
 
 def save_traj_od_matrix(data_dir, file_name, n):
-    traj_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
     file_path = os.path.join(data_dir, file_name + '_od.npy')
     if not os.path.exists(file_path):
+        traj_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
         od_matrix = np.zeros((n, n))
         for _, row in traj_df.iterrows():
             tmp = row['path'].split(',')
@@ -214,9 +219,9 @@ def save_traj_od_matrix(data_dir, file_name, n):
 
 
 def save_od_od_matrix(data_dir, file_name, n):
-    od_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
     file_path = os.path.join(data_dir, file_name + '_od.npy')
     if not os.path.exists(file_path):
+        od_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
         od_matrix = np.zeros((n, n))
         for _, row in od_df.iterrows():
             origin = int(row['origin_id'])
@@ -248,7 +253,7 @@ class preprocess_od(PreProcess):
         num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
         if os.path.exists(self.dyna_file):
             traj_df = pd.read_csv(os.path.join(self.data_dir, 'traj_road.csv'))
-            num_days = traj_df['start_time'].drop_duplicates().shape[0]
+            num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
             save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
             save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
             save_traj_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
@@ -262,6 +267,7 @@ class preprocess_od(PreProcess):
         
         train_file = os.path.join(self.data_dir, 'od_region_train.csv')
         test_file = os.path.join(self.data_dir, 'od_region_test.csv')
+        
         if not os.path.exists(train_file) or not os.path.exists(test_file):
             df = pd.read_csv(self.od_file)
             df['start_time'] = df['start_time'].map(str2timestamp)
@@ -273,6 +279,13 @@ class preprocess_od(PreProcess):
 
         save_od_od_matrix(self.data_dir, 'od_region_train', num_regions)
         save_od_od_matrix(self.data_dir, 'od_region_test' , num_regions)
+        if not os.path.exists(os.path.join(self.data_dir, 'od_region_test_in_avg.npy')) or\
+           not os.path.exists(os.path.join(self.data_dir, 'od_region_test_out_avg.npy')):
+            od_df = pd.read_csv(self.od_file)
+            num_days = od_df['start_time'].map(str2date).drop_duplicates().shape[0]
+            save_in_avg(self.data_dir, 'od_region_test', num_days)
+            save_out_avg(self.data_dir, 'od_region_test', num_days)
+
 
 class preprocess_feature(PreProcess):
     def __init__(self, config):

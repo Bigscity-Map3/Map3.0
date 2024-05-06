@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 
-from itertools import zip_longest
 from logging import getLogger
 from torch.utils.tensorboard import SummaryWriter
 

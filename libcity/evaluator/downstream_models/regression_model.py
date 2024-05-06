@@ -23,10 +23,15 @@ class RegressionModel(AbstractModel):
             format(self.exp_id, self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self,x,label):
+        self._logger.info("--- Regression ---")
+        x = np.array(x)
+        label = np.array(label)
         kf = KFold(n_splits=self.n_split)
         y_preds = []
         y_truths = []
         for train_index, test_index in kf.split(x):
+            train_index = list(train_index)
+            test_index = list(test_index)
             X_train, X_test = x[train_index], x[test_index]
             y_train, y_test = label[train_index], label[test_index]
             reg = linear_model.Ridge(alpha=self.alpha)
@@ -44,7 +49,8 @@ class RegressionModel(AbstractModel):
         mse = mean_squared_error(y_truths, y_preds)
         r2 = r2_score(y_truths, y_preds)
 
-        self.result={'regression_mae':mae,'regression_mse':mse,'regression_r2':r2}
+        self.result={'mae':mae, 'mse':mse, 'r2':r2}
+        self._logger.info(self.result)
         self.save_result(self.result_path)
         return self.result
     

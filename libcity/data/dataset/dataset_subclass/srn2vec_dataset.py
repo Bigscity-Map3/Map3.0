@@ -61,8 +61,8 @@ class SRN2VecDataset(AbstractDataset):
     def generate_shortest_paths(self,adj,n_shortest_paths):
         self._logger.info('Start generate shortest paths...')
         #最短路算法实现，返回所有的路径
-        config_file = os.path.join(self.data_cache_file, 'srn2vec_config.json')
-        nodes_paths_cache_file = os.path.join(self.data_cache_file, 'srn2vec_nodes_paths_{}'.format(n_shortest_paths))
+        config_file = os.path.join(self.data_cache_file, f'srn2vec_config_{n_shortest_paths}.json')
+        nodes_paths_cache_file = os.path.join(self.data_cache_file, f'srn2vec_nodes_paths_{n_shortest_paths}')
         if not os.path.exists(config_file):
             def get_path(Pr, i, j):
                 path = [j]

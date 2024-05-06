@@ -22,7 +22,7 @@ class HDGEDataset(AbstractDataset):
      assert (24%self.time_slice == 0)
      if not os.path.exists('./libcity/cache/HDGE_{}'.format(self.dataset)):
          os.mkdir('./libcity/cache/HDGE_{}'.format(self.dataset))
-     self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
+     self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
      self.mob_adj = np.load(self.od_label_path)
      self.num_regions = self.mob_adj.shape[0]
      self.num_nodes = self.num_regions
@@ -53,6 +53,7 @@ class HDGEDataset(AbstractDataset):
         destination_region = row['destination_id']
         time = datetime.fromtimestamp(int(row['end_time']))
         flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
+    np.save(self.flow_graph_path, flow_graph)
     return flow_graph
 
  def construct_spatial_graph(self):

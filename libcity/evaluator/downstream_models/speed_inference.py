@@ -71,7 +71,7 @@ class SpeedInferenceModel(AbstractModel):
         mse = mean_squared_error(y_trues, y_preds)
 
         self.save_result(y_preds, self.result_path)
-
+        self._logger(result)
         result = {'mae': mae, 'mse': mse, 'rmse': rmse}
         return result
 

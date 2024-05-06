@@ -196,7 +196,6 @@ def getSpeedAndTime(traj_list, geo2length, geo2speed):
 
 
 def generate_road_representaion_downstream_data(dataset_name):
-    data_path = os.path.join('libcity/cache/dataset_cache', dataset_name)
     save_data_path = os.path.join('libcity/cache/dataset_cache', dataset_name, "label_data")
     if not os.path.exists(save_data_path):
         os.makedirs(save_data_path)

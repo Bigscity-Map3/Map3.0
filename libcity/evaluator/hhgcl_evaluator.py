@@ -123,7 +123,7 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
         model = Bilinear_Module(output_dim).cuda()
         criterion = nn.MSELoss()
         opt = torch.optim.Adam(model.parameters(),lr=0.01)
-        best_mse = 100000
+        best_mse = 1e20
         best_pred = 0
 
         # 创建 DataLoader
@@ -141,7 +141,6 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
             if val_loss<best_mse:
                 best_mse = val_loss
                 best_pred = y_val_pred
-
         y_preds.append(best_pred.detach().cpu())
         y_trues.append(y_eval.cpu())
     y_preds = torch.cat(y_preds, dim=0).cpu()
@@ -189,6 +188,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.output_dim = config.get('output_dim', 128)
         self.roadid = config.get('roadid', None)
         self.regionid = config.get('regionid', None)
+        self.data_label = {}
         self.region_embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'\
             .format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'\
@@ -235,10 +235,8 @@ class HHGCLEvaluator(AbstractEvaluator):
 
     def _valid_clf(self, emb):
         data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
-        if self.representation_object == 'region':
-            label = data['region_FUNCTION'].dropna().astype(int).values
-        else:
-            label = data['road_highway'].dropna().astype(int).values
+        label_name = self.config[f'{self.representation_object}_clf_label']
+        label = data[f'{self.representation_object}_{label_name}'].dropna().astype(int).values
         num_classes = self.config.get('clf_num_classes', 5)
         tmp = []
         for i in range(label.min(), label.max() + 1):
@@ -272,22 +270,24 @@ class HHGCLEvaluator(AbstractEvaluator):
         return y,useful_index,micro_f1, macro_f1
     
     def _valid_flow_using_bilinear(self, emb):
+        dyna = 'traj' if self.representation_object == 'road' else 'od'
         self._logger.warning(f'Evaluating {self.representation_object} OD-Flow Prediction Using Bilinear Module')
-        od_flow = np.load(os.path.join(cache_dir, self.dataset, f'traj_{self.representation_object}_test_od.npy')).astype('float32')
+        od_flow = np.load(os.path.join(cache_dir, self.dataset, f'{dyna}_{self.representation_object}_test_od.npy')).astype('float32')
         mae,rmse,mape,r2 = evaluation_bilinear_reg(emb, od_flow, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info(f"Result of odflow bilinear estimation in {self.dataset}:")
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(mae,rmse,r2,mape))
         return mae, rmse, r2, mape
     
     def _valid_flow(self, emb):
+        dyna = 'traj' if self.representation_object == 'road' else 'od'
         self._logger.warning(f'Evaluating {self.representation_object} In-Flow Prediction')
-        inflow = np.load(os.path.join(cache_dir, self.dataset, f'traj_{self.representation_object}_test_in_avg.npy')).astype('float32')
+        inflow = np.load(os.path.join(cache_dir, self.dataset, f'{dyna}_{self.representation_object}_test_in_avg.npy')).astype('float32')
         in_mae, in_rmse, in_mape, in_r2 = evaluation_reg(emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info(f"Result of inflow estimation in {self.dataset}:")
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_mae, in_rmse, in_r2, in_mape))
 
         self._logger.warning(f'Evaluating {self.representation_object} Out-Flow Prediction')
-        outflow = np.load(os.path.join(cache_dir, self.dataset, f'traj_{self.representation_object}_test_out_avg.npy')).astype('float32')
+        outflow = np.load(os.path.join(cache_dir, self.dataset, f'{dyna}_{self.representation_object}_test_out_avg.npy')).astype('float32')
         out_mae, out_rmse, out_mape, out_r2 = evaluation_reg(emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_mae, out_rmse, out_r2, out_mape))
@@ -301,27 +301,32 @@ class HHGCLEvaluator(AbstractEvaluator):
         return mae, rmse, r2, mape
     
     def preprocesse_data(self):
-        data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
-        data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
-        if not os.path.exists(data_path1) or not os.path.exists(data_path2):
-            generate_road_representaion_downstream_data(self.dataset)
-        self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
+        if self.representation_object == 'road':
+            data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
+            data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
+            if not os.path.exists(data_path1) or not os.path.exists(data_path2):
+                generate_road_representaion_downstream_data(self.dataset)
+            self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
 
-        self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
-        self.speed_label.sort_values(by="index", inplace=True, ascending=True)
+            self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
+            self.speed_label.sort_values(by="index", inplace=True, ascending=True)
 
-        min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
-        self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
+            min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
+            self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
 
-        self.time_label['path'] = self.time_label['trajs'].map(eval)
+            self.time_label['path'] = self.time_label['trajs'].map(eval)
 
-        self.time_label['path_len'] = self.time_label['path'].map(len)
-        self.time_label = self.time_label.loc[
-            (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
-        self.data_label = {
-            'tsi': {'speed': self.speed_label},
-            'tte': {'time': self.time_label, 'padding_id': self.num_nodes}
-        }
+            self.time_label['path_len'] = self.time_label['path'].map(len)
+            self.time_label = self.time_label.loc[
+                (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
+            self.data_label.update({
+                'tsi': {'speed': self.speed_label},
+                'tte': {'time': self.time_label, 'padding_id': self.num_nodes}
+            })
+
+        elif self.representation_object == 'region':
+            region_df = pd.read_csv(os.path.join("libcity/cache/dataset_cache", self.dataset, 'region.csv'))
+            self.data_label.update({'eci': list(region_df['crimes_count'])})
 
     def get_downstream_model(self, model):
         try:
@@ -336,14 +341,22 @@ class HHGCLEvaluator(AbstractEvaluator):
             embedding_path = self.region_embedding_path
         emb = np.load(embedding_path)
         self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
-        self._logger.warning('Evaluating Road Classification')
-        y_truth,useful_index,micro_f1, macro_f1 = self._valid_clf(emb)
+        if self.config['clf_task']:
+            self._logger.warning('Evaluating Road Classification')
+            y_truth,useful_index,micro_f1, macro_f1 = self._valid_clf(emb)
+            self.result['micro_f1'] = [micro_f1]
+            self.result['macro_f1'] = [macro_f1]
+            self._logger.warning('Evaluating Road Emb by TSNE ans Kmeans')
+            sc, db, ch, nmi, ars = self.evaluation_cluster(y_truth,useful_index,emb, self.representation_object)
+            self.result['sc'] = [sc]
+            self.result['db'] = [db]
+            self.result['ch'] = [ch]
+            self.result['nmi'] = [nmi]
+            self.result['ars'] = [ars]
+
         mae, rmse, r2, mape = self._valid_flow(emb)
         bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
-        self._logger.warning('Evaluating Road Emb by TSNE ans Kmeans')
-        sc, db, ch, nmi, ars = self.evaluation_cluster(y_truth,useful_index,emb, self.representation_object)
-        self.result['micro_f1'] = [micro_f1]
-        self.result['macro_f1'] = [macro_f1]
+        
         self.result['mae'] = [mae]
         self.result['rmse'] = [rmse]
         self.result['mape'] = [mape]
@@ -352,33 +365,37 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.result['bilinear_rmse'] = [bilinear_rmse]
         self.result['bilinear_mape'] = [bilinear_mape]
         self.result['bilinear_r2'] = [bilinear_r2]
-        self.result['sc'] = [sc]
-        self.result['db'] = [db]
-        self.result['ch'] = [ch]
-        self.result['nmi'] = [nmi]
-        self.result['ars'] = [ars]
-
-        if self.representation_object == 'road':
-            evaluate_tasks = ["tsi", "tte", "tc"]
-            evaluate_models = ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"]
-
-            def add_prefix_to_keys(dictionary, prefix):
+        
+        def add_prefix_to_keys(dictionary, prefix):
                 new_dictionary = {}
                 for key, value in dictionary.items():
                     new_key = prefix + str(key)
                     new_dictionary[new_key] = value
                 return new_dictionary
-            
-            emb = np.load(embedding_path)  # (N, F)
+        emb = np.load(embedding_path)  # (N, F)
+        
+        if self.representation_object == 'road':
+            evaluate_tasks = ["tsi", "tte", "tc"]
+            evaluate_models = ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"]
+                
             for task, model in zip(evaluate_tasks, evaluate_models):
                 downstream_model = self.get_downstream_model(model)
                 if task in ["tsi", "tte"]:
                     label = self.data_label[task]
                     result = downstream_model.run(emb, label)
-                else:
+                elif task in ['tc']:
                     result = downstream_model.run()
                 self.result.update(add_prefix_to_keys(result, task + '_'))
             del self.result['tte_best epoch']
+        
+        elif self.representation_object == 'region':
+            evaluate_tasks = ["eci"]
+            evaluate_models = ["RegressionModel"]
+            for task, model in zip(evaluate_tasks, evaluate_models):
+                downstream_model = self.get_downstream_model(model)
+                label = self.data_label[task]
+                result = downstream_model.run(emb, label)
+                self.result.update(add_prefix_to_keys(result, task + '_'))
 
     def get_downstream_model(self, model):
         try:
