@@ -48,6 +48,8 @@ class preprocess_traj(PreProcess):
         if not os.path.exists(self.data_file) or not os.path.exists(self.od_file):
             self._logger.info('Start preprocess traj.')
             dyna_df = pd.read_csv(self.dyna_file)
+            if 'location' in dyna_df.keys():
+                return
             id = []
             path = []
             tlist = []
@@ -74,13 +76,12 @@ class preprocess_traj(PreProcess):
                     hop.append(0)
                     usr_id.append(row['entity_id'])
                     traj_id.append(row['traj_id'])
-                    start_time.append(row['time'].split(' ')[0])
                 tlist[idx].append(str2timestamp(row['time']))
                 path[idx].append(row['geo_id'] - num_regions)
                 lst_traj_id = row['traj_id']
                 lst_usr_id = row['entity_id']
             start_time, end_time, origin_id, destination_id = [], [], [], []
-            for i in range(id[-1]):
+            for i in range(id[-1] + 1):
                 duration[i] = tlist[i][-1] - tlist[i][0]
                 hop[i] = len(path[i])
                 start_time.append(timestamp2str(tlist[i][0]))
@@ -98,7 +99,8 @@ class preprocess_traj(PreProcess):
                     pd.Series(hop, name='hop'),
                     pd.Series(usr_id, name='usr_id'),
                     pd.Series(traj_id, name='traj_id'),
-                    pd.Series(start_time, name='start_time')
+                    pd.Series(start_time, name='start_time'),
+                    pd.Series(end_time, name='end_time')
                 ], axis=1)
             df.to_csv(self.data_file, index=False)
             # 没有分验证集的必要 4:1

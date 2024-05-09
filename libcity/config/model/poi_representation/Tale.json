@@ -2,5 +2,6 @@
   "indi_context": true,
   "slice": 60,
   "span": 0,
-  "learner": "sgd"
+  "learner": "sgd",
+  "learning_rate": 1e-3
 }

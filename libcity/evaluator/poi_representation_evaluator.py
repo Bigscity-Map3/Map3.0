@@ -99,6 +99,8 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         embed_size = self.config.get('embed_size', 128)
         task_epoch = self.config.get('task_epoch', 5)
         category = self.data_feature.get('coor_df')
+        import pdb
+        pdb.set_trace()
         device=self.config.get('device','cuda:0')
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
         # 随机划分数据集
