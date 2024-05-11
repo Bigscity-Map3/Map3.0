@@ -46,10 +46,10 @@ class preprocess_traj(PreProcess):
         file_name = 'traj_road.csv'
         self.data_file = os.path.join(self.data_dir, file_name)
         if not os.path.exists(self.data_file) or not os.path.exists(self.od_file):
-            self._logger.info('Start preprocess traj.')
             dyna_df = pd.read_csv(self.dyna_file)
             if 'location' in dyna_df.keys():
                 return
+            self._logger.info('Start preprocess traj.')
             id = []
             path = []
             tlist = []
@@ -254,18 +254,20 @@ class preprocess_od(PreProcess):
         num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
         num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
         if os.path.exists(self.dyna_file):
-            traj_df = pd.read_csv(os.path.join(self.data_dir, 'traj_road.csv'))
-            num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
-            save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
-            save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
-            save_traj_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
-            save_traj_od_matrix(self.data_dir, 'traj_road'        , num_roads  )
-            save_traj_od_matrix(self.data_dir, 'traj_road_train'  , num_roads  )
-            save_traj_od_matrix(self.data_dir, 'traj_road_test'   , num_roads  )
-            save_in_avg(self.data_dir, 'traj_region_test', num_days)
-            save_in_avg(self.data_dir, 'traj_road_test', num_days)
-            save_out_avg(self.data_dir, 'traj_region_test', num_days)
-            save_out_avg(self.data_dir, 'traj_road_test', num_days)
+            traj_road_path = os.path.join(self.data_dir, 'traj_road.csv')
+            if os.path.exists(traj_road_path):
+                traj_df = pd.read_csv(traj_road_path)
+                num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
+                save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
+                save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
+                save_traj_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
+                save_traj_od_matrix(self.data_dir, 'traj_road'        , num_roads  )
+                save_traj_od_matrix(self.data_dir, 'traj_road_train'  , num_roads  )
+                save_traj_od_matrix(self.data_dir, 'traj_road_test'   , num_roads  )
+                save_in_avg(self.data_dir, 'traj_region_test', num_days)
+                save_in_avg(self.data_dir, 'traj_road_test', num_days)
+                save_out_avg(self.data_dir, 'traj_region_test', num_days)
+                save_out_avg(self.data_dir, 'traj_road_test', num_days)
         
         train_file = os.path.join(self.data_dir, 'od_region_train.csv')
         test_file = os.path.join(self.data_dir, 'od_region_test.csv')

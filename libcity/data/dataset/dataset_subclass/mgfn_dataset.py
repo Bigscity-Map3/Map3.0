@@ -25,8 +25,9 @@ class MGFNDataset(AbstractDataset):
         if not os.path.exists('./libcity/cache/MGFN_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/MGFN_{}'.format(self.dataset))
         self.multi_graph = None
+        self.flow_graph_path = './libcity/cache/HDGE_{}/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
         self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
-        self.od_label_path = os.path.join(cache_dir, self.dataset, 'traj_region_train_od.npy')
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
         self.num_nodes = self.num_regions
@@ -42,14 +43,19 @@ class MGFNDataset(AbstractDataset):
         return None, None, None
 
     def construct_multi_graph(self):
+        if os.path.exists(self.flow_graph_path):
+            flow_graph = np.load(self.flow_graph_path)
+            self._logger.info("finish constructing flow graph")
+            return flow_graph
         time_each_slice = 24 // self.time_slice
         od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
         flow_graph = np.zeros([self.time_slice, self.num_nodes, self.num_nodes])
         for _, row in od_file.iterrows():
-            origin_region = row['origin_id']
-            destination_region = row['destination_id']
+            origin_region = int(row['origin_id'])
+            destination_region = int(row['destination_id'])
             time = datetime.fromtimestamp(int(row['end_time']))
             flow_graph[time.hour // time_each_slice][origin_region][destination_region] += 1
+        np.save(self.flow_graph_path, flow_graph)
         return flow_graph
 
     def propertyFunc_var(self,adj_matrix):
