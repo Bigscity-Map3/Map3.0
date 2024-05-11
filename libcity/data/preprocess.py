@@ -47,8 +47,10 @@ class preprocess_traj(PreProcess):
         self.data_file = os.path.join(self.data_dir, file_name)
         
         if not os.path.exists(self.data_file) or not os.path.exists(self.od_file):
-            self._logger.info('Start preprocess traj.')
             dyna_df = pd.read_csv(self.dyna_file)
+            if 'location' in dyna_df.keys():
+                return
+            self._logger.info('Start preprocess traj.')
             id = []
             path = []
             tlist = []
@@ -75,13 +77,12 @@ class preprocess_traj(PreProcess):
                     hop.append(0)
                     usr_id.append(row['entity_id'])
                     traj_id.append(row['traj_id'])
-                    start_time.append(row['time'].split(' ')[0])
                 tlist[idx].append(str2timestamp(row['time']))
                 path[idx].append(row['geo_id'] - num_regions)
                 lst_traj_id = row['traj_id']
                 lst_usr_id = row['entity_id']
             start_time, end_time, origin_id, destination_id = [], [], [], []
-            for i in range(id[-1]):
+            for i in range(id[-1] + 1):
                 duration[i] = tlist[i][-1] - tlist[i][0]
                 hop[i] = len(path[i])
                 start_time.append(timestamp2str(tlist[i][0]))
@@ -99,7 +100,8 @@ class preprocess_traj(PreProcess):
                     pd.Series(hop, name='hop'),
                     pd.Series(usr_id, name='usr_id'),
                     pd.Series(traj_id, name='traj_id'),
-                    pd.Series(start_time, name='start_time')
+                    pd.Series(start_time, name='start_time'),
+                    pd.Series(end_time, name='end_time')
                 ], axis=1)
             df.to_csv(self.data_file, index=False)
             # 没有分验证集的必要 4:1
@@ -253,20 +255,20 @@ class preprocess_od(PreProcess):
         num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
         num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
         if os.path.exists(self.dyna_file):
-            traj_df = pd.read_csv(os.path.join(self.data_dir, 'traj_road.csv'))
-            traj_df = traj_df.dropna()
-            
-            num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
-            save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
-            save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
-            save_traj_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
-            save_traj_od_matrix(self.data_dir, 'traj_road'        , num_roads  )
-            save_traj_od_matrix(self.data_dir, 'traj_road_train'  , num_roads  )
-            save_traj_od_matrix(self.data_dir, 'traj_road_test'   , num_roads  )
-            save_in_avg(self.data_dir, 'traj_region_test', num_days)
-            save_in_avg(self.data_dir, 'traj_road_test', num_days)
-            save_out_avg(self.data_dir, 'traj_region_test', num_days)
-            save_out_avg(self.data_dir, 'traj_road_test', num_days)
+            traj_road_path = os.path.join(self.data_dir, 'traj_road.csv')
+            if os.path.exists(traj_road_path):
+                traj_df = pd.read_csv(traj_road_path)
+                num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
+                save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
+                save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
+                save_traj_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
+                save_traj_od_matrix(self.data_dir, 'traj_road'        , num_roads  )
+                save_traj_od_matrix(self.data_dir, 'traj_road_train'  , num_roads  )
+                save_traj_od_matrix(self.data_dir, 'traj_road_test'   , num_roads  )
+                save_in_avg(self.data_dir, 'traj_region_test', num_days)
+                save_in_avg(self.data_dir, 'traj_road_test', num_days)
+                save_out_avg(self.data_dir, 'traj_region_test', num_days)
+                save_out_avg(self.data_dir, 'traj_road_test', num_days)
         
         train_file = os.path.join(self.data_dir, 'od_region_train.csv')
         test_file = os.path.join(self.data_dir, 'od_region_test.csv')

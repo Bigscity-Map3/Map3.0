@@ -6,5 +6,6 @@
   "detach": false,
   "objective": "mlm",
   "static": false,
-  "lr_decay": false
+  "lr_decay": false,
+  "learning_rate": 1e-4
 }

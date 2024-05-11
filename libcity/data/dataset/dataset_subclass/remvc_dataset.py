@@ -41,7 +41,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
         self._logger.info('Start get region dict...')
         poi_dict = {}
         poi_df = self.geofile[self.geofile['traffic_type'] == 'poi']
-        poi_map = gen_index_map(poi_df, 'function')
+        poi_map = gen_index_map(poi_df, self.config.get('poi_type_name'))
         self.num_poi_types = len(poi_map)
         region_dict_path = self.data_cache_file + 'remvc_region_dict.pkl'
         if not os.path.exists(region_dict_path):
@@ -57,7 +57,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
 
             # poi
             for _, row in poi_df.iterrows():
-                poi_dict[row['geo_id']] = poi_map[row['function']]
+                poi_dict[row['geo_id']] = poi_map[row[self.config.get('poi_type_name')]]
             for _, row in self.region2poi.iterrows():
                 region_id = row['origin_id']
                 poi_id = row['destination_id']
@@ -198,7 +198,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
         function = np.zeros(self.num_regions)
         region_df = self.geofile[self.geofile['traffic_type'] == 'region']
         for i, row in region_df.iterrows():
-            function[i] = row['function']
+            function[i] = row[self.config.get('poi_type_name')]
         return {
             'region_dict': self.region_dict,
             'matrix_dict': self.matrix_dict,

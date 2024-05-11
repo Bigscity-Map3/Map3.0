@@ -15,6 +15,8 @@ class MGFN(AbstractReprLearningModel):
         self.mob_adj = data_feature.get("mob_adj")
         self.time_slice = data_feature.get("time_slice")
         self.num_nodes = data_feature.get("num_nodes")
+        if self.num_nodes % 2 == 1:
+            self.num_nodes += 1
         self._logger = getLogger()
         self.output_dim = config.get('output_dim', 128)
         self.iter = config.get('max_epoch', 2000)
@@ -142,7 +144,7 @@ class MobilityPatternJointLearning(nn.Module):
         self.num_multi_pattern_encoder = 3
         self.num_cross_graph_encoder = 1
         #改动
-        if node_num%4 == 0:
+        if node_num % 4 == 0:
             self.n_head = 4
         else:
             self.n_head = 2

@@ -27,7 +27,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.normal_external = self.config.get('normal_external', False)
         self.add_time_in_day = self.config.get('add_time_in_day', False)
         self.add_day_in_week = self.config.get('add_day_in_week', False)
-        self.representation_object = self.config.get('representation_object', 'region')  #####
+        self.representation_object = self.config.get('representation_object', 'region')
         self.input_window = self.config.get('input_window', 12)
         self.output_window = self.config.get('output_window', 12)
         self.region_geometry = None
@@ -100,8 +100,8 @@ class ODRegionRepresentationDataset(AbstractDataset):
             self._load_rel()
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
-            self._load_dyna()
+        # if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
+        #     self._load_dyna()
         if os.path.exists(self.data_path + self.od_file + '.od'):
             self._load_od()
         else:

@@ -130,8 +130,8 @@ class LINERegionDataset(TrafficRepresentationDataset):
         self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
         for _, row in od_file.iterrows():
-            origin_region = row['origin_id']
-            destination_region = row['destination_id']
+            origin_region = int(row['origin_id'])
+            destination_region = int(row['destination_id'])
             self.od_label[origin_region][destination_region] += 1
         np.save(self.od_label_path, self.od_label)
         self._logger.info("finish construct od graph")
@@ -291,4 +291,4 @@ class LINERegionDataset(TrafficRepresentationDataset):
         """
         # self._logger.info(self.function.shape)
         return {"scaler": self.scaler, "num_edges": self.num_edges,
-                "num_nodes": self.num_nodes,"label":{"od_matrix_predict":self.od_label,"function_cluster":self.function}}
+                "num_nodes": self.num_nodes,"label":{"od_matrix_predict":self.od_label}}

@@ -17,7 +17,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self._logger = getLogger()
         self.config = config
         self.data_feature = data_feature
-        self.model_name = self.config.get('downstream_model', '')
+        self.model_name = self.config.get('downstream_model', 'rnn')
         self.device = self.config.get('device')
         self.result = {}
         self.model = config.get('model')
@@ -93,7 +93,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
     
     def evaluate_loc_clf(self):
         logger=getLogger()
-        # 只有foursquare数据集可以执行
+        logger.info('Start training downstream model [loc_clf]...')
         embed_layer = self.data_feature.get('embed_layer')
         num_loc = self.data_feature.get('num_loc')
         embed_size = self.config.get('embed_size', 128)
@@ -212,7 +212,8 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self._logger.info('Start evaluating ...')
         self.evaluate_loc_pre()
         self.evaluate_traj_clf()
-        if 'foursquare' in self.config.get('dataset'):
+        poi_type_name = self.config.get('poi_type_name', None)
+        if poi_type_name is not None:
             self.evaluate_loc_clf()
             self.evaluate_loc_cluster()
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \

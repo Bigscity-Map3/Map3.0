@@ -254,10 +254,10 @@ class POIRepresentationDataset(AbstractDataset):
         self.usr_file = self.config.get('usr_file', self.dataset)
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.dyna_file = self.config.get('dyna_file', self.dataset)
-        if os.path.exists(os.path.join(self.data_path, self.usr_file + '.usr')):
-            self._load_usr()
-        else:
-            raise ValueError('Not found .usr file!')
+        # if os.path.exists(os.path.join(self.data_path, self.usr_file + '.usr')):
+        #     self._load_usr()
+        # else:
+        #     raise ValueError('Not found .usr file!')
         if os.path.exists(os.path.join(self.data_path, self.geo_file + '.geo')):
             self._load_geo()
         else:
@@ -285,12 +285,13 @@ class POIRepresentationDataset(AbstractDataset):
             lat_list.append(lat)
         lng_col = pd.Series(lng_list, name='lng')
         lat_col = pd.Series(lat_list, name='lat')
-        idx_col = geo_df['geo_id']
-        if 'venue_category_name' in geo_df.columns:
-            category_list=list(geo_df.venue_category_name.unique())
+        idx_col = pd.Series(list(range(len(geo_df))), name='geo_id')
+        type_name = self.config.get('poi_type_name', None)
+        if type_name is not None:
+            category_list=list(geo_df[type_name].drop_duplicates())
             c2i={name:i for i,name in enumerate(category_list)}
             cid_list=[]
-            for name in geo_df.venue_category_name:
+            for name in list(geo_df[type_name]):
                 cid_list.append(c2i[name])
             cid_list=pd.Series(cid_list,name='category')
             self.coor_df = pd.concat([idx_col, lat_col, lng_col, cid_list], axis=1)
@@ -325,7 +326,7 @@ class POIRepresentationDataset(AbstractDataset):
         days = data['day'].drop_duplicates().to_list()
         if len(days) <= 1:
             raise ValueError('Dataset contains only one day!')
-        shuffle(days)
+        days.sort()
         test_count = max(1, min(math.ceil(len(days) * self.test_scale), len(days)))
         self.split_days = [days[:-test_count], days[-test_count:]]
         self._logger.info('Days for train: {}'.format(self.split_days[0]))

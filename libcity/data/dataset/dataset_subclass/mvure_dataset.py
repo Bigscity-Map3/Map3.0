@@ -21,7 +21,7 @@ def my_cosine_similarity(a, b):
 
 
 def num2str(x):
-    s = '#'
+    s = 'a'
     while x > 0:
         s += chr(ord('a') + x % 26)
         x //= 26
@@ -100,6 +100,8 @@ class MVUREDataset(AbstractDataset):
         # 创建一个 TfidfVectorizer 对象
         tfidf_vectorizer = TfidfVectorizer()
         # 将文本数据转换成 TF-IDF 表示
+        # import pdb
+        # pdb.set_trace()
         tfidf_matrix = tfidf_vectorizer.fit_transform(corpus).toarray()
         for i in range(self.num_regions):
             for j in range(i, self.num_regions):

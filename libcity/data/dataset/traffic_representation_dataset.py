@@ -100,11 +100,11 @@ class TrafficRepresentationDataset(AbstractDataset):
             pass
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
-            self._load_dyna()
-            pass
-        else:
-            raise ValueError('Not found .dyna file!')
+        # if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
+        #     self._load_dyna()
+        #     pass
+        # else:
+        #     raise ValueError('Not found .dyna file!')
         if self.representation_object == "region":
             if self.remove_node_type == "traj":
                 self.remove_0_degree_nodes()
@@ -116,7 +116,7 @@ class TrafficRepresentationDataset(AbstractDataset):
                 self.keep_mvure_nodes()
             else:
                 geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
-                self.function = list(geofile[geofile['traffic_type'] == 'region']['region_FUNCTION'])
+                # self.function = list(geofile[geofile['traffic_type'] == 'region']['region_FUNCTION'])
         elif self.representation_object == "road":
             self.geo_to_ind = {}
             self.ind_to_geo = {}
@@ -135,7 +135,8 @@ class TrafficRepresentationDataset(AbstractDataset):
         """
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
         self.geofile = geofile
-        l = [geojson2geometry(coordinate) for coordinate in geofile[geofile['traffic_type'] == 'region']['coordinates']]
+        coordinates_list = geofile[geofile['traffic_type'] == 'region']['coordinates']
+        l = coordinates_list if coordinates_list[0][0].isalpha() else [geojson2geometry(coordinate) for coordinate in coordinates_list]
         self.region_geometry = gpd.GeoSeries.from_wkt(l)
         self.geo_ids = list(geofile['geo_id'])
         self.region_ids = list(geofile[geofile['traffic_type'] == 'region']['geo_id'])
