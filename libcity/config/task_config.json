@@ -1,7 +1,7 @@
 {
     "road_representation": {
         "allowed_model": [
-            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad","SARN"
+            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad","SARN","Toast","START"
         ],
         "allowed_dataset": [
             "xa","bj","cd"
@@ -46,6 +46,11 @@
             "executor": "TwoStepExecutor",
             "evaluator": "HHGCLEvaluator"
         },
+        "Toast": {
+            "dataset_class": "ToastDataset",
+            "executor": "TwoStepExecutor",
+            "evaluator": "HHGCLEvaluator"
+        },
         "HyperRoad": {
             "dataset_class": "HyperRoadDataset",
             "executor": "TwoStepExecutor",
@@ -54,6 +59,11 @@
         "SARN": {
             "dataset_class": "HyperRoadDataset",
             "executor": "TwoStepExecutor",
+            "evaluator": "HHGCLEvaluator"
+        },
+        "START":{
+            "dataset_class": "ContrastiveLMDataset",
+            "executor": "ContrastiveMLMExecutor",
             "evaluator": "HHGCLEvaluator"
         }
     },

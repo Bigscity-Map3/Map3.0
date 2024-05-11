@@ -12,6 +12,9 @@ from libcity.data.dataset.dataset_subclass.jclrnt_dataset import JCLRNTDataset
 from libcity.data.dataset.dataset_subclass.srn2vec_dataset import SRN2VecDataset
 from libcity.data.dataset.dataset_subclass.hyperroad_dataset import HyperRoadDataset
 from libcity.data.dataset.dataset_subclass.hrep_dataset import HREPDataset
+from libcity.data.dataset.dataset_subclass.toast_dataset import ToastDataset
+from libcity.data.dataset.dataset_subclass.bertlm_constrastive_dataset import ContrastiveLMDataset
+
 __all__ = [
     'CONVGCNDataset',
     'ChebConvDataset',\
@@ -28,5 +31,7 @@ __all__ = [
     "JCLRNTDataset",
     "HyperRoadDataset",
     "ReMVCDataset",
-    "HREPDataset"
+    "HREPDataset",
+    "ToastDataset",
+    "ContrastiveLMDataset"
 ]

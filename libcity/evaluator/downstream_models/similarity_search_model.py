@@ -69,7 +69,7 @@ class SimilaritySearchModel(AbstractModel):
         self.dataset = config.get('dataset')
         self.model = config.get('model')
         self.exp_id = config.get('exp_id', 0)
-        self.output_dim = config.get('output_dim')
+        self.output_dim = config.get('output_dim',128)
         self.representation_object = config.get('representation_object', 'region')
         geo_df = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         self.num_nodes = geo_df[geo_df['traffic_type'] == self.representation_object].shape[0]

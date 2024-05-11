@@ -8,6 +8,8 @@ from libcity.model.road_representation.SRN2Vec import SRN2Vec
 from libcity.model.road_representation.JCLRNT import JCLRNT
 from libcity.model.road_representation.HyperRoad import HyperRoad
 from libcity.model.road_representation.SARN import SARN
+from libcity.model.road_representation.Toast import Toast
+from libcity.model.road_representation.START import START
 __all__ = [
     "ChebConv",
     "LINE",
@@ -18,5 +20,7 @@ __all__ = [
     "DeepWalk",
     "JCLRNT",
     "HyperRoad",
-    "SARN"
+    "SARN",
+    "Toast",
+    "START"
 ]

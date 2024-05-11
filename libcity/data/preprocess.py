@@ -45,6 +45,7 @@ class preprocess_traj(PreProcess):
             return
         file_name = 'traj_road.csv'
         self.data_file = os.path.join(self.data_dir, file_name)
+        
         if not os.path.exists(self.data_file) or not os.path.exists(self.od_file):
             self._logger.info('Start preprocess traj.')
             dyna_df = pd.read_csv(self.dyna_file)
@@ -253,6 +254,8 @@ class preprocess_od(PreProcess):
         num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
         if os.path.exists(self.dyna_file):
             traj_df = pd.read_csv(os.path.join(self.data_dir, 'traj_road.csv'))
+            traj_df = traj_df.dropna()
+            
             num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
             save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
             save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
@@ -341,6 +344,7 @@ class preprocess_neighbor(PreProcess):
 
 
 def preprocess_all(config):
+    
     preprocess_csv(config)
     # preprocess_feature(config)
     # preprocess_neighbor(config)

@@ -353,18 +353,19 @@ class HHGCLEvaluator(AbstractEvaluator):
             self.result['ch'] = [ch]
             self.result['nmi'] = [nmi]
             self.result['ars'] = [ars]
+        if self.representation_object == 'region':
 
-        mae, rmse, r2, mape = self._valid_flow(emb)
-        bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
-        
-        self.result['mae'] = [mae]
-        self.result['rmse'] = [rmse]
-        self.result['mape'] = [mape]
-        self.result['r2'] = [r2]
-        self.result['bilinear_mae'] = [bilinear_mae]
-        self.result['bilinear_rmse'] = [bilinear_rmse]
-        self.result['bilinear_mape'] = [bilinear_mape]
-        self.result['bilinear_r2'] = [bilinear_r2]
+            mae, rmse, r2, mape = self._valid_flow(emb)
+            bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
+            
+            self.result['mae'] = [mae]
+            self.result['rmse'] = [rmse]
+            self.result['mape'] = [mape]
+            self.result['r2'] = [r2]
+            self.result['bilinear_mae'] = [bilinear_mae]
+            self.result['bilinear_rmse'] = [bilinear_rmse]
+            self.result['bilinear_mape'] = [bilinear_mape]
+            self.result['bilinear_r2'] = [bilinear_r2]
         
         def add_prefix_to_keys(dictionary, prefix):
                 new_dictionary = {}
@@ -403,7 +404,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         except AttributeError:
             raise AttributeError('evaluate model is not found')
 
-    def evaluate(self):
+    def evaluate(self, selected_geo_ids=None):
+        self.selected_geo_ids=selected_geo_ids
         self.evaluate_embedding()
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))

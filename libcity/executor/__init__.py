@@ -6,6 +6,7 @@ from libcity.executor.chebconv_executor import ChebConvExecutor
 from libcity.executor.general_executor import GeneralExecutor
 from libcity.executor.twostep_executor import TwoStepExecutor
 from libcity.executor.poi_representation_executor import POIRepresentationExecutor
+from libcity.executor.contra_mlm_executor import ContrastiveMLMExecutor
 
 __all__ = [
     "HyperTuning",
@@ -15,5 +16,6 @@ __all__ = [
     "ChebConvExecutor",
     "LINEExecutor",
     "TwoStepExecutor",
-    "POIRepresentationExecutor"
+    "POIRepresentationExecutor",
+    "ContrastiveMLMExecutor"
 ]

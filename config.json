@@ -7,5 +7,6 @@
   "downstream_model": "rnn",
   "is_static": true,
   "batch_size": 64,
-  "downstream_batch_size": 64
+  "downstream_batch_size": 64,
+  "clf_task" : false
 }
