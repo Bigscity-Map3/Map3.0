@@ -9,8 +9,52 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+import networkx as nx
+from itertools import cycle, islice
+from tqdm import tqdm
 
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
+
+def k_shortest_paths_nx(G, source, target, k, weight='weight'):
+    return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
+
+
+
+
+
+def build_graph(rel_file, geo_file):
+
+    rel = pd.read_csv(rel_file)
+    geo = pd.read_csv(geo_file)
+    
+    edge2len = {}
+    geoid2coord = {}
+    for i, row in tqdm(geo.iterrows(), total=geo.shape[0]):
+        geo_id = row.geo_id
+        length = float(row.length)
+        edge2len[geo_id] = length
+        # geoid2coord[geo_id] = row.coordinates
+
+    graph = nx.DiGraph()
+
+    for i, row in tqdm(rel.iterrows(), total=rel.shape[0]):
+        prev_id = row.origin_id
+        curr_id = row.destination_id
+
+        # Use length as weight
+        # weight = geo.iloc[prev_id].length
+        
+        # Use avg_speed as weight
+        weight = row.avg_time
+        if weight == float('inf'):
+            # weight = 9999999
+            pass
+            # print(row)
+        graph.add_edge(prev_id, curr_id, weight=weight)
+
+    return graph
+
+
 
 
 class TrajEncoder(nn.Module):
@@ -93,33 +137,12 @@ class SimilaritySearchModel(AbstractModel):
         self.embedding = np.load(self.embedding_path)
         new_row = np.zeros((1, self.embedding.shape[1]))
         self.embedding = np.concatenate((self.embedding, new_row), axis=0)  # embedding[padding_id] = 0
+        self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'traj_' + self.representation_object + 'test_detor.csv'),allow_pickle=True)
+        self.query_traj=pd.read(os.path.join('libcity/cache/dataset_cache',self.dataset, 'traj_' + self.representation_object + 'test_detor.csv',allow_pickle=True))# num,path
+        
+        self.train_index=list(range(2000))
+        self.test_index=list(range(2000,10000))
 
-    def filter_traj(self, file_path):
-        df = pd.read_csv(file_path)
-        df['path'] = df['path'].map(eval)
-        df['path_len'] = df['path'].map(len)
-        df = df.loc[(df['path_len'] >= self.min_len) & (df['path_len'] <= self.max_len)]
-        df = df.reset_index(drop=True)
-        return df
-    
-    def detour(self, path, aug_type):
-        rate = self.detour_rate
-        new_path = []
-        for node in path:
-            p = np.random.random_sample()
-            if aug_type == 'add':
-                new_path.append(node)
-                if p > rate:
-                    new_path.append(np.random.randint(self.num_nodes))
-            elif aug_type == 'delete':
-                if p <= rate:
-                    new_path.append(node)
-            elif aug_type == 'replace':
-                new_path.append(np.random.randint(self.num_nodes) if p > rate else node)
-        if len(new_path) > self.max_len:
-            new_path = new_path[:self.max_len]
-        valid_length = len(new_path)
-        return new_path, valid_length
 
     def data_loader(self, padding_id, num_queries):        
         num_samples = len(self.test_traj_df)
@@ -159,7 +182,17 @@ class SimilaritySearchModel(AbstractModel):
         num_nodes = self.num_nodes
         batch_size = self.batch_size
         num_queries = self.config.get('num_queries', 5000)
-        data, data_len, queries, queries_len, y = self.data_loader(num_nodes, num_queries)
+        
+        random_index = np.random.permutation(num_queries)
+
+        data=torch.from_numpy(self.ori_traj['trajs'][2000:])
+        data_len=torch.from_numpy(self.ori_traj['lengths'][2000:])
+
+        queries=torch.from_numpy(self.query_traj['trajs'][2000:])[random_index]
+        queries_len=torch.from_numpy(self.query_traj['lengths'][2000:])[random_index]
+
+        y=random_index
+  
         data_size = data.shape[0]
 
         self.downstream_model.eval()
@@ -201,17 +234,6 @@ class SimilaritySearchModel(AbstractModel):
             self._logger.info(f'HR@{k}: {hit / (num_queries - no_hit)}')
         self._logger.info('Mean Rank: {}, No Hit: {}'.format(self.result['Mean Rank'], self.result['No Hit']))
 
-    def positive_sampling(self, path):
-        return [self.detour(path, 'add'), self.detour(path, 'delete'), self.detour(path, 'replace')]
-
-    def negative_sampling(self, id):
-        neg_list = []
-        for _ in range(self.neg_size):
-            neg_id = np.random.randint(len(self.train_traj_df))
-            while id == neg_id:
-                neg_id = np.random.randint(len(self.train_traj_df))
-            neg_list.append(self.detour(self.train_traj_df['path'].iloc[neg_id], np.random.choice(['add', 'delete', 'replace'])))
-        return neg_list
 
     def run(self):
         """
@@ -222,40 +244,27 @@ class SimilaritySearchModel(AbstractModel):
         self.downstream_model.to(self.device)
         optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
         self._logger.info('Start training downstream model...')
+        ori_paths=torch.from_numpy(self.ori_traj['trajs'][:2000])
+        ori_length=torch.from_numpy(self.ori_traj['lengths'][:2000])
+
+        detour_paths=self.torch.from_numpy(self.query_traj['trajs'][:2000])
+        detour_length=torch.from_numpy(self.query_traj['lengths'][:2000])
+
+        all_len=2000
+
+        negtive_index=torch.randperm(all_len)
+        negtive_paths=ori_paths[negtive_index]
+        negtive_length=ori_length[negtive_index]
+
         for epoch in range(self.downstream_epoch):
             total_loss = 0.0
-            path = np.full([len(self.train_traj_df), self.max_len], self.num_nodes, dtype=np.int32)
-            pos_path = np.full([len(self.train_traj_df) * self.pos_size, self.max_len], self.num_nodes, dtype=np.int32)
-            neg_path = np.full([len(self.train_traj_df) * self.neg_size, self.max_len], self.num_nodes, dtype=np.int32)
-            valid_len = [0] * len(self.train_traj_df)
-            pos_valid_len = [0] * (len(self.train_traj_df) * self.pos_size)
-            neg_valid_len = [0] * (len(self.train_traj_df) * self.neg_size)
-            for i, row in self.train_traj_df.iterrows():
-                pos_list = self.positive_sampling(row['path'])
-                neg_list = self.negative_sampling(i)
-                valid_len[i] = len(row['path'])
-                path[i, :valid_len[i]] = np.array(row['path'], dtype=np.int32)
-                for j, (p, l) in enumerate(pos_list):
-                    id = i * self.pos_size + j
-                    pos_valid_len[id] = l
-                    pos_path[id, :l] = np.array(p, dtype=np.int32)
-                for j, (p, l) in enumerate(neg_list):
-                    id = i * self.neg_size + j
-                    neg_valid_len[id] = l
-                    neg_path[id, :l] = np.array(p, dtype=np.int32)
-            path = torch.LongTensor(path)
-            pos_path = torch.LongTensor(pos_path)
-            neg_path = torch.LongTensor(neg_path)
-            valid_len = torch.LongTensor(valid_len)
-            pos_valid_len = torch.LongTensor(pos_valid_len)
-            neg_valid_len = torch.LongTensor(neg_valid_len)
-            for i in range(0, path.shape[0], self.batch_size):
-                r1 = min(i + self.batch_size, path.shape[0])
-                r2 = min((i + self.batch_size) * self.pos_size, pos_path.shape[0])
-                r3 = min((i + self.batch_size) * self.neg_size, neg_path.shape[0])
-                loss = self.downstream_model(path[i:r1], valid_len[i:r1],
-                                             pos_path[i * self.pos_size:r2], pos_valid_len[i * self.pos_size:r2],
-                                             neg_path[i * self.neg_size:r3], neg_valid_len[i * self.neg_size:r3])
+            all_len=self.ori_traj.shape[0]
+            for i in range(0, all_len , self.batch_size):
+                l=i
+                r=i+self.batch_size
+                loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
+                                             detour_paths[l:r], detour_length[l:r],
+                                             negtive_paths[l:r], negtive_length[l:r])
                 optimizer.zero_grad()
                 total_loss += loss.item()
                 loss.backward()

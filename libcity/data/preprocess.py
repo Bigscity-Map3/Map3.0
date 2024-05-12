@@ -5,6 +5,8 @@ import pandas as pd
 from logging import getLogger
 from datetime import datetime
 from tqdm import tqdm
+import networkx as nx
+from itertools import cycle, islice
 
 
 cache_dir = os.path.join('libcity', 'cache', 'dataset_cache')
@@ -319,6 +321,131 @@ class preprocess_feature(PreProcess):
             road_df.to_csv(os.path.join(self.data_dir, 'road_features.csv'), index=False)
 
 
+def k_shortest_paths_nx(G, source, target, k, weight='weight'):
+    return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
+
+def build_graph(rel_file, geo_file):
+
+    rel = pd.read_csv(rel_file)
+    geo = pd.read_csv(geo_file)
+    
+    edge2len = {}
+    geoid2coord = {}
+    for i, row in tqdm(geo.iterrows(), total=geo.shape[0]):
+        geo_id = row.geo_id
+        length = float(row.road_length)
+        edge2len[geo_id] = length
+        # geoid2coord[geo_id] = row.coordinates
+
+    graph = nx.DiGraph()
+
+    for i, row in tqdm(rel.iterrows(), total=rel.shape[0]):
+        prev_id = row.origin_id
+        curr_id = row.destination_id
+
+        # Use length as weight
+        weight = geo.iloc[prev_id].road_length
+        
+        # Use avg_speed as weight
+        # weight = row.road_length
+        if weight == float('inf') or weight < 0:
+            # weight = 9999999
+            pass
+            # print(row)
+        graph.add_edge(prev_id, curr_id, weight=weight)
+
+    return graph
+
+def detour(graph, path, max_len=120):
+    rate = 0.5
+    max_sub_path_len = int(len(path)*rate)
+
+    ind=np.random.randint(len(path)-max_sub_path_len)
+    new_len=np.random.randint(2,max_sub_path_len)
+    o_id=path[ind]
+    d_id=path[ind+new_len]
+    valid_length=0
+
+    try:
+        shortest_paths = k_shortest_paths_nx(graph,o_id,d_id,2)
+    except:
+        shortest_paths = [[o_id,d_id],[o_id,d_id]]
+        valid_length=1
+        
+    original_path = path[ind:ind+new_len]
+
+    new_sub_path=None
+    if original_path == shortest_paths[0]:
+        new_sub_path = shortest_paths[1]
+    else:
+        new_sub_path = shortest_paths[0]
+    
+    new_path=path[:ind]+new_sub_path+path[ind+new_len+1:]
+
+    if len(new_path) > max_len:
+        new_path = new_path[:max_len]
+    
+
+    return new_path, valid_length
+
+def preprocess_detour():
+
+    if os.path.exists(cache_dir+'/ori_trajs.npz'):
+        return
+    
+    geo_path="/home/zhangwt/remote/zwt/Map3.0/raw_data/test_xa/test_xa.geo"
+    rel_path="/home/zhangwt/remote/zwt/Map3.0/raw_data/test_xa/test_xa.rel"
+
+    graph = build_graph(rel_path, geo_path)
+    traj=pd.read_csv('/home/zhangwt/remote/zwt/Map3.0/libcity/cache/dataset_cache/test_xa/traj_road_test.csv')
+    traj.path=traj.path.apply(eval)
+    traj_path=traj.path.to_numpy()
+    random_choice=np.random.randint(0,len(traj_path),12000)
+    traj_path=traj_path[random_choice]
+    new_paths=[]
+    new_ori_paths=[]
+    a=0 
+    for ind in range(10000):
+        path=traj_path[ind]
+        if len(path) <= 4:
+            continue
+        new_ori_paths.append(path)
+        new_path=detour(graph,path)
+        new_paths.append(new_path[0])
+
+    new_path_lengths=[]
+    for i in new_paths:
+        new_path_lengths.append(len(i))
+
+    new_ori_path_lengths=[]
+    for i in new_ori_paths:
+        new_ori_path_lengths.append(len(i))
+    
+    max_len=0
+    max_len=np.max(new_path_lengths)
+    max_len=max(max_len,np.max(new_ori_path_lengths))
+
+    temp=[]
+    for i in new_ori_paths:
+        sequence=i
+        padded_sequence = np.pad(sequence, (0, max_len - len(sequence)), 'constant').tolist()
+        temp.append(padded_sequence)
+    
+    new_ori_paths=temp
+
+    temp=[]
+    for i in new_paths:
+        sequence=i
+        padded_sequence = np.pad(sequence, (0, max_len - len(sequence)), 'constant').tolist()
+        temp.append(padded_sequence)
+    
+    new_paths=temp
+
+    np.savez(cache_dir+'/ori_trajs',trajs=new_ori_paths,lengths=new_ori_path_lengths)
+    np.savez(cache_dir+'/query_trajs',trajs=new_paths,lengths=new_path_lengths)
+
+
+
 def save_neighbor(traffic_type, df, offset, data_dir, n):
     file_path = os.path.join(data_dir, traffic_type + '_neighbor.json')
     if not os.path.exists(file_path):
@@ -352,3 +479,4 @@ def preprocess_all(config):
     # preprocess_neighbor(config)
     preprocess_traj(config)
     preprocess_od(config)
+    preprocess_detour(config)
