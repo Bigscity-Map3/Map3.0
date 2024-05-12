@@ -13,10 +13,10 @@ class Node2VecDataset(TrafficRepresentationDataset):
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
-        self.dyna_file = self.config.get('dyna_file',self.dataset)
+        # self.dyna_file = self.config.get('dyna_file',self.dataset)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
+        # assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
         if not os.path.exists('./libcity/cache/Node2Vec_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/Node2Vec_{}'.format(self.dataset))
         self.od_label_path = './libcity/cache/Node2Vec_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)

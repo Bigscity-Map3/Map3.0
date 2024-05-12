@@ -22,10 +22,8 @@ class ReMVCDataset(TrafficRepresentationDataset):
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
-        self.dyna_file = self.config.get('dyna_file', self.dataset)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
         if not os.path.exists('./libcity/cache/ReMVC_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/ReMVC_{}'.format(self.dataset))
         self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
