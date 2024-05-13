@@ -18,10 +18,6 @@ from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 def k_shortest_paths_nx(G, source, target, k, weight='weight'):
     return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
 
-
-
-
-
 def build_graph(rel_file, geo_file):
 
     rel = pd.read_csv(rel_file)
@@ -53,9 +49,6 @@ def build_graph(rel_file, geo_file):
         graph.add_edge(prev_id, curr_id, weight=weight)
 
     return graph
-
-
-
 
 class TrajEncoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, n_layers, embedding, device):

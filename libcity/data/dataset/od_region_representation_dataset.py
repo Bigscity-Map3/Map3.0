@@ -100,8 +100,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
             self._load_rel()
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        # if os.path.exists(self.data_path + self.dyna_file + '.dyna'):
-        #     self._load_dyna()
         if os.path.exists(self.data_path + self.od_file + '.od'):
             self._load_od()
         else:
@@ -156,15 +154,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
         self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
         self._logger.info("Loaded file " + self.rel_file + '.rel')
-
-    def _load_dyna(self):
-        traj_road_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_road_train.csv'))
-        for _, row in traj_road_df.iterrows():
-            self.traj_road.append([int(road) for road in row['path'][1:-1].split(',')])
-        traj_region_df = pd.read_csv(os.path.join(cache_dir, self.dataset, 'traj_region_train.csv'))
-        for _, row in traj_region_df.iterrows():
-            self.traj_region.append([int(region) for region in row['path'][1:-1].split(',')])
-        self._logger.info("Loaded file " + self.dyna_file + '.dyna')
 
     def _load_od(self):
         """

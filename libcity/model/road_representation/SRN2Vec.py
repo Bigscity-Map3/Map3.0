@@ -1,5 +1,5 @@
 from logging import getLogger
-
+import os
 from tqdm import tqdm
 
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
@@ -34,6 +34,8 @@ class SRN2Vec(AbstractReprLearningModel):
         self.optim = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         self.model.to(self.device)
         start_time = time.time()
         for epoch in tqdm(range(self.iter)):

@@ -46,6 +46,8 @@ class HDGE(AbstractReprLearningModel):
 
     #一共是time_slice * num_nodes
     def run(self,data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         combine_matrix = self.combine_graph
         walks = self.simulate_walks(combine_matrix,self.num_walks,self.walk_length)
         model = self.learn_embeddings(walks = walks, dimensions=self.output_dim,

@@ -13,6 +13,7 @@ import numpy as np
 from tqdm import tqdm
 from logging import getLogger
 from torch.utils.data import DataLoader
+from libcity.utils import ensure_dir
 
 
 
@@ -34,6 +35,8 @@ class Toast(AbstractReprLearningModel):
         self.dataset = config.get('dataset', '')
         self.output_dim=config.get('embedding_size',128)
         self.lr=config.get('lr',0.005)
+        
+        ensure_dir( './libcity/cache/model_cache/{}'.format(self.model_name))
         self.vocab_embed_path = './libcity/cache/model_cache/{}/w2v_{}.pt'.format(self.model_name,self.dataset)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model_name, self.dataset, self.output_dim)

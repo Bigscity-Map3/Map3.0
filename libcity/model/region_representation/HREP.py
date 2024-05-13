@@ -1,4 +1,5 @@
 from logging import getLogger
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -194,6 +195,8 @@ class HREP(AbstractReprLearningModel):
         return positive, negative
         
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         features = self.data_feature.get('features')
         rel_emb = self.data_feature.get('rel_emb')
         edge_index = self.data_feature.get('edge_index')

@@ -10,6 +10,7 @@ import pandas as pd
 import json
 from tqdm import trange
 
+
 PAD=0
 MASK=1
 

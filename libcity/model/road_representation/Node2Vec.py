@@ -3,6 +3,7 @@ import json
 import networkx as nx
 import numpy as np
 from gensim.models import Word2Vec
+import os
 
 from logging import getLogger
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
@@ -197,6 +198,8 @@ class Node2Vec(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         nx_g = nx.from_numpy_matrix(self.adj_mx, create_using=nx.DiGraph())
         g = Graph(nx_g, self.is_directed, self.p, self.q)
         g.preprocess_transition_probs()
