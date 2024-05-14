@@ -47,9 +47,10 @@ class RegressionModel(AbstractModel):
         y_preds = np.concatenate(y_preds)
         mae = mean_absolute_error(y_truths, y_preds)
         mse = mean_squared_error(y_truths, y_preds)
+        rmse = mse**0.5
         r2 = r2_score(y_truths, y_preds)
 
-        self.result={'mae':mae, 'mse':mse, 'r2':r2}
+        self.result={'mae':mae, 'mse':mse, 'r2':r2, 'rmse': rmse}
         self._logger.info(self.result)
         self.save_result(self.result_path)
         return self.result

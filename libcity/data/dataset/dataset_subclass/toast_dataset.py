@@ -96,7 +96,7 @@ class ToastDataset(AbstractDataset):
 
 
 class ToastDataLoader(Dataset):
-    def __init__(self, dataset,adj_matrix, node2id, node2type, seq_len, max_pred, mode=1, mask_ratio=0.25):
+    def __init__(self, dataset,adj_matrix, node2id, node2type, seq_len, max_pred, mode=0, mask_ratio=0.25):
         self.node2id = node2id
         self.mask_ratio = mask_ratio
         self.seq_len = seq_len
@@ -132,7 +132,9 @@ class ToastDataLoader(Dataset):
             is_traj = True
             traj_input, traj_masked_tokens, traj_masked_pos, traj_masked_weights, traj_label = self.random_word(traj)
         else:
-            walk = self.walks[item]
+            lens=len(self.walks)
+            ind=item%lens
+            walk = self.walks[ind]
             if len(walk) > self.seq_len:
                 traj = self.cut_traj(walk)
             is_traj = False

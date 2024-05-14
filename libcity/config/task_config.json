@@ -77,7 +77,7 @@
          "Node2Vec": {
             "dataset_class": "Node2VecDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "RepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "HDGE": {
             "dataset_class": "HDGEDataset",

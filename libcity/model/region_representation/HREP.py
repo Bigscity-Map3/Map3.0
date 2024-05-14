@@ -208,7 +208,7 @@ class HREP(AbstractReprLearningModel):
         optimizer = optim.Adam(net.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
         loss_fn1 = torch.nn.TripletMarginLoss()
         loss_fn2 = torch.nn.MSELoss()
-
+        final_loss = 0
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
         for epoch in range(self.epochs):
             optimizer.zero_grad()
@@ -226,9 +226,11 @@ class HREP(AbstractReprLearningModel):
             optimizer.step()
 
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+            final_loss = loss.item()
 
 
         region_emb = region_emb.cpu().detach().numpy()
         np.save(self.npy_cache_file, region_emb)
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(region_emb)) + ',' + str(len(region_emb[0])) + ')')
+        return final_loss

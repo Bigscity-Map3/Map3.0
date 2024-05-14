@@ -14,6 +14,7 @@ from itertools import cycle, islice
 from tqdm import tqdm
 
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
+from libcity.data.preprocess import preprocess_detour
 
 def k_shortest_paths_nx(G, source, target, k, weight='weight'):
     return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
@@ -99,6 +100,7 @@ class CLModel(nn.Module):
 
 class SimilaritySearchModel(AbstractModel):
     def __init__(self, config):
+        preprocess_detour(config)
         self._logger = getLogger()
         self._logger.warning('Evaluating Trajectory Similarity Search')
         self.config = config
@@ -120,18 +122,18 @@ class SimilaritySearchModel(AbstractModel):
         self.hidden_dim = self.config.get('downstream_hidden_dim', 512)
         self.pos_size = 3
         self.neg_size = self.config.get('neg_size', 10)
-        self.train_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
-            self.dataset, 'traj_' + self.representation_object + '_train.csv'))
-        self.test_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
-            self.dataset, 'traj_' + self.representation_object + '_test.csv'))
+        # self.train_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
+        #     self.dataset, 'traj_' + self.representation_object + '_train.csv'))
+        # self.test_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
+        #     self.dataset, 'traj_' + self.representation_object + '_test.csv'))
         self.embedding_path = 'libcity/cache/{}/evaluate_cache/{}_embedding_{}_{}_{}.npy'.format(
             self.exp_id, self.representation_object, self.model, self.dataset, self.output_dim
         )
         self.embedding = np.load(self.embedding_path)
         new_row = np.zeros((1, self.embedding.shape[1]))
         self.embedding = np.concatenate((self.embedding, new_row), axis=0)  # embedding[padding_id] = 0
-        self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'traj_' + self.representation_object + 'test_detor.csv'),allow_pickle=True)
-        self.query_traj=pd.read(os.path.join('libcity/cache/dataset_cache',self.dataset, 'traj_' + self.representation_object + 'test_detor.csv',allow_pickle=True))# num,path
+        self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'ori_traj.npz'))
+        self.query_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'query_traj.npz'))# num,path
         
         self.train_index=list(range(2000))
         self.test_index=list(range(2000,10000))
@@ -237,10 +239,12 @@ class SimilaritySearchModel(AbstractModel):
         self.downstream_model.to(self.device)
         optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
         self._logger.info('Start training downstream model...')
+
+
         ori_paths=torch.from_numpy(self.ori_traj['trajs'][:2000])
         ori_length=torch.from_numpy(self.ori_traj['lengths'][:2000])
 
-        detour_paths=self.torch.from_numpy(self.query_traj['trajs'][:2000])
+        detour_paths=torch.from_numpy(self.query_traj['trajs'][:2000])
         detour_length=torch.from_numpy(self.query_traj['lengths'][:2000])
 
         all_len=2000
@@ -251,10 +255,9 @@ class SimilaritySearchModel(AbstractModel):
 
         for epoch in range(self.downstream_epoch):
             total_loss = 0.0
-            all_len=self.ori_traj.shape[0]
             for i in range(0, all_len , self.batch_size):
                 l=i
-                r=i+self.batch_size
+                r=min(i+self.batch_size,all_len)
                 loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
                                              detour_paths[l:r], detour_length[l:r],
                                              negtive_paths[l:r], negtive_length[l:r])

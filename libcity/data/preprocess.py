@@ -338,6 +338,7 @@ def build_graph(rel_file, geo_file):
 
     rel = pd.read_csv(rel_file)
     geo = pd.read_csv(geo_file)
+    node_size=geo['id'].max()
     
     edge2len = {}
     geoid2coord = {}
@@ -364,9 +365,9 @@ def build_graph(rel_file, geo_file):
             # print(row)
         graph.add_edge(prev_id, curr_id, weight=weight)
 
-    return graph
+    return graph,node_size
 
-def detour(graph, path, max_len=120):
+def detour(graph, path,node_size, max_len=120):
     rate = 0.5
     max_sub_path_len = int(len(path)*rate)
 
@@ -389,7 +390,10 @@ def detour(graph, path, max_len=120):
         new_sub_path = shortest_paths[1]
     else:
         new_sub_path = shortest_paths[0]
-    
+
+    if np.max(new_sub_path) > node_size:
+        new_sub_path = [o_id,d_id]
+
     new_path=path[:ind]+new_sub_path+path[ind+new_len+1:]
 
     if len(new_path) > max_len:
@@ -411,7 +415,7 @@ def preprocess_detour(config):
     geo_path="./raw_data/{}/{}.geo".format(dataset,dataset)
     rel_path="./raw_data/{}/{}.rel".format(dataset,dataset)
 
-    graph = build_graph(rel_path, geo_path)
+    graph,node_size = build_graph(rel_path, geo_path)
     traj=pd.read_csv(cache_dir+'/{}/traj_road_test.csv'.format(dataset))
     traj.path=traj.path.apply(eval)
     traj_path=traj.path.to_numpy()
@@ -425,7 +429,7 @@ def preprocess_detour(config):
         if len(path) <= 4:
             continue
         new_ori_paths.append(path)
-        new_path=detour(graph,path)
+        new_path=detour(graph,path,node_size)
         new_paths.append(new_path[0])
 
     new_path_lengths=[]

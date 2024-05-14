@@ -326,7 +326,8 @@ class HHGCLEvaluator(AbstractEvaluator):
 
         elif self.representation_object == 'region':
             region_df = pd.read_csv(os.path.join("libcity/cache/dataset_cache", self.dataset, 'region.csv'))
-            self.data_label.update({'eci': list(region_df['crimes_count'])})
+            if 'crimes_count' in region_df.keys():
+                self.data_label.update({'eci': list(region_df['crimes_count'])})
 
     def get_downstream_model(self, model):
         try:
@@ -410,7 +411,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
         self._logger.info(self.result)
-        df = pd.DataFrame.from_dict(self.result, orient='columns')
+        df = pd.DataFrame(self.result, index=[0])
         self._logger.info(df)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))

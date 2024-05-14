@@ -162,13 +162,13 @@ class MVURE_Layer(nn.Module):
         self.inputs = torch.from_numpy(feature).to(torch.float32).to(device)
         self.input_dim = input_dim
         self.output_dim = output_dim
-        assert self.output_dim%12 == 0
-        out_feat_num = self.output_dim//12
-        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
+        self.num_heads = 8
+        out_feat_num = self.output_dim//self.num_heads
+        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=self.num_heads,attn_drop=0.2,activation=F.relu)
+        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=self.num_heads,attn_drop=0.2,activation=F.relu)
+        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=self.num_heads,attn_drop=0.2,activation=F.relu)
         self.num_nodes = feature.shape[-2]
-        self.fused_layer = self_attn(12, self.device)
+        self.fused_layer = self_attn(out_feat_num, self.device)
         self.fused_layer.to(self.device)
         self.mv_layer = mv_attn(self.device)
         self.mv_layer.to(self.device)

@@ -224,7 +224,7 @@ def hyper_parameter(task=None, model_name=None, dataset_name=None, config_file=N
     logger.info("Best trial final validation loss: {}".format(best_trial.last_result["loss"]))
     # save best
     best_path = os.path.join(best_trial.checkpoint.value, "checkpoint")
-    model_state, optimizer_state = torch.load(best_path)
+    model_state, optimizer_state = torch.load(best_path, map_location={'cuda:0'})
     model_cache_file = './libcity/cache/{}/model_cache/{}_{}.m'.format(
         exp_id, model_name, dataset_name)
     ensure_dir('./libcity/cache/{}/model_cache'.format(exp_id))

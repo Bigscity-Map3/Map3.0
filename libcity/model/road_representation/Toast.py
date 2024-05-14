@@ -75,11 +75,10 @@ class Toast(AbstractReprLearningModel):
         self.model.init_token_embed(self.w2v_model.get_list_vector())
         self.model.to(self.device)
         
-        self.dataloader.dataset.gen_new_walks(num_walks=10)
+        self.dataloader.dataset.gen_new_walks(num_walks=1000)
         self.train_step=0
 
-        # for epoch in tqdm(range(self.iter)):
-        for epoch in tqdm(range(1)):
+        for epoch in tqdm(range(self.iter)):
             self.model.train()
             str_code = "train"
 

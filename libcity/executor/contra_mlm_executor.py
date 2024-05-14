@@ -84,6 +84,7 @@ class ContrastiveMLMExecutor(ContrastiveExecutor):
 
         for epoch_idx in range(self.epochs):
             start_time = time.time()
+            # train_avg_loss, train_avg_acc = 0, 0
             train_avg_loss, train_avg_acc = self._train_epoch(train_dataloader, epoch_idx)
             t1 = time.time()
             train_time.append(t1 - start_time)
@@ -118,6 +119,7 @@ class ContrastiveMLMExecutor(ContrastiveExecutor):
             if eval_avg_loss < min_val_loss:
                 wait = 0
                 if self.saved:
+                    self.save_token_embedding()
                     model_file_name = self.save_model_with_epoch(epoch_idx)
                     self._logger.info('Val loss decrease from {:.4f} to {:.4f}, '
                                       'saving to {}'.format(min_val_loss, eval_avg_loss, model_file_name))

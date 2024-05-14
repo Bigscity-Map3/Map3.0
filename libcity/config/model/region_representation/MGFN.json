@@ -1,5 +1,6 @@
 {
-  "output_dim": 16,
+  "output_dim": 128,
   "representation_object":"region",
+  "learning_rate":0.001,
   "max_epoch": 10
 }
