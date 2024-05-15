@@ -338,7 +338,7 @@ def build_graph(rel_file, geo_file):
 
     rel = pd.read_csv(rel_file)
     geo = pd.read_csv(geo_file)
-    node_size=geo['id'].max()
+    node_size=geo['road_id'].max()
     
     edge2len = {}
     geoid2coord = {}

@@ -50,6 +50,7 @@ class TravelTimeEstimationModel(AbstractModel):
             format(self.exp_id, self.alpha, self.n_split)
 
     def run(self, x, label):
+        self._logger.info("--- Time Estimation ---")
         min_len, max_len = 1, 100
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
@@ -75,9 +76,6 @@ class TravelTimeEstimationModel(AbstractModel):
             y_arr[i] = row['time']
         x_arr = torch.Tensor(x_arr)
         y_arr = torch.Tensor(y_arr)
-
-
-        self._logger.info("--- Time Estimation ---")
 
         train_size = int(num_samples * 0.8)
         test_size = num_samples - train_size
@@ -116,7 +114,7 @@ class TravelTimeEstimationModel(AbstractModel):
 
             mae = mean_absolute_error(y_trues, y_preds)
             rmse = mean_squared_error(y_trues, y_preds) ** 0.5
-            print(f'Epoch: {epoch}, MAE: {mae.item():.4f}, RMSE: {rmse.item():.4f}')
+            self._logger.info(f'Epoch: {epoch}, MAE: {mae.item():.4f}, RMSE: {rmse.item():.4f}')
             if mae < best["mae"]:
                 best = {"best epoch": epoch, "mae": mae, "rmse": rmse}
                 patience = 5
@@ -124,7 +122,7 @@ class TravelTimeEstimationModel(AbstractModel):
                 if epoch > 10:
                     patience -= 1
                 if not patience:
-                    print("Best epoch: {}, MAE:{}, RMSE:{}".format(best['best epoch'], best['mae'], best["rmse"]))
+                    self._logger.info("Best epoch: {}, MAE:{}, RMSE:{}".format(best['best epoch'], best['mae'], best["rmse"]))
                     break
         return best
 
