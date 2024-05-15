@@ -9,7 +9,7 @@
         "ChebConv": {
             "dataset_class": "ChebConvDataset",
             "executor": "ChebConvExecutor",
-            "evaluator": "RoadRepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "LINE": {
             "dataset_class": "LINEDataset",
@@ -19,12 +19,12 @@
         "GeomGCN": {
             "dataset_class": "ChebConvDataset",
             "executor": "ChebConvExecutor",
-            "evaluator": "RoadRepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "GAT": {
             "dataset_class": "ChebConvDataset",
             "executor": "ChebConvExecutor",
-            "evaluator": "RoadRepresentationEvaluator"
+            "evaluator": "HHGCLEvaluator"
         },
         "Node2Vec": {
             "dataset_class": "RoadNetWorkDataset",

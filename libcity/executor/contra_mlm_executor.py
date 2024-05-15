@@ -67,6 +67,8 @@ class ContrastiveMLMExecutor(ContrastiveExecutor):
         return correct_l
 
     def train(self, train_dataloader, eval_dataloader, test_dataloader=None):
+        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
+            return
         self._logger.info('Start training ...')
         min_val_loss = float('inf')
         wait = 0

@@ -56,7 +56,6 @@ def evaluation_classify(X, y, kfold=5, num_classes=5, seed=42, output_dim=128):
     y_preds = []
     y_trues = []
     for fold_num, (train_idx, val_idx) in enumerate(KF.split(X, y)):
-        # self._logger.info('Fold {}'.format(fold_num))
         X_train, X_eval = X[train_idx], X[val_idx]
         y_train, y_eval = y[train_idx], y[val_idx]
         X_train = torch.tensor(X_train).cuda()
@@ -126,10 +125,7 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
         best_mse = 1e20
         best_pred = 0
 
-        # 创建 DataLoader
-        #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         for e in range(2000):
-            #for inputs, targets in dataloader:
             model.train()
             opt.zero_grad()
             mse_loss = criterion(model(X_train).squeeze(),y_train)
@@ -230,7 +226,6 @@ class HHGCLEvaluator(AbstractEvaluator):
             format(self.exp_id, self.exp_id, item_type, self.model, self.dataset, self.output_dim, str(kinds))
         plt.title('{} {} {} {}'.format(item_type, self.exp_id, self.model, self.dataset))
         plt.savefig(result_path)
-        # self._logger.info('Kmeans result for TSNE is saved at {}'.format(result_path))
         return sc, db, ch, nmi, ars
 
     def _valid_clf(self, emb):
@@ -377,8 +372,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         emb = np.load(embedding_path)  # (N, F)
         
         if self.representation_object == 'road':
-            evaluate_tasks = ["tsi", "tte", "tc"]
-            evaluate_models = ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"]
+            evaluate_tasks = self.config.get("evaluate_tasks", ["tsi", "tte", "tc"])
+            evaluate_models = self.config.get("evaluate_models", ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"])
                 
             for task, model in zip(evaluate_tasks, evaluate_models):
                 downstream_model = self.get_downstream_model(model)
@@ -388,11 +383,12 @@ class HHGCLEvaluator(AbstractEvaluator):
                 elif task in ['tc']:
                     result = downstream_model.run()
                 self.result.update(add_prefix_to_keys(result, task + '_'))
-            del self.result['tte_best epoch']
+            if 'tte_best epoch' in self.result.keys():
+                del self.result['tte_best epoch']
         
         elif self.representation_object == 'region':
-            evaluate_tasks = ["eci"]
-            evaluate_models = ["RegressionModel"]
+            evaluate_tasks = self.config.get("evaluate_tasks", ["eci"])
+            evaluate_models = self.config.get("evaluate_models", ["RegressionModel"])
             for task, model in zip(evaluate_tasks, evaluate_models):
                 downstream_model = self.get_downstream_model(model)
                 label = self.data_label[task]
@@ -415,7 +411,11 @@ class HHGCLEvaluator(AbstractEvaluator):
         self._logger.info(df)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
-        df.to_csv(result_path, index=False)
+        if self.config.get('save_result', True):
+            df.to_csv(result_path, index=False)
+        else:
+            df.to_csv(f'raw_data/new/tmp/{self.model}_{self.dataset}.csv', index=False)
+            pass
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
         return self.result
 

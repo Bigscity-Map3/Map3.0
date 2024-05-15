@@ -174,15 +174,13 @@ class SimilaritySearchModel(AbstractModel):
             yield batch_index
 
     def evaluation(self):
-        num_nodes = self.num_nodes
         batch_size = self.batch_size
-        num_queries = self.config.get('num_queries', 5000)
+        num_queries = min(self.config.get('num_queries', 5000), len(self.query_traj['trajs']) - 2000)
         
         random_index = np.random.permutation(num_queries)
 
         data=torch.from_numpy(self.ori_traj['trajs'][2000:])
         data_len=torch.from_numpy(self.ori_traj['lengths'][2000:])
-
         queries=torch.from_numpy(self.query_traj['trajs'][2000:])[random_index]
         queries_len=torch.from_numpy(self.query_traj['lengths'][2000:])[random_index]
 

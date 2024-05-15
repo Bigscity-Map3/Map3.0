@@ -430,7 +430,6 @@ class GMELModel(nn.Module):
         # get embeddings of each node from GNN
         src_embedding = self.forward(g)
         dst_embedding = self.forward2(g)
-        # pdb.set_trace()
         # get edge prediction
         edge_prediction = self.predict_edge(src_embedding, dst_embedding, trip_od)
         # get in/out flow prediction
@@ -454,7 +453,6 @@ class GMELModel(nn.Module):
         # construct edge feature
         src_emb = src_embedding[trip_od[:, 0]]
         dst_emb = dst_embedding[trip_od[:, 1]]
-        # pdb.set_trace()
         # get predictions
         # edge_feat = torch.cat((src_emb, dst_emb), dim=1)
         # self.edge_regressor(edge_feat)

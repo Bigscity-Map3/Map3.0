@@ -97,10 +97,6 @@ class ChebConvExecutor(GeneralExecutor):
                                      sum(eval_time) / len(eval_time)))
         if self.load_best_epoch:
             self.load_model_with_epoch(best_epoch)
-            # save_list = os.listdir(self.cache_dir)
-            # for save_file in save_list:
-            #     if '.tar' in save_file:
-            #         os.remove(self.cache_dir + '/' + save_file)
         return min_val_loss
 
     def _train_epoch(self, train_dataloader, epoch_idx, loss_func=None):
