@@ -20,6 +20,7 @@ from libcity.utils import ensure_dir
 class Toast(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+        self._logger = getLogger()
         self.iter = config.get('max_epoch', 5)
         self.w2v_model = Word2Vec_SG(config,data_feature)
         self.model = BertModel4Pretrain(config,data_feature)
@@ -29,7 +30,6 @@ class Toast(AbstractReprLearningModel):
         self.batch_size = config.get('batch_size',64)
         self.n_workers = config.get('n_workers',1)
         self.dataloader= DataLoader(self.data, batch_size=self.batch_size, num_workers=self.n_workers)
-        self._logger = getLogger()
         self.model_name = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset', '')
@@ -56,7 +56,8 @@ class Toast(AbstractReprLearningModel):
         Returns:
             output of tradition model
         """
-
+        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
+            return
         if self.load_init:
             if not os.path.exists(self.vocab_embed_path):
                 for i in range(4):
@@ -71,13 +72,10 @@ class Toast(AbstractReprLearningModel):
                 self.w2v_model.train(i, mode='pretrain')
                 
                 self.w2v_model.save_model(i, self.vocab_embed_path)
-        
         self.model.init_token_embed(self.w2v_model.get_list_vector())
         self.model.to(self.device)
-        
         self.dataloader.dataset.gen_new_walks(num_walks=1000)
         self.train_step=0
-
         for epoch in tqdm(range(self.iter)):
             self.model.train()
             str_code = "train"

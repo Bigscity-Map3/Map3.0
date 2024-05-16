@@ -9,13 +9,18 @@ import os
 import pandas as pd
 import json
 from tqdm import trange
+import multiprocessing
+import pickle
 
 
 PAD=0
 MASK=1
+global_config = None
 
 class ToastDataset(AbstractDataset):
     def __init__(self, config):
+        global global_config
+        global_config = config
         self.config = config    
         preprocess_all(config)
         self._logger = getLogger()
@@ -36,12 +41,9 @@ class ToastDataset(AbstractDataset):
         
         self.road_length = np.array(self.road_geo_df['length'])
         self.road_num = len(self.road_length)
-        
         self.road_adj = self.construct_road_adj()
-
         self.id2node,self.node2id,self.node2type,self.type_num=self.setup_vocab()
         self.max_pred=int(self.max_len * 0.25)
-
         self.dataloader=ToastDataLoader(self.dataset,self.road_adj,self.node2id,self.node2type,self.max_len,self.max_pred)
 
     def setup_vocab(self):
@@ -226,11 +228,31 @@ class RandomWalker():
         self.node2id = node2id
         self.node2type = node2type
         self.sentences = []
+        self._logger = getLogger()
 
     def generate_sentences_bert(self, num_walks=24):
         sts = []
-        for _ in range(num_walks):
-            sts.extend(self.random_walks())
+        self._logger.info('num_walks ' + str(num_walks))
+        if num_walks < 10000000:
+            for _ in trange(num_walks):
+                sts.extend(self.random_walks())
+        else:
+            # 失败，由于 https://stackoverflow.com/questions/51562221/python-multiprocessing-overflowerrorcannot-serialize-a-bytes-object-larger-t
+            self._logger.info('Multi Processing')
+            all = 20
+            dataset = global_config.get('dataset')
+            self.sentences_path = f'libcity/cache/dataset_cache/{dataset}/sentences_bert_{num_walks}'
+            if not os.path.exists(self.sentences_path):
+                os.makedirs(self.sentences_path)
+            pool = multiprocessing.Pool(all + 1)
+            pool.map(self.multiprocess_random_walks, [(i, all, num_walks) for i in range(all)])
+            pool.close()
+            pool.join()
+            for i in range(num_walks):
+                walks_path = os.path.join(self.sentences_path, f'walks_{i}.pkl')
+                with open(walks_path, 'rb') as f:
+                    walks = pickle.load(f)
+                    sts.extend(walks)
         return sts
 
     def generate_sentences_bert_type(self, num_walks=24):
@@ -290,6 +312,19 @@ class RandomWalker():
                 walk.append(self.node2id[v] + 2)
             walks.append(walk)
         return walks
+    
+    def multiprocess_random_walks(self, idx, all, num_walks):
+        num = (num_walks + all - 1) // all
+        start = num * idx
+        end = min(num * (idx + 1), num_walks)
+        for i in range(start, end):
+            walks_path = os.path.join(self.sentences_path, f'walks_{i}.pkl')
+            if not os.path.exists(walks_path):
+                walks = self.random_walks()
+                with open(walks_path, 'wb') as file:
+                    pickle.dump(walks, file, protocol=4)
+            self._logger.info(f'Process {idx} Finish {i - start + 1}.')
+        self._logger.info(f'Process {idx} End.')
 
     def random_walks_dw(self):
         # random walk with every node as start point once
