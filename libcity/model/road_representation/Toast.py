@@ -111,7 +111,8 @@ class Toast(AbstractReprLearningModel):
                 if i % 100 == 0:
                     print("Epoch: {}, iter {} loss: {}, masked traj loss {:.3f}, judge traj loss {:.3f}".format(epoch, i, loss.item(), mask_loss.item(), next_loss.item()))
                     
-
+            if (epoch + 1) % 20 == 0:
+                self.save_model()
             print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(self.dataloader), "total_acc=",
                 total_correct * 100.0 / total_element)
         
