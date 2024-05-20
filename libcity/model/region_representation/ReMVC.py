@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
 import math
+import os
 
 from logging import getLogger
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
@@ -541,6 +542,8 @@ class ReMVC(AbstractReprLearningModel):
         return loss
 
     def run(self):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         self._logger.info("Start training.")
         for epoch in range(self.epoch):
             self.loss = 0.0

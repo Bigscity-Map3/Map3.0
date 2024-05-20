@@ -26,7 +26,7 @@ class TwoStepExecutor(AbstractExecutor):
         """
         use data to train model with config
         """
-        self.model.run()
+        return self.model.run()
 
 
     def load_model(self, cache_name):

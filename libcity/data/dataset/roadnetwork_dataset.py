@@ -62,7 +62,6 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
         self.speed_label.sort_values(by="index", inplace=True, ascending=True)
 
         min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
-        print(os.path.join(self.label_data_path, "time.csv"))
         self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
 
         self.time_label['path'] = self.time_label['trajs'].map(eval)

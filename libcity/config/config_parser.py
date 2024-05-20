@@ -107,7 +107,6 @@ class ConfigParser(object):
         # 加载所有默认配置
         for file_name in default_file_list:
             with open('./libcity/config/{}'.format(file_name), 'r') as f:
-                print(file_name)
                 x = json.load(f)
                 for key in x:
                     if key not in self.config:

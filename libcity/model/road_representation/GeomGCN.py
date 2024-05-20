@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import dgl.function as fn
-from dgl import DGLGraph
+import dgl
 from logging import getLogger
 import networkx as nx
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
@@ -169,7 +169,7 @@ class GeomGCN(AbstractReprLearningModel):
                 G.remove_edge(node, node)
             G.add_edge(node, node, subgraph_idx=1)
         adj = nx.adjacency_matrix(G, sorted(G.nodes))
-        g = DGLGraph(adj)
+        g = dgl.from_scipy(adj)
         g = g.to(self.device)
 
         for u, v, feature in G.edges(data='subgraph_idx'):

@@ -7,7 +7,6 @@ from logging import getLogger
 from libcity.utils import StandardScaler, NormalScaler, NoneScaler, \
     MinMax01Scaler, MinMax11Scaler, LogScaler, ensure_dir
 from libcity.data.dataset import AbstractDataset
-from libcity.evaluator.utils import generate_road_representaion_downstream_data
 from libcity.data.preprocess import preprocess_all, cache_dir
 
 
@@ -46,7 +45,6 @@ class ChebConvDataset(AbstractDataset):
         self._logger = getLogger()
         self._load_geo()
         self._load_rel()
-        self.read_processed_data()
 
     def _load_geo(self):
         """
@@ -102,14 +100,13 @@ class ChebConvDataset(AbstractDataset):
              'type']
         for drop_feature in drop_features:
             if drop_feature in node_features.keys():
-                node_features = node_features.drop([drop_feature], axis=1)
+                node_features = node_features.drop(drop_feature, axis=1)
 
         node_features = node_features.values
         np.save(self.cache_file_folder + '{}_node_features.npy'.format(self.dataset), node_features)
 
         # mask 索引
         sindex = list(range(self.num_nodes))
-        np.random.seed(1234)
         np.random.shuffle(sindex)
 
         test_rate = 1 - self.train_rate - self.eval_rate
@@ -205,27 +202,6 @@ class ChebConvDataset(AbstractDataset):
         self.eval_dataloader = {'node_features': node_features, 'mask': valid_mask}
         self.test_dataloader = {'node_features': node_features, 'mask': test_mask}
         return self.train_dataloader, self.eval_dataloader, self.test_dataloader
-    
-    def read_processed_data(self):
-        assert self.representation_object == "road"
-        data_path1 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "speed.csv")
-        data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
-        if not os.path.exists(data_path1) or not os.path.exists(data_path2):
-            generate_road_representaion_downstream_data(self.dataset)
-        self.label = {"speed_inference": {}, "travel_time_estimation": {}}
-        self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
-
-        self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
-        self.speed_label.sort_values(by="index", inplace=True, ascending=True)
-
-        min_len, max_len = self.config.get("min_len", 1), self.config.get("max_len", 100)
-        self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
-
-        self.time_label['path'] = self.time_label['trajs'].map(eval)
-
-        self.time_label['path_len'] = self.time_label['path'].map(len)
-        self.time_label = self.time_label.loc[
-            (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
 
     def get_data_feature(self):
         """
@@ -236,9 +212,5 @@ class ChebConvDataset(AbstractDataset):
         """
         return {
                     "scaler": self.scaler, "adj_mx": self.adj_mx,
-                    "num_nodes": self.num_nodes, "feature_dim": self.feature_dim,
-                    "label": {
-                        'speed_inference': {'speed': self.speed_label},
-                        'travel_time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}
-                    }
+                    "num_nodes": self.num_nodes, "feature_dim": self.feature_dim
                 }

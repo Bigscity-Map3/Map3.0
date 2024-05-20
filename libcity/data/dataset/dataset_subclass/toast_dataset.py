@@ -9,12 +9,18 @@ import os
 import pandas as pd
 import json
 from tqdm import trange
+import pickle
+from multiprocessing import Process, Manager
+
 
 PAD=0
 MASK=1
+global_config = None
 
 class ToastDataset(AbstractDataset):
     def __init__(self, config):
+        global global_config
+        global_config = config
         self.config = config    
         preprocess_all(config)
         self._logger = getLogger()
@@ -35,12 +41,9 @@ class ToastDataset(AbstractDataset):
         
         self.road_length = np.array(self.road_geo_df['length'])
         self.road_num = len(self.road_length)
-        
         self.road_adj = self.construct_road_adj()
-
         self.id2node,self.node2id,self.node2type,self.type_num=self.setup_vocab()
         self.max_pred=int(self.max_len * 0.25)
-
         self.dataloader=ToastDataLoader(self.dataset,self.road_adj,self.node2id,self.node2type,self.max_len,self.max_pred)
 
     def setup_vocab(self):
@@ -95,7 +98,7 @@ class ToastDataset(AbstractDataset):
 
 
 class ToastDataLoader(Dataset):
-    def __init__(self, dataset,adj_matrix, node2id, node2type, seq_len, max_pred, mode=1, mask_ratio=0.25):
+    def __init__(self, dataset,adj_matrix, node2id, node2type, seq_len, max_pred, mode=0, mask_ratio=0.25):
         self.node2id = node2id
         self.mask_ratio = mask_ratio
         self.seq_len = seq_len
@@ -131,7 +134,9 @@ class ToastDataLoader(Dataset):
             is_traj = True
             traj_input, traj_masked_tokens, traj_masked_pos, traj_masked_weights, traj_label = self.random_word(traj)
         else:
-            walk = self.walks[item]
+            lens=len(self.walks)
+            ind=item%lens
+            walk = self.walks[ind]
             if len(walk) > self.seq_len:
                 traj = self.cut_traj(walk)
             is_traj = False
@@ -220,14 +225,29 @@ class ToastDataLoader(Dataset):
 class RandomWalker():
     def __init__(self, adj_matrix,node2id,node2type):
         self.G = adj_matrix
+        self.neighbors = [[]] * self.G.shape[0]
+        for v in range(self.G.shape[0]):
+            self.neighbors[v] = list(np.where(self.G[v]==1)[0].tolist())
         self.node2id = node2id
         self.node2type = node2type
         self.sentences = []
+        self._logger = getLogger()
 
     def generate_sentences_bert(self, num_walks=24):
         sts = []
-        for _ in range(num_walks):
-            sts.extend(self.random_walks())
+        self._logger.info('num_walks ' + str(num_walks))
+        global global_config
+        dataset = global_config.get('dataset')
+        sts_path = f'libcity/cache/dataset_cache/{dataset}/sts_{num_walks}.pkl'
+        if not os.path.exists(sts_path):
+            for _ in trange(num_walks):
+                sts.extend(self.random_walks())
+            with open(sts_path, 'wb') as f:
+                pickle.dump(sts, f, protocol=4)
+            self._logger.info('Saved sts.')
+        with open(sts_path, 'rb') as f:
+            sts = pickle.load(f)
+        self._logger.info('Loaded sts.')
         return sts
 
     def generate_sentences_bert_type(self, num_walks=24):
@@ -269,24 +289,49 @@ class RandomWalker():
                     tp.append(random.randint(0, 4))
             walks.append([walk,tp])
         return walks
+    
+    def gen_one_random_walk(self, node):
+        walk = [self.node2id[node] + 2]
+        v = node
+        length_walk = random.randint(5, 100)
+        for _ in range(length_walk):
+            nbs = self.neighbors[v]
+            # nbs = list(np.where(self.G[v]==1)[0].tolist())
+            if len(nbs) == 0:
+                break
+            v = random.choice(nbs)
+            walk.append(self.node2id[v] + 2)
+        return walk
 
     def random_walks(self):
         # random walk with every node as start point once
         walks = []
         nodes = list(range(self.G.shape[0]))
         random.shuffle(nodes)
-        for node in nodes:
-            walk = [self.node2id[node] + 2]
-            v = node
-            length_walk = random.randint(5, 100)
-            for _ in range(length_walk):
-                nbs = list(np.where(self.G[v]==1)[0].tolist())
-                if len(nbs) == 0:
-                    break
-                v = random.choice(nbs)
-                walk.append(self.node2id[v] + 2)
-            walks.append(walk)
+        if len(nodes) < 10000:
+            for node in nodes:
+                walks.append(self.gen_one_random_walk(node))
+        else:
+            manager = Manager()
+            shared_list = manager.list()
+            processes = []
+            num_processes = 24
+            num = (len(nodes) + num_processes - 1) // num_processes
+            for i in range(num_processes):
+                start = num * i
+                end = min(num * (i + 1), len(nodes))
+                p = Process(target=self.multiprocess_random_walks, args=(shared_list, nodes[start:end]))
+                processes.append(p)
+                p.start()
+            for p in processes:
+                p.join()
+            walks = list(shared_list)
+
         return walks
+    
+    def multiprocess_random_walks(self, shared_list, nodes):
+        for node in nodes:
+            shared_list.append(self.gen_one_random_walk(node))    
 
     def random_walks_dw(self):
         # random walk with every node as start point once

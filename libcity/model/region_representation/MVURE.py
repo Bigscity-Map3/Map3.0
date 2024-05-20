@@ -3,6 +3,7 @@ from logging import getLogger
 import numpy as np
 import torch
 import torch.nn as nn
+import os
 import dgl
 import torch.nn.functional as F
 from dgl.nn.pytorch import GATConv
@@ -40,6 +41,8 @@ class MVURE(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         self.feature = self.preprocess_features(self.feature)
         model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],
                                  self.feature.shape[2], self.output_dim, self.device)
@@ -159,13 +162,13 @@ class MVURE_Layer(nn.Module):
         self.inputs = torch.from_numpy(feature).to(torch.float32).to(device)
         self.input_dim = input_dim
         self.output_dim = output_dim
-        assert self.output_dim%12 == 0
-        out_feat_num = self.output_dim//12
-        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
-        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=12,attn_drop=0.2,activation=F.relu)
+        self.num_heads = 8
+        out_feat_num = self.output_dim//self.num_heads
+        self.s_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=self.num_heads,attn_drop=0.2,activation=F.relu)
+        self.t_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=self.num_heads,attn_drop=0.2,activation=F.relu)
+        self.poi_gat = GATConv(in_feats=self.inputs.shape[-1],out_feats=out_feat_num,num_heads=self.num_heads,attn_drop=0.2,activation=F.relu)
         self.num_nodes = feature.shape[-2]
-        self.fused_layer = self_attn(12, self.device)
+        self.fused_layer = self_attn(out_feat_num, self.device)
         self.fused_layer.to(self.device)
         self.mv_layer = mv_attn(self.device)
         self.mv_layer.to(self.device)
@@ -185,7 +188,7 @@ class MVURE_Layer(nn.Module):
         """
         num_nodes = adj_mx.shape[0]
         num_edges = np.count_nonzero(adj_mx)
-        g = dgl.DGLGraph()
+        g = dgl.graph()
         g = g.to(self.device)
         g.add_nodes(self.num_nodes)
         src_index = []

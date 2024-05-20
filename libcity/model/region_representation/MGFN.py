@@ -1,5 +1,6 @@
 import time
 from logging import getLogger
+import os
 import torch
 import numpy as np
 import torch.nn as nn
@@ -15,8 +16,7 @@ class MGFN(AbstractReprLearningModel):
         self.mob_adj = data_feature.get("mob_adj")
         self.time_slice = data_feature.get("time_slice")
         self.num_nodes = data_feature.get("num_nodes")
-        if self.num_nodes % 2 == 1:
-            self.num_nodes += 1
+
         self._logger = getLogger()
         self.output_dim = config.get('output_dim', 128)
         self.iter = config.get('max_epoch', 2000)
@@ -34,6 +34,8 @@ class MGFN(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         input_tensor = torch.Tensor(self.mob_patterns).to(self.device)
         label = torch.Tensor(self.mob_adj).to(self.device)
         criterion = SimLoss().to(self.device)
@@ -107,9 +109,11 @@ class ConcatLinear(nn.Module):
 
 class GraphStructuralEncoder(nn.Module):
 
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,):
+    def __init__(self, d_model, nhead, dim_feedforward=64, dropout=0.1,):
         super(GraphStructuralEncoder, self).__init__()
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+
+        self.d_model=d_model
+        self.self_attn = nn.MultiheadAttention(d_model*2, nhead, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward,)
         self.dropout = nn.Dropout(dropout)
@@ -123,7 +127,11 @@ class GraphStructuralEncoder(nn.Module):
         self.activation = F.relu
 
     def forward(self, src):
-        src2 = self.self_attn(src, src, src,)[0]
+
+        src1=src.repeat(1,1,2)
+        src2 = self.self_attn(src1, src1, src1,)[0] # 7*n*2n
+        src2 = src2.split(self.d_model,-1)
+        src2 = src2[0]+src2[1]
         src = src + self.dropout1(src2)
         src = self.norm1(src)
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
@@ -144,7 +152,7 @@ class MobilityPatternJointLearning(nn.Module):
         self.num_multi_pattern_encoder = 3
         self.num_cross_graph_encoder = 1
         #改动
-        if node_num % 4 == 0:
+        if node_num % 2 == 0:
             self.n_head = 4
         else:
             self.n_head = 2
@@ -158,7 +166,7 @@ class MobilityPatternJointLearning(nn.Module):
         self.para1.data.fill_(0.7)
         self.para2 = torch.nn.Parameter(torch.FloatTensor(1), requires_grad=True)#the size is [1]
         self.para2.data.fill_(0.3)
-        assert node_num % 2 == 0
+
         self.s_linear = nn.Linear(node_num, int(node_num / 2))
         self.o_linear = nn.Linear(node_num, int(node_num / 2))
         self.concat = ConcatLinear(int(node_num / 2), int(node_num / 2), node_num)

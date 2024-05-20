@@ -43,6 +43,7 @@ class MGFNDataset(AbstractDataset):
         return None, None, None
 
     def construct_multi_graph(self):
+
         if os.path.exists(self.flow_graph_path):
             flow_graph = np.load(self.flow_graph_path)
             self._logger.info("finish constructing flow graph")

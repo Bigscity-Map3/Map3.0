@@ -3,7 +3,7 @@ from gensim.models import Word2Vec
 import json
 from logging import getLogger
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
-
+import os
 from io import open
 from time import time
 from collections import defaultdict, Iterable
@@ -206,6 +206,8 @@ class DeepWalk(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         g = from_numpy(self.adj_mx, self.is_directed)
 
         walks = build_deepwalk_corpus(g, num_paths=self.num_walks, path_length=self.walk_length,

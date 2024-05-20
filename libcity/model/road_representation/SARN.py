@@ -1,6 +1,6 @@
 import sys
 sys.path.append('..')
-
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -117,6 +117,8 @@ class SARN(nn.Module):
 
 
     def run(self,data=None):
+        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
+            return
         training_starttime = time.time()
         training_gpu_usage = training_ram_usage = 0.0
         logging.info("[Training] START! timestamp={:.0f}".format(training_starttime))

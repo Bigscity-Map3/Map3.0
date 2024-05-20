@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import time
 import dgl
 from dgl.nn import GATConv
+import os
 
 class JCLRNT(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
@@ -63,6 +64,8 @@ class JCLRNT(AbstractReprLearningModel):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
+            return
         start_time = time.time()
         for epoch in tqdm(range(self.iter)):
             total_loss = 0

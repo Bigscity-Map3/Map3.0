@@ -7,6 +7,7 @@ import math
 from torch.nn.parameter import Parameter
 import time
 from logging import getLogger
+import os
 
 
 class HyperRoad(AbstractReprLearningModel):
@@ -50,6 +51,8 @@ class HyperRoad(AbstractReprLearningModel):
         return self.network(batch)
     
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
+            return
         start_time = time.time()
         for epoch in range(self.epoches):
             loss_data = 0.0

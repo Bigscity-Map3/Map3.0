@@ -13,12 +13,14 @@ import numpy as np
 from tqdm import tqdm
 from logging import getLogger
 from torch.utils.data import DataLoader
+from libcity.utils import ensure_dir
 
 
 
 class Toast(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+        self._logger = getLogger()
         self.iter = config.get('max_epoch', 5)
         self.w2v_model = Word2Vec_SG(config,data_feature)
         self.model = BertModel4Pretrain(config,data_feature)
@@ -28,12 +30,13 @@ class Toast(AbstractReprLearningModel):
         self.batch_size = config.get('batch_size',64)
         self.n_workers = config.get('n_workers',1)
         self.dataloader= DataLoader(self.data, batch_size=self.batch_size, num_workers=self.n_workers)
-        self._logger = getLogger()
         self.model_name = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset', '')
         self.output_dim=config.get('embedding_size',128)
         self.lr=config.get('lr',0.005)
+        
+        ensure_dir( './libcity/cache/model_cache/{}'.format(self.model_name))
         self.vocab_embed_path = './libcity/cache/model_cache/{}/w2v_{}.pt'.format(self.model_name,self.dataset)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model_name, self.dataset, self.output_dim)
@@ -53,7 +56,8 @@ class Toast(AbstractReprLearningModel):
         Returns:
             output of tradition model
         """
-
+        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
+            return
         if self.load_init:
             if not os.path.exists(self.vocab_embed_path):
                 for i in range(4):
@@ -68,15 +72,11 @@ class Toast(AbstractReprLearningModel):
                 self.w2v_model.train(i, mode='pretrain')
                 
                 self.w2v_model.save_model(i, self.vocab_embed_path)
-        
         self.model.init_token_embed(self.w2v_model.get_list_vector())
         self.model.to(self.device)
-        
-        self.dataloader.dataset.gen_new_walks(num_walks=10)
+        self.dataloader.dataset.gen_new_walks(num_walks=1000)
         self.train_step=0
-
-        # for epoch in tqdm(range(self.iter)):
-        for epoch in tqdm(range(1)):
+        for epoch in tqdm(range(self.iter)):
             self.model.train()
             str_code = "train"
 
@@ -111,7 +111,8 @@ class Toast(AbstractReprLearningModel):
                 if i % 100 == 0:
                     print("Epoch: {}, iter {} loss: {}, masked traj loss {:.3f}, judge traj loss {:.3f}".format(epoch, i, loss.item(), mask_loss.item(), next_loss.item()))
                     
-
+            if (epoch + 1) % 20 == 0:
+                self.save_model()
             print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(self.dataloader), "total_acc=",
                 total_correct * 100.0 / total_element)
         

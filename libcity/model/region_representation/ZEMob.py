@@ -1,5 +1,5 @@
 import numpy as np
-
+import os
 import torch
 from torch import optim
 from torch.utils.data import DataLoader, Dataset
@@ -57,6 +57,8 @@ class ZEMob(AbstractReprLearningModel):
 
 
     def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
         # 共训练iter轮
         for epoch in range(1, self.iter + 1):
             self.train(epoch)

@@ -106,12 +106,17 @@ class preprocess_traj(PreProcess):
                     pd.Series(end_time, name='end_time')
                 ], axis=1)
             df.to_csv(self.data_file, index=False)
-            # 没有分验证集的必要 4:1
+            # 3:1:1
             train_file = os.path.join(self.data_dir, 'traj_road_train.csv')
+            val_file = os.path.join(self.data_dir, 'traj_road_val.csv')
             test_file = os.path.join(self.data_dir, 'traj_road_test.csv')
-            train_df = df.sample(frac=4/5, random_state=1)
-            test_df = df.drop(train_df.index)
+            train_df = df.sample(frac=3/5, random_state=1)
+            df = df.drop(train_df.index)
+            val_df = df.sample(frac=1/2, random_state=1)
+            df = df.drop(val_df.index)
+            test_df = df
             train_df.to_csv(train_file, index=False)
+            val_df.to_csv(val_file, index=False)
             test_df.to_csv(test_file, index=False)
 
             # region traj
@@ -159,12 +164,17 @@ class preprocess_traj(PreProcess):
                     pd.Series(start_time, name='start_time')
                 ], axis=1)
             df.to_csv(data_file, index=False)
-            # 没有分验证集的必要 4:1
+            # 3:1:1
             train_file = os.path.join(self.data_dir, 'traj_region_train.csv')
+            val_file = os.path.join(self.data_dir, 'traj_region_val.csv')
             test_file = os.path.join(self.data_dir, 'traj_region_test.csv')
-            train_df = df.sample(frac=4/5, random_state=1)
-            test_df = df.drop(train_df.index)
+            train_df = df.sample(frac=3/5, random_state=1)
+            df = df.drop(train_df.index)
+            val_df = df.sample(frac=1/2, random_state=1)
+            df = df.drop(val_df.index)
+            test_df = df
             train_df.to_csv(train_file, index=False)
+            val_df.to_csv(val_file, index=False)
             test_df.to_csv(test_file, index=False)
             self._logger.info('Finish preprocess traj.')
         
@@ -328,6 +338,7 @@ def build_graph(rel_file, geo_file):
 
     rel = pd.read_csv(rel_file)
     geo = pd.read_csv(geo_file)
+    node_size=geo['road_id'].max()
     
     edge2len = {}
     geoid2coord = {}
@@ -354,9 +365,9 @@ def build_graph(rel_file, geo_file):
             # print(row)
         graph.add_edge(prev_id, curr_id, weight=weight)
 
-    return graph
+    return graph,node_size
 
-def detour(graph, path, max_len=120):
+def detour(graph, path,node_size, max_len=120):
     rate = 0.5
     max_sub_path_len = int(len(path)*rate)
 
@@ -379,7 +390,10 @@ def detour(graph, path, max_len=120):
         new_sub_path = shortest_paths[1]
     else:
         new_sub_path = shortest_paths[0]
-    
+
+    if np.max(new_sub_path) > node_size:
+        new_sub_path = [o_id,d_id]
+
     new_path=path[:ind]+new_sub_path+path[ind+new_len+1:]
 
     if len(new_path) > max_len:
@@ -388,16 +402,21 @@ def detour(graph, path, max_len=120):
 
     return new_path, valid_length
 
-def preprocess_detour():
+def preprocess_detour(config):
 
-    if os.path.exists(cache_dir+'/ori_trajs.npz'):
+    dataset=config.get('dataset')
+    
+    if os.path.exists(cache_dir+'/{}/ori_trajs.npz'.format(dataset)):
         return
     
-    geo_path="/home/zhangwt/remote/zwt/Map3.0/raw_data/test_xa/test_xa.geo"
-    rel_path="/home/zhangwt/remote/zwt/Map3.0/raw_data/test_xa/test_xa.rel"
+    if not os.path.exists(cache_dir+'/{}/traj_road_test.csv'.format(dataset)):
+        return 
+    
+    geo_path="./raw_data/{}/{}.geo".format(dataset,dataset)
+    rel_path="./raw_data/{}/{}.rel".format(dataset,dataset)
 
-    graph = build_graph(rel_path, geo_path)
-    traj=pd.read_csv('/home/zhangwt/remote/zwt/Map3.0/libcity/cache/dataset_cache/test_xa/traj_road_test.csv')
+    graph,node_size = build_graph(rel_path, geo_path)
+    traj=pd.read_csv(cache_dir+'/{}/traj_road_test.csv'.format(dataset))
     traj.path=traj.path.apply(eval)
     traj_path=traj.path.to_numpy()
     random_choice=np.random.randint(0,len(traj_path),12000)
@@ -410,7 +429,7 @@ def preprocess_detour():
         if len(path) <= 4:
             continue
         new_ori_paths.append(path)
-        new_path=detour(graph,path)
+        new_path=detour(graph,path,node_size)
         new_paths.append(new_path[0])
 
     new_path_lengths=[]
@@ -441,8 +460,8 @@ def preprocess_detour():
     
     new_paths=temp
 
-    np.savez(cache_dir+'/ori_trajs',trajs=new_ori_paths,lengths=new_ori_path_lengths)
-    np.savez(cache_dir+'/query_trajs',trajs=new_paths,lengths=new_path_lengths)
+    np.savez(cache_dir+'/{}/ori_trajs'.format(dataset),trajs=new_ori_paths,lengths=new_ori_path_lengths)
+    np.savez(cache_dir+'/{}/query_trajs'.format(dataset),trajs=new_paths,lengths=new_path_lengths)
 
 
 
