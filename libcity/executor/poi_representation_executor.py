@@ -178,6 +178,8 @@ class POIRepresentationExecutor(AbstractExecutor):
                 embed_mat = self.model.static_embed()
                 embed_layer = StaticEmbed(embed_mat)
             self.data_feature['embed_layer'] = embed_layer
+        else:
+            self.data_feature['embed_layer'] = self.model
 
     def save_model(self, model_cache_file):
         ensure_dir(self.cache_dir)

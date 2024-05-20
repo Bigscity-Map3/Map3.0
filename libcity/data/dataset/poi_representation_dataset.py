@@ -324,15 +324,17 @@ class POIRepresentationDataset(AbstractDataset):
         data = pd.DataFrame(self.df, copy=True)
 
         data['datetime'] = pd.to_datetime(data["datetime"])
-        data['day'] = data['datetime'].dt.date
-        days = data['day'].drop_duplicates().to_list()
+        data['nyr'] = data['datetime'].apply(lambda x: datetime.fromtimestamp(x.timestamp()).strftime("%Y-%m-%d"))
+
+        days = sorted(data['nyr'].drop_duplicates().to_list())
+
         if len(days) <= 1:
             raise ValueError('Dataset contains only one day!')
         # days.sort()
         test_count = max(1, min(math.ceil(len(days) * self.test_scale), len(days)))
         self.split_days = [days[:-test_count], days[-test_count:]]
-        self._logger.info('Dates for train: {}'.format(self.split_days[0]))
-        self._logger.info('Dates for test: {}'.format(self.split_days[1]))
+        self._logger.info('Days for train: {}'.format(self.split_days[0]))
+        self._logger.info('Days for test: {}'.format(self.split_days[1]))
 
     def _load_usr(self):
         pass
@@ -394,7 +396,8 @@ class POIRepresentationDataset(AbstractDataset):
             min_len = self.min_len
         data = pd.DataFrame(self.df, copy=True)
         data['datetime'] = pd.to_datetime(data["datetime"])
-        data['day'] = data['datetime'].dt.date
+        data['day'] = data['datetime'].dt.day
+        data['nyr'] = data['datetime'].apply(lambda x: datetime.fromtimestamp(x.timestamp()).strftime("%Y-%m-%d"))
         if select_days is not None:
             data = data[data['nyr'].isin(self.split_days[select_days])]
         data['weekday'] = data['datetime'].dt.weekday

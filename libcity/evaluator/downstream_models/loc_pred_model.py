@@ -330,7 +330,7 @@ class LstmUserPredictor(nn.Module, ABC):
 
     def forward(self, seq,valid_len,**kwargs):
         
-        full_embed = self.embed_layer(seq, downstream=True, **kwargs)
+        full_embed = self.embed_layer(seq, downstream=True,pre_len=1, **kwargs)
         pack_x = pack_padded_sequence(full_embed, lengths=valid_len,batch_first=True,enforce_sorted=False)
 
         h0 = torch.zeros(self.num_layers, full_embed.size(0), self.hidden_size).to(self.device)

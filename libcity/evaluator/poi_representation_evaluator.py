@@ -7,6 +7,7 @@ from sklearn.model_selection import  StratifiedKFold
 from sklearn.cluster import KMeans
 from sklearn import metrics
 from sklearn.metrics import adjusted_rand_score
+from libcity.model.poi_representation.static import StaticEmbed, DownstreamEmbed
 from sklearn.metrics import normalized_mutual_info_score
 
 
@@ -67,6 +68,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         else:
             pre_model = Seq2SeqLocPredictor(embed_layer, input_size=embed_size, hidden_size=hidden_size,
                                             output_size=num_loc, num_layers=2)
+        
             
         self.result['loc_pre_acc'], self.result['loc_pre_pre'], self.result['loc_pre_recall'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
@@ -95,6 +97,11 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         logger=getLogger()
         logger.info('Start training downstream model [loc_clf]...')
         embed_layer = self.data_feature.get('embed_layer')
+
+        if not self.config.get('is_static', True):
+            embed_layer=embed_layer.static_embed()
+            embed_layer=StaticEmbed(embed_layer)
+
         num_loc = self.data_feature.get('num_loc')
         embed_size = self.config.get('embed_size', 128)
         task_epoch = self.config.get('task_epoch', 5)
@@ -174,6 +181,11 @@ class POIRepresentationEvaluator(AbstractEvaluator):
 
     def evaluate_loc_cluster(self):
         embed_layer = self.data_feature.get('embed_layer')
+
+        if not self.config.get('is_static', True):
+            embed_layer=embed_layer.static_embed()
+            embed_layer=StaticEmbed(embed_layer)
+        
         category = self.data_feature.get('coor_df')
 
         inputs=category.geo_id.to_numpy()

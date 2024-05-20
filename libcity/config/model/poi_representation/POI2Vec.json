@@ -2,5 +2,6 @@
   "con": 1e9,
   "indi_context": false,
   "learner": "sparse_adam",
-  "learning_rate": 1e-3
+  "learning_rate": 1e-3,
+  "is_static": true
 }
