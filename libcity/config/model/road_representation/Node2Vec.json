@@ -8,7 +8,5 @@
     "window_size": 10,
     "num_workers": 10,
     "max_epoch": 1,
-    "representation_object":"road",
-    "min_len": 1,
-    "max_len": 100
+    "representation_object":"road"
 }

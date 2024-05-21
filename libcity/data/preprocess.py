@@ -40,7 +40,6 @@ class PreProcess():
 
 
 class preprocess_traj(PreProcess):
-    # 在目前的代码中，该文件被命名为 traj_{dataset}_11.csv，但现在计划改名，将其与 region 区分开
     def __init__(self, config):
         super().__init__(config)
         if not os.path.exists(self.dyna_file):

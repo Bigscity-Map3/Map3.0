@@ -284,11 +284,6 @@ class HyperRoadDataset(AbstractDataset):
             x = int(row['origin_id']) - self.region_num
             y = int(row['destination_id'])
             hyper_adj[x][y] = 1
-        # with open(self.road2region_path, 'r', encoding='utf-8') as fp:
-        #     road2region_data = json.load(fp)
-        # for road in range(self.road_num):
-        #     region = road2region_data[str(road)]
-        #     hyper_adj[road][region] = 1
         return hyper_adj
     
     def construct_road_feature(self):

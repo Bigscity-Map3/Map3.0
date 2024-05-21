@@ -22,7 +22,7 @@ def build_graph_from_matrix(adjm, node_feats, device='cpu'):
     # get edge weights
     d = adjm[adjm.nonzero()]
     # create a graph
-    g = dgl.graph()
+    g = dgl.DGLGraph()
     # add nodes
     g.add_nodes(adjm.shape[0])
     # add edges and edge weights

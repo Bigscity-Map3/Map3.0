@@ -42,6 +42,7 @@ class TimeEstimationDataset(Dataset):
 
 class TravelTimeEstimationModel(AbstractModel):
     def __init__(self, config):
+        self.config = config
         self._logger = getLogger()
         self.alpha = config.get('alpha', 1)
         self.n_split = config.get('n_split', 5)
@@ -51,7 +52,7 @@ class TravelTimeEstimationModel(AbstractModel):
 
     def run(self, x, label):
         self._logger.info("--- Time Estimation ---")
-        min_len, max_len = 1, 100
+        min_len, max_len = self.config.get("tte_min_len", 1), self.config.get("tte_max_len", 100)
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
         num_road = len(x)
@@ -78,7 +79,6 @@ class TravelTimeEstimationModel(AbstractModel):
         y_arr = torch.Tensor(y_arr)
 
         train_size = int(num_samples * 0.8)
-        test_size = num_samples - train_size
         train_data_X ,train_data_y = x_arr[:train_size],y_arr[:train_size]
         test_data_X ,test_data_y = x_arr[train_size:],y_arr[train_size:]
         train_dataset = TimeEstimationDataset(train_data_X,train_data_y)

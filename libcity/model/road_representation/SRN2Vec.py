@@ -12,6 +12,7 @@ import time
 class SRN2Vec(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
+        self.config = config
         self.device = config.get('device')
         self.dataloader = data_feature.get('dataloader')
         self.num_nodes = data_feature.get("num_nodes")

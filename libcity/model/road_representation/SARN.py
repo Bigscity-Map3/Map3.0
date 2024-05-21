@@ -50,6 +50,7 @@ class FeatEmbedding(nn.Module):
 class SARN(nn.Module):
     def __init__(self,config,data_feature):
         super(SARN, self).__init__()
+        self.config = config
         self.dataset_path=config.get("data_path","")
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset', '')
