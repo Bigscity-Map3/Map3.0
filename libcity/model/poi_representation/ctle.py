@@ -91,6 +91,9 @@ class CTLE(AbstractModel):
         max_seq_len = data_feature.get('max_seq_len')
         num_loc = data_feature.get('num_loc')
         encoding_layer = PositionalEncoding(embed_size, max_seq_len)
+
+
+
         if encoding_type == 'temporal':
             encoding_layer = TemporalEncoding(embed_size)
 
@@ -105,6 +108,7 @@ class CTLE(AbstractModel):
 
         self.embed = ctle_embedding
         self.add_module('embed', ctle_embedding)
+
 
         encoder_layer = nn.TransformerEncoderLayer(d_model=self.embed_size, nhead=num_heads,
                                                    dim_feedforward=hidden_size, dropout=0.1)
@@ -134,8 +138,7 @@ class CTLE(AbstractModel):
             src_mask = None
 
         encoder_out = self.encoder(token_embed.transpose(0, 1), mask=src_mask,
-                                   src_key_padding_mask=src_key_padding_mask).transpose(0,
-                                                                                        1)  # (batch_size, src_len, embed_size)
+                                   src_key_padding_mask=src_key_padding_mask).transpose(0,1)  # (batch_size, src_len, embed_size)
         if self.detach and downstream:
             encoder_out = encoder_out.detach()
         return encoder_out

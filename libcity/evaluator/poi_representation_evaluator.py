@@ -18,7 +18,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self._logger = getLogger()
         self.config = config
         self.data_feature = data_feature
-        self.model_name = self.config.get('downstream_model', 'rnn')
+        self.model_name = self.config.get('downstream_model', 'gru')
         self.device = self.config.get('device')
         self.result = {}
         self.model = config.get('model')
@@ -68,8 +68,9 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         else:
             pre_model = Seq2SeqLocPredictor(embed_layer, input_size=embed_size, hidden_size=hidden_size,
                                             output_size=num_loc, num_layers=2)
-        
             
+        
+
         self.result['loc_pre_acc'], self.result['loc_pre_pre'], self.result['loc_pre_recall'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
                        num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)

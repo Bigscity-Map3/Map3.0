@@ -131,7 +131,7 @@ class BaseExecutor(object):
         assert os.path.exists(cache_name), 'Weights at {} not found' % cache_name
         checkpoint = torch.load(cache_name, map_location='cpu')
         self.model = checkpoint['model'].to(self.device)
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self._logger.info("Loaded model at " + cache_name)
 
     def save_model_with_epoch(self, epoch):

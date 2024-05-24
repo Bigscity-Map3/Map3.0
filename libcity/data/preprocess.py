@@ -494,8 +494,8 @@ class preprocess_neighbor(PreProcess):
 def preprocess_all(config):
     
     preprocess_csv(config)
-    # preprocess_feature(config)
-    # preprocess_neighbor(config)
+    preprocess_feature(config)
+    preprocess_neighbor(config)
     preprocess_traj(config)
     preprocess_od(config)
     preprocess_detour(config)

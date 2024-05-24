@@ -40,15 +40,16 @@ class HyperRoad(AbstractReprLearningModel):
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.emb_size)
 
-        self.network = PEHyper(num_nodes=self.num_nodes, num_classes=self.num_class,out_emb_dim=self.emb_size, device=self.device, agg_method=self.agg,
+        self.model = PEHyper(num_nodes=self.num_nodes, num_classes=self.num_class,out_emb_dim=self.emb_size, device=self.device, agg_method=self.agg,
                 layer_num=self.layer_num, lamb=self.lamb, gama=self.gama, with_p=self.with_p,one_hot_dim=self.one_hot_dim,lane_cls_num=self.lane_cls_num,speed_cls_num=self.speed_cls_num,oneway_cls_num=self.oneway_cls_num)
-        self.network=self.network.to(self.device)
-        self.network.set_paras(data_feature.get("input_x"),data_feature.get("c"),data_feature.get("onehot_input_feats"),data_feature.get("norms")[0],data_feature.get("norms")[1],data_feature.get("norms")[2])
+        self.model=self.model.to(self.device)
+        self.model.set_paras(data_feature.get("input_x"),data_feature.get("c"),data_feature.get("onehot_input_feats"),data_feature.get("norms")[0],data_feature.get("norms")[1],data_feature.get("norms")[2])
 
-        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+    
 
     def forward(self, batch):
-        return self.network(batch)
+        return self.model(batch)
     
     def run(self, data=None):
         if not self.config.get('train') and os.path.exists(self.road_embedding_path):
@@ -73,7 +74,7 @@ class HyperRoad(AbstractReprLearningModel):
                 batch_data = anchor, pos_edge, neg_edges, pos_hyper, neg_hypers, hyper_class, l_lanes, l_maxspeed, l_oneway
 
                 self.optimizer.zero_grad()
-                loss, gnn_loss, hgnn_loss, tag_loss = self.network(batch_data)
+                loss, gnn_loss, hgnn_loss, tag_loss = self.model(batch_data)
                 loss_data += loss.data.cpu().numpy()
                 gnn_loss_data += gnn_loss.data.cpu().numpy()
                 hgnn_loss_data += hgnn_loss.data.cpu().numpy()
@@ -86,16 +87,15 @@ class HyperRoad(AbstractReprLearningModel):
             
         t1 = time.time()-start_time
         self._logger.info('cost time is '+str(t1/self.epoches))
-        node_embedding,_ = self.network.update()
+        node_embedding,_ = self.model.update()
         node_embedding=node_embedding.cpu().detach().numpy()
         np.save(self.road_embedding_path,node_embedding)
-        torch.save((self.network.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
+        torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
     
     def static_embedding(self):
-        road_emb, hyper_emb=self.network.update()
+        road_emb, hyper_emb=self.model.update()
         return road_emb
     
-
 
 class LayerNorm(nn.Module):
     """

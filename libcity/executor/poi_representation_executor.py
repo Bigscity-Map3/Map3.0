@@ -26,7 +26,7 @@ class POIRepresentationExecutor(AbstractExecutor):
         ensure_dir(self.evaluate_res_dir)
         ensure_dir(self.summary_writer_dir)
         self._writer = SummaryWriter(self.summary_writer_dir)
-        self._scaler = self.data_feature.get('scaler')
+        # self._scaler = self.data_feature.get('scaler')
         self._logger.info(self.model)
         for name, param in self.model.named_parameters():
             self._logger.info(str(name) + '\t' + str(param.shape) + '\t' +
@@ -34,7 +34,7 @@ class POIRepresentationExecutor(AbstractExecutor):
         total_num = sum([param.nelement() for param in self.model.parameters()])
         self._logger.info('Total parameter numbers: {}'.format(total_num))
 
-        self.embed_epoch = self.config.get('embed_epoch', 100)
+        self.embed_epoch = self.config.get('embed_epoch', 128)
         self.is_static = self.config.get('is_static', False)
         self.learner = self.config.get('learner', 'adam')
         self.learning_rate = self.config.get('learning_rate', 0.01)

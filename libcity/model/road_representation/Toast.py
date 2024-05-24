@@ -43,11 +43,13 @@ class Toast(AbstractReprLearningModel):
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model_name, self.dataset, self.output_dim)
         
-        self.optim = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
         self.criterion1 = nn.CrossEntropyLoss(reduction='none')
         self.criterion2 = nn.CrossEntropyLoss()
         
+        # self.model.to(self.device)
+
     def run(self):
         """
         Args:
@@ -137,7 +139,16 @@ class Toast(AbstractReprLearningModel):
                    self.model_cache_file)
 
         print("EP: Model Saved on:{}".format(self.model_cache_file))
-
+    
+    def encode_sequence(self,sequences,lens):
+        
+        batch_size, max_seq_len = sequences.size()
+        device=sequences.device
+        self.model.to(device)
+        padding_masks = torch.ones([batch_size,max_seq_len],dtype=torch.int64).to(device)
+        for i in range(batch_size):
+            padding_masks[i,int(lens[i]):]= 0
+        return self.model.encode_sequence(sequences,padding_masks)
 
 def gelu(x):
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
@@ -508,3 +519,9 @@ class BertModel4Pretrain(nn.Module):
         logits_clsf = self.classifier(pooled_h)
 
         return logits_lm, logits_clsf
+
+    def encode_sequence(self, input_ids, input_mask):
+        h = self.transformer(input_ids, input_mask) # B x S x D
+        input_mask=input_mask.unsqueeze(-1).float()
+        traj_h = torch.sum(h * input_mask, dim = 1)/ input_mask.sum(1).float() 
+        return traj_h

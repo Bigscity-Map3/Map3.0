@@ -175,7 +175,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.config = config
         self.representation_object = config.get('representation_object', 'region')
         self.result = {}
-        self.model = config.get('model', '')
+        self.model_name = config.get('model', '')
         self.dataset = config.get('dataset', '')
         self.exp_id = config.get('exp_id', None)
         self.cluster_kinds = config.get('cluster_kinds', 5)
@@ -186,11 +186,14 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.regionid = config.get('regionid', None)
         self.data_label = {}
         self.region_embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'\
-            .format(self.exp_id, self.model, self.dataset, self.output_dim)
+            .format(self.exp_id, self.model_name, self.dataset, self.output_dim)
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'\
-            .format(self.exp_id, self.model, self.dataset, self.output_dim)
+            .format(self.exp_id, self.model_name, self.dataset, self.output_dim)
         geo_df = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         self.num_nodes = geo_df[geo_df['traffic_type'] == self.representation_object].shape[0]
+        self.num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
+        self.num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
+        self.num_poi = geo_df[geo_df['traffic_type'] == 'poi'].shape[0]
         self.label_data_path = os.path.join('libcity', 'cache', 'dataset_cache', self.dataset, 'label_data')
         self.preprocesse_data()
 
@@ -330,7 +333,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         except AttributeError:
             raise AttributeError('evaluate model is not found')
 
-    def evaluate_embedding(self):
+    def evaluate_embedding(self, model=None,**kwargs):
         if self.representation_object == 'road':
             embedding_path = self.road_embedding_path
         else:
@@ -369,19 +372,22 @@ class HHGCLEvaluator(AbstractEvaluator):
                     new_key = prefix + str(key)
                     new_dictionary[new_key] = value
                 return new_dictionary
+
         emb = np.load(embedding_path)  # (N, F)
-        
         if self.representation_object == 'road':
-            evaluate_tasks = self.config.get("evaluate_tasks", ["tsi", "tte", "tc"])
-            evaluate_models = self.config.get("evaluate_models", ["SpeedInferenceModel", "TravelTimeEstimationModel", "SimilaritySearchModel"])
+            evaluate_tasks = self.config.get("evaluate_tasks", [ "tte","tsi", "sts"])
+            evaluate_models = self.config.get("evaluate_models", [ "TravelTimeEstimationModel","SpeedInferenceModel", "SimilaritySearchModel"])
                 
-            for task, model in zip(evaluate_tasks, evaluate_models):
-                downstream_model = self.get_downstream_model(model)
-                if task in ["tsi", "tte"]:
+            for task, model_name in zip(evaluate_tasks, evaluate_models):
+                downstream_model = self.get_downstream_model(model_name)
+                if task in ["tsi"]:
                     label = self.data_label[task]
                     result = downstream_model.run(emb, label)
-                elif task in ['tc']:
-                    result = downstream_model.run()
+                if task in ["tte"]:
+                    label = self.data_label[task]
+                    result = downstream_model.run(emb, label,model, **kwargs)
+                elif task in ['sts']:
+                    result = downstream_model.run(model,**kwargs)
                 self.result.update(add_prefix_to_keys(result, task + '_'))
             if 'tte_best epoch' in self.result.keys():
                 del self.result['tte_best epoch']
@@ -389,8 +395,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         elif self.representation_object == 'region':
             evaluate_tasks = self.config.get("evaluate_tasks", ["eci"])
             evaluate_models = self.config.get("evaluate_models", ["RegressionModel"])
-            for task, model in zip(evaluate_tasks, evaluate_models):
-                downstream_model = self.get_downstream_model(model)
+            for task, model_name in zip(evaluate_tasks, evaluate_models):
+                downstream_model = self.get_downstream_model(model_name)
                 label = self.data_label[task]
                 result = downstream_model.run(emb, label)
                 self.result.update(add_prefix_to_keys(result, task + '_'))
@@ -401,20 +407,19 @@ class HHGCLEvaluator(AbstractEvaluator):
         except AttributeError:
             raise AttributeError('evaluate model is not found')
 
-    def evaluate(self, selected_geo_ids=None):
-        self.selected_geo_ids=selected_geo_ids
-        self.evaluate_embedding()
+    def evaluate(self, model=None, **kwargs):
+        self.evaluate_embedding(model,**kwargs)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
-            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
+            format(self.exp_id, self.exp_id, self.model_name, self.dataset, str(self.output_dim))
         self._logger.info(self.result)
         df = pd.DataFrame(self.result, index=[0])
         self._logger.info(df)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
-            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.output_dim))
+            format(self.exp_id, self.exp_id, self.model_name, self.dataset, str(self.output_dim))
         if self.config.get('save_result', True):
             df.to_csv(result_path, index=False)
         else:
-            df.to_csv(f'raw_data/new/tmp/{self.model}_{self.dataset}.csv', index=False)
+            df.to_csv(f'raw_data/new/tmp/{self.model_name}_{self.dataset}.csv', index=False)
             pass
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
         return self.result

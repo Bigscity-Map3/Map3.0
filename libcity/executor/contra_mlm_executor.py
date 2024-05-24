@@ -241,8 +241,9 @@ class ContrastiveMLMExecutor(ContrastiveExecutor):
 
     def _valid_epoch(self, eval_dataloader, epoch_idx, mode='Eval'):
         self.model = self.model.eval()
+
         if mode == 'Test':
-            self.evaluator.evaluate()
+            self.evaluator.evaluate(model=self.model,graph_dict=self.graph_dict)
             return 
 
         epoch_loss = []  # total loss of epoch

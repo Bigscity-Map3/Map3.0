@@ -13,6 +13,7 @@ from torch.nn.utils.rnn import pad_sequence,pad_packed_sequence,pack_padded_sequ
 
 
 def seq2seq_forward(encoder, decoder, lstm_input, valid_len, pre_len):
+    
     his_len = valid_len - pre_len
     src_padded_embed = pack_padded_sequence(lstm_input, his_len, batch_first=True, enforce_sorted=False)
     _, hc = encoder(src_padded_embed)
@@ -48,6 +49,7 @@ class Seq2SeqLocPredictor(nn.Module, ABC):
         @param valid_len: an 1D tensor carrying the legit length of full sequence for every batch, shape (batch_size)
         @param pre_len: a scalar indicates the length of prediction.
         """
+
         lstm_input = self.embed_layer(full_seq, downstream=True, pre_len=pre_len,
                                       **kwargs)  # (batch_size, seq_len, input_size)
         decoder_out = seq2seq_forward(self.encoder, self.decoder, lstm_input, valid_len, pre_len)
@@ -321,8 +323,6 @@ class LstmUserPredictor(nn.Module, ABC):
 
         self.encoder = nn.LSTM(input_size, rnn_hidden_size, num_layers, dropout=0.1 if num_layers>1 else 0.0, batch_first=True)
 
-        
-
         self.fc = nn.Sequential(nn.Tanh(), nn.Linear(rnn_hidden_size, fc_hidden_size),
                                         nn.LeakyReLU(), nn.Linear(fc_hidden_size, output_size))
     
@@ -405,7 +405,8 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
     logger = getLogger()
     logger.info('Start training downstream model [next_loc]...')
     pre_model = pre_model.to(device)
-    optimizer = torch.optim.Adam(pre_model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(pre_model.parameters(), lr=1e-3)
+
     loss_func = nn.CrossEntropyLoss()
 
     def pre_func(batch):
@@ -443,8 +444,11 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
 
+            
             if (i + 1) % test_point == 0:
+
                 pres_raw, labels = [], []
                 for test_batch in next_batch(test_set, batch_size * 4):
                     test_out, test_label = pre_func(test_batch)
@@ -457,11 +461,13 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
                 acc, recall = accuracy_score(labels, pres), recall_score(labels, pres, average='macro', zero_division=0.0)
                 f1_micro, f1_macro = f1_score(labels, pres, average='micro'), f1_score(labels, pres, average='macro')
                 score_log.append([acc, pre, recall, f1_micro, f1_macro])
+                logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
+                acc, pre, recall, f1_micro, f1_macro))
                 best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
                 
         logger.info('epoch {} complete!'.format(epoch))
-        logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
-                best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+        # logger.info('Best Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
+        #         best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
 
     best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
     logger.info('Finished Evaluation.')

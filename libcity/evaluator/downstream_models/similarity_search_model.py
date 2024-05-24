@@ -76,12 +76,16 @@ class TrajEncoder(nn.Module):
 
 
 class CLModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, embedding, device, n_layers=1, tau=0.08):
+    def __init__(self, input_dim, hidden_dim, embedding, device, n_layers=1, tau=0.08,is_static=True):
         super().__init__()
         self.device = device
         self.tau = tau
         self.hidden_dim = hidden_dim
-        self.traj_encoder = TrajEncoder(input_dim, hidden_dim, n_layers, embedding, device)
+        if is_static:
+            self.traj_encoder = TrajEncoder(input_dim, hidden_dim, n_layers, embedding, device)
+        elif not is_static:
+            self.traj_encoder = embedding.encode_sequence
+        
 
     def forward(self, path, valid_len, pos_path, pos_valid_len, neg_path, neg_valid_len):
         batch_size = path.shape[0]
@@ -122,6 +126,7 @@ class SimilaritySearchModel(AbstractModel):
         self.hidden_dim = self.config.get('downstream_hidden_dim', 512)
         self.pos_size = 3
         self.neg_size = self.config.get('neg_size', 10)
+        self.is_static = self.config.get('is_static', True)
         # self.train_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
         #     self.dataset, 'traj_' + self.representation_object + '_train.csv'))
         # self.test_traj_df = self.filter_traj(os.path.join('libcity/cache/dataset_cache',
@@ -132,8 +137,8 @@ class SimilaritySearchModel(AbstractModel):
         self.embedding = np.load(self.embedding_path)
         new_row = np.zeros((1, self.embedding.shape[1]))
         self.embedding = np.concatenate((self.embedding, new_row), axis=0)  # embedding[padding_id] = 0
-        self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'ori_traj.npz'))
-        self.query_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'query_traj.npz'))# num,path
+        self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'ori_trajs.npz'))
+        self.query_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'query_trajs.npz'))# num,path
         
         self.train_index=list(range(2000))
         self.test_index=list(range(2000,10000))
@@ -173,16 +178,16 @@ class SimilaritySearchModel(AbstractModel):
                 batch_index = index[bs * i: bs * (i + 1)]
             yield batch_index
 
-    def evaluation(self):
+    def evaluation(self,**kwargs):
         batch_size = self.batch_size
         num_queries = min(self.config.get('num_queries', 5000), len(self.query_traj['trajs']) - 2000)
         
         random_index = np.random.permutation(num_queries)
 
-        data=torch.from_numpy(self.ori_traj['trajs'][2000:])
-        data_len=torch.from_numpy(self.ori_traj['lengths'][2000:])
-        queries=torch.from_numpy(self.query_traj['trajs'][2000:])[random_index]
-        queries_len=torch.from_numpy(self.query_traj['lengths'][2000:])[random_index]
+        data=torch.from_numpy(self.ori_traj['trajs'][2000:]).to(self.device)
+        data_len=torch.from_numpy(self.ori_traj['lengths'][2000:]).to(self.device)
+        queries=torch.from_numpy(self.query_traj['trajs'][2000:])[random_index].to(self.device)
+        queries_len=torch.from_numpy(self.query_traj['lengths'][2000:])[random_index].to(self.device)
 
         y=random_index
   
@@ -191,7 +196,7 @@ class SimilaritySearchModel(AbstractModel):
         self.downstream_model.eval()
         x = []
         for batch_idx in self.next_batch_index(data_size, batch_size, shuffle=False):
-            seq_rep = self.downstream_model.traj_encoder(data[batch_idx], data_len[batch_idx])
+            seq_rep = self.downstream_model.traj_encoder(data[batch_idx], data_len[batch_idx],**kwargs)
             if isinstance(seq_rep, tuple):
                 seq_rep = seq_rep[0]
             x.append(seq_rep.detach().cpu())
@@ -199,7 +204,7 @@ class SimilaritySearchModel(AbstractModel):
 
         q = []
         for batch_idx in self.next_batch_index(num_queries, batch_size, shuffle=False):
-            seq_rep = self.downstream_model.traj_encoder(queries[batch_idx], queries_len[batch_idx])
+            seq_rep = self.downstream_model.traj_encoder(queries[batch_idx], queries_len[batch_idx],**kwargs)
             if isinstance(seq_rep, tuple):
                 seq_rep = seq_rep[0]
             q.append(seq_rep.detach().cpu())
@@ -228,16 +233,10 @@ class SimilaritySearchModel(AbstractModel):
         self._logger.info('Mean Rank: {}, No Hit: {}'.format(self.result['Mean Rank'], self.result['No Hit']))
 
 
-    def run(self):
+    def run(self,model=None,**kwargs):
         """
         返回评估结果
         """
-        self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim,
-                                        embedding=self.embedding, device=self.device)
-        self.downstream_model.to(self.device)
-        optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
-        self._logger.info('Start training downstream model...')
-
 
         ori_paths=torch.from_numpy(self.ori_traj['trajs'][:2000])
         ori_length=torch.from_numpy(self.ori_traj['lengths'][:2000])
@@ -251,20 +250,33 @@ class SimilaritySearchModel(AbstractModel):
         negtive_paths=ori_paths[negtive_index]
         negtive_length=ori_length[negtive_index]
 
-        for epoch in range(self.downstream_epoch):
-            total_loss = 0.0
-            for i in range(0, all_len , self.batch_size):
-                l=i
-                r=min(i+self.batch_size,all_len)
-                loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
-                                             detour_paths[l:r], detour_length[l:r],
-                                             negtive_paths[l:r], negtive_length[l:r])
-                optimizer.zero_grad()
-                total_loss += loss.item()
-                loss.backward()
-                optimizer.step()
-            self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
-        self.evaluation()
+                    
+
+        if self.is_static:
+            self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim,
+                                        embedding=self.embedding, is_static=self.is_static,device=self.device)
+
+            self.downstream_model.to(self.device)
+            optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
+            self._logger.info('Start training downstream model...')
+            for epoch in range(self.downstream_epoch):
+                total_loss = 0.0
+                for i in range(0, all_len , self.batch_size):
+                    l=i
+                    r=min(i+self.batch_size,all_len)
+                    loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
+                                                detour_paths[l:r], detour_length[l:r],
+                                                negtive_paths[l:r], negtive_length[l:r])
+                    optimizer.zero_grad()
+                    total_loss += loss.item()
+                    loss.backward()
+                    optimizer.step()
+                self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
+        else:
+            self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim,
+                                        embedding=model, is_static=self.is_static,device=self.device)
+
+        self.evaluation(**kwargs)
         return self.result
 
     def save_result(self, save_path, filename=None):

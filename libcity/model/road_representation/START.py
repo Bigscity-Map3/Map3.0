@@ -81,8 +81,24 @@ class START(nn.Module):
     def save_token_embedding(self,graph_dict):
         emb=self.bert.get_token_embedding(graph_dict)
         return emb
+    
+    def encode_sequence(self,sequences,lens,**kwargs):
 
+        device=sequences.device
 
+        graph_dict=kwargs['graph_dict']
+        
+        batch_size, max_seq_len = sequences.size()
+        batch_temporal_mat = torch.zeros(batch_size, max_seq_len, max_seq_len,
+                                     dtype=torch.long).to(device)
+        padding_masks = torch.ones([batch_size,max_seq_len],dtype=torch.int64).to(device)
+        for i in range(batch_size):
+            padding_masks[i,int(lens[i]):]= 0
+        sequences = sequences.unsqueeze(-1)
+        token_emb, _, _ = self.bert(x=sequences, padding_masks=padding_masks,
+                                                batch_temporal_mat=batch_temporal_mat, graph_dict=graph_dict) 
+        return token_emb[:, 0, :] # batch,d_model
+    
 def drop_path_func(x, drop_prob=0., training=False):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
     """
@@ -559,10 +575,10 @@ class BERTEmbedding(nn.Module):
                                    load_trans_prob=load_trans_prob, avg_last=avg_last)
         if self.add_pe:
             self.position_embedding = PositionalEmbedding(d_model=d_model)
-        if self.add_time_in_day:
-            self.daytime_embedding = nn.Embedding(1441, d_model, padding_idx=0)
-        if self.add_day_in_week:
-            self.weekday_embedding = nn.Embedding(8, d_model, padding_idx=0)
+        # if self.add_time_in_day:
+        #     self.daytime_embedding = nn.Embedding(1441, d_model, padding_idx=0)
+        # if self.add_day_in_week:
+        #     self.weekday_embedding = nn.Embedding(8, d_model, padding_idx=0)
         self.dropout = nn.Dropout(p=dropout)
         self.d_model = d_model
 
@@ -582,6 +598,7 @@ class BERTEmbedding(nn.Module):
             (B, T, d_model)
 
         """
+
         if self.add_gat:
             x = self.token_embedding(node_features=graph_dict['node_features'],
                                          edge_index_input=graph_dict['edge_index'],
@@ -589,10 +606,10 @@ class BERTEmbedding(nn.Module):
                                          x=sequence[:, :, 0])  # (B, T, d_model)
         if self.add_pe:
             x += self.position_embedding(x, position_ids)  # (B, T, d_model)
-        if self.add_time_in_day:
-            x += self.daytime_embedding(sequence[:, :, 2])  # (B, T, d_model)
-        if self.add_day_in_week:
-            x += self.weekday_embedding(sequence[:, :, 3])  # (B, T, d_model)
+        # if self.add_time_in_day:
+        #     x += self.daytime_embedding(sequence[:, :, 2])  # (B, T, d_model)
+        # if self.add_day_in_week:
+        #     x += self.weekday_embedding(sequence[:, :, 3])  # (B, T, d_model)
         return self.dropout(x)
 
     def get_representation(self, graph_dict):
@@ -821,8 +838,8 @@ class BERT(nn.Module):
         self.cutoff_random_rate = self.config.get('cutoff_random_rate', 0.2)
         self.sample_rate = self.config.get('sample_rate', 0.2)
         self.device = self.config.get('device', torch.device('cpu'))
-        self.add_time_in_day = self.config.get('add_time_in_day', True)
-        self.add_day_in_week = self.config.get('add_day_in_week', True)
+        self.add_time_in_day = self.config.get('add_time_in_day', False)
+        self.add_day_in_week = self.config.get('add_day_in_week', False)
         self.add_pe = self.config.get('add_pe', True)
         self.add_gat = self.config.get('add_gat', True)
         self.gat_heads_per_layer = self.config.get('gat_heads_per_layer', [8, 1])
