@@ -33,9 +33,8 @@ class SpeedInferenceModel(AbstractModel):
         x_ = []
         y = torch.tensor(label['speed']['speed'].tolist()).cuda()
         index = label['speed']['index']
-        num_road = len(x)
         for i in index:
-            x_.append(x[i-num_road])
+            x_.append(x[i])
         x = torch.tensor(np.array(x_)).cuda()
         x.detach()
 
@@ -47,7 +46,7 @@ class SpeedInferenceModel(AbstractModel):
             model = Regressor(x.shape[1]).cuda()
             opt = torch.optim.Adam(model.parameters())
 
-            best_mae = 1e9
+            best_mse = 1e20
             for e in range(1, 101):
                 model.train()
                 opt.zero_grad()
@@ -58,8 +57,8 @@ class SpeedInferenceModel(AbstractModel):
                 model.eval()
                 y_pred = model(x_eval).detach().cpu()
                 mse = mean_squared_error(y_eval.cpu(), y_pred)
-                if mse < best_mae:
-                    best_mae = mse
+                if mse < best_mse:
+                    best_mse = mse
                     best_pred = y_pred
             y_preds.append(best_pred)
             y_trues.append(y_eval.cpu())
@@ -67,10 +66,10 @@ class SpeedInferenceModel(AbstractModel):
         y_trues = torch.cat(y_trues, dim=0)
         y_preds[y_preds < 0] = 0
         mae = mean_absolute_error(y_trues, y_preds)
-        rmse = mean_squared_error(y_trues, y_preds) ** 0.5
         mse = mean_squared_error(y_trues, y_preds)
+        rmse = mse ** 0.5
 
-        self.save_result(y_preds, self.result_path)
+        # self.save_result(y_preds, self.result_path)
         result = {'mae': mae, 'mse': mse, 'rmse': rmse}
         self._logger.info(result)
         return result

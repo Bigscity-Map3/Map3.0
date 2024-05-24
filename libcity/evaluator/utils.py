@@ -172,23 +172,23 @@ def geo2distance(coordinates):
     return res
 
 
-def getSpeedAndTime(traj_list, geo2length, geo2speed):
+def getSpeedAndTime(traj_list, geo2length, geo2speed, num_regions):
     for i in range(len(traj_list) - 1):
         traj1 = traj_list[i]
         traj2 = traj_list[i + 1]
-        geo_id1 = traj1['geo_id']
+        road_id1 = traj1['geo_id'] - num_regions
 
         t1 = datetime.strptime(traj1['time'], '%Y-%m-%d %H:%M:%S')
         t2 = datetime.strptime(traj2['time'], '%Y-%m-%d %H:%M:%S')
-        length = geo2length[geo_id1]
+        length = geo2length[road_id1]
         t_delta = float((t2 - t1).seconds)
         if t_delta > 0:
             v_temp = length * 1000 / t_delta
 
-            avg, n = geo2speed.get(geo_id1, (0, 0))
-            geo2speed[geo_id1] = ((avg * n + v_temp) / (n + 1), n + 1)
+            avg, n = geo2speed.get(road_id1, (0, 0))
+            geo2speed[road_id1] = ((avg * n + v_temp) / (n + 1), n + 1)
 
-    traj_series = [x['geo_id'] for x in traj_list]
+    traj_series = [x['geo_id'] - num_regions for x in traj_list]
     t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%d %H:%M:%S')
     t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%d %H:%M:%S')
     totaltime = (t_ - t0).seconds
@@ -202,40 +202,40 @@ def generate_road_representaion_downstream_data(dataset_name):
     # read files
     traj_df_reader = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.dyna'), low_memory=False, sep=',', chunksize=100)
     geo_df = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.geo'), low_memory=False)
+    num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
     # length.csv
     if not os.path.exists(os.path.join(save_data_path, "length.csv")):
         geo2length = {}
-        for index, row in tqdm(geo_df.iterrows()):
-            geo_id = row['geo_id']
-            if geo_df.iloc[geo_id]['traffic_type'] == 'road':
-                coordinates = eval(geo_df['coordinates'][geo_id])
-                geo2length[geo_id] = geo2distance(coordinates)
-
+        for index, row in geo_df.iterrows():
+            if row['traffic_type'] == 'road':
+                coordinates = eval(row['coordinates'])
+                geo2length[row['geo_id']] = geo2distance(coordinates)
+            elif row['traffic_type'] == 'poi':
+                break
         geo2lengthdf = pd.DataFrame.from_dict(geo2length, orient='index', columns=['length'])
-        geo2lengthdf = geo2lengthdf.reset_index().rename(columns={'index': 'geo_id'})
+        geo2lengthdf = geo2lengthdf.reset_index().rename(columns={'index': 'road_id'})
+        geo2lengthdf['road_id'] -= num_regions
         geo2lengthdf.to_csv(os.path.join(save_data_path, 'length.csv'), index=False)
-
+    
     # speed.csv and time.csv for speed inference and time estimation task
     if not os.path.exists(os.path.join(save_data_path, "time.csv")) or \
         not os.path.exists(os.path.join(save_data_path, "speed.csv")):
         geo2lengthdf = pd.read_csv(os.path.join(save_data_path, 'length.csv'))
-        geo2length = dict(zip(geo2lengthdf['geo_id'], geo2lengthdf['length']))
+        geo2length = dict(zip(geo2lengthdf['road_id'], geo2lengthdf['length']))
         geo2speed = {}
-        traj_id_temp = 0
+        lst_traj_id, lst_entity_id = -1, -1
         traj_list = []
         trajAndtime = []
         for chunk in tqdm(traj_df_reader):
             for index, row in chunk.iterrows():
-                if row['geo_id'] not in geo2length.keys():
+                if row['geo_id'] - num_regions not in geo2length.keys():
                     continue
-                if type(row['total_traj_id']) == str:
-                    traj_id = eval(row['total_traj_id'])
-                else:
-                    traj_id = row['total_traj_id']
-                if traj_id != traj_id_temp and traj_list != []:
-                    trajs, time = getSpeedAndTime(traj_list, geo2length, geo2speed)
+                traj_id, entity_id = int(row['traj_id']), int(row['entity_id'])
+                if (traj_id != lst_traj_id or entity_id != lst_entity_id) and traj_list != []:
+                    trajs, time = getSpeedAndTime(traj_list, geo2length, geo2speed, num_regions)
                     trajAndtime.append([trajs, time])
-                    traj_id_temp = traj_id
+                    lst_traj_id = traj_id
+                    lst_entity_id = entity_id
                     traj_list = [row]
                 else:
                     traj_list.append(row)
