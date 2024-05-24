@@ -301,7 +301,6 @@ class HHGCLEvaluator(AbstractEvaluator):
             data_path2 = os.path.join("libcity/cache/dataset_cache", self.dataset, "label_data", "time.csv")
             if not os.path.exists(data_path1) or not os.path.exists(data_path2):
                 generate_road_representaion_downstream_data(self.dataset)
-            self.length_label = pd.read_csv(os.path.join(self.label_data_path, "length.csv"))
 
             self.speed_label = pd.read_csv(os.path.join(self.label_data_path, "speed.csv"))
             self.speed_label.sort_values(by="index", inplace=True, ascending=True)
@@ -310,7 +309,6 @@ class HHGCLEvaluator(AbstractEvaluator):
             self.time_label = pd.read_csv(os.path.join(self.label_data_path, "time.csv"))
 
             self.time_label['path'] = self.time_label['trajs'].map(eval)
-
             self.time_label['path_len'] = self.time_label['path'].map(len)
             self.time_label = self.time_label.loc[
                 (self.time_label['path_len'] > min_len) & (self.time_label['path_len'] < max_len)]
@@ -414,7 +412,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         if self.config.get('save_result', True):
             df.to_csv(result_path, index=False)
         else:
-            df.to_csv(f'raw_data/new/tmp/{self.model}_{self.dataset}.csv', index=False)
+            from libcity.utils import get_local_time
+            df.to_csv(f'raw_data/new/tmp/{self.model}_{self.dataset}_{get_local_time()}.csv', index=False)
             pass
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
         return self.result

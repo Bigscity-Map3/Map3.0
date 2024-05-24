@@ -55,7 +55,6 @@ class TravelTimeEstimationModel(AbstractModel):
         min_len, max_len = self.config.get("tte_min_len", 1), self.config.get("tte_max_len", 100)
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
-        num_road = len(x)
         embed_len = len(x[0])
         padding_id = label['padding_id']
         x_arr = np.zeros([num_samples, max_len * embed_len],dtype=np.float32)
@@ -68,7 +67,10 @@ class TravelTimeEstimationModel(AbstractModel):
                 temp = np.array([padding_id] * (max_len - len(row['path'])))
                 path = np.append(path, temp)
             for index in path:
-                embed = x[index-num_road]
+                if index != padding_id:
+                    embed = x[index]
+                else:
+                    embed = np.zeros((embed_len))
                 path_rep.append(embed)
 
             path_rep = np.array(path_rep)
