@@ -87,21 +87,19 @@ class TravelTimeEstimationModel(AbstractModel):
         min_len, max_len = self.config.get("tte_min_len", 1), self.config.get("tte_max_len", 100)
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
-        num_road = len(x)
-        embed_len = len(x[0])
-        padding_id = label['padding_id']
-        x_arr = np.zeros([num_samples, max_len * embed_len],dtype=np.float32)
+        num_regions=1056
+        padding_id = 0
+        x_arr = np.zeros([num_samples, max_len],dtype=np.int64)
+        lens_arr = np.zeros([num_samples], dtype=np.int64)
         y_arr = np.zeros([num_samples], dtype=np.float32)
         for i in range(num_samples):
             row = dfs.iloc[i]
             path = [int(x)-num_regions for x in row['path']]
             lens = len(path)
+
             if len(row['path']) < max_len:
                 temp = np.array([padding_id] * (max_len - len(row['path'])))
                 path = np.append(path, temp)
-            for index in path:
-                embed = x[index-num_road]
-                path_rep.append(embed)
 
             path = np.array(path)
             x_arr[i,:] = path
@@ -118,10 +116,10 @@ class TravelTimeEstimationModel(AbstractModel):
         is_static = self.config.get('is_static',True)
         train_size = int(num_samples * 0.8)
         test_size = num_samples - train_size
-        train_data_X ,train_data_y = x_arr[:train_size],y_arr[:train_size]
-        test_data_X ,test_data_y = x_arr[train_size:],y_arr[train_size:]
-        train_dataset = TimeEstimationDataset(train_data_X,train_data_y)
-        test_dataset = TimeEstimationDataset(test_data_X,test_data_y)
+        train_data_X ,train_lens,train_data_y = x_arr[:train_size],lens_arr[:train_size],y_arr[:train_size]
+        test_data_X ,test_lens, test_data_y = x_arr[train_size:],lens_arr[train_size:],y_arr[train_size:]
+        train_dataset = TimeEstimationDataset(train_data_X,train_lens,train_data_y)
+        test_dataset = TimeEstimationDataset(test_data_X,test_lens,test_data_y)
         train_dataloader= DataLoader(train_dataset,batch_size=64,shuffle=True)
         test_dataloader= DataLoader(test_dataset,batch_size=64,shuffle=True)
         if is_static:

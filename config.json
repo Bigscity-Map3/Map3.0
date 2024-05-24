@@ -9,5 +9,5 @@
   "downstream_batch_size": 64,
   "clf_task" : false,
   "poi_type_name" : "venue_category_id",
-  "is_static":false
+  "is_static":true
 }
