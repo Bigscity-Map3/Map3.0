@@ -14,6 +14,7 @@ import numpy as np
 import pickle
 import dgl
 from libcity.utils import tool_funcs, OSMLoader, EdgeIndex
+from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
@@ -47,9 +48,9 @@ class FeatEmbedding(nn.Module):
                 self.emb_lon(inputs[: , 6]),
                 self.emb_lat(inputs[: , 7])), dim = 1)
 
-class SARN(nn.Module):
-    def __init__(self,config,data_feature):
-        super(SARN, self).__init__()
+class SARN(AbstractReprLearningModel):
+    def __init__(self, config, data_feature):
+        super(SARN, self).__init__(config, data_feature)
         self.config = config
         self.dataset_path=config.get("data_path","")
         self.exp_id = config.get('exp_id', None)

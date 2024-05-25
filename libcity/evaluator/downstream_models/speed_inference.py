@@ -1,5 +1,3 @@
-import torch
-import torch.nn as nn
 from logging import getLogger
 from sklearn.metrics import  mean_squared_error, mean_absolute_error
 import numpy as np
@@ -8,7 +6,6 @@ from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 from sklearn import linear_model
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-
 
 
 class SpeedInferenceModel(AbstractModel):
@@ -23,7 +20,7 @@ class SpeedInferenceModel(AbstractModel):
     def run(self, x, label):
         self._logger.info("--- Speed Inference ---")
         x_ = []
-        index = label['speed']['index']-1056
+        index = label['speed']['index']
         for i in index:
             x_.append(x[i])
         x = np.array(x_)

@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import os
 from logging import getLogger
 from torch.utils.tensorboard import SummaryWriter
 
@@ -129,6 +129,10 @@ class POIRepresentationExecutor(AbstractExecutor):
         return lr_scheduler
 
     def train(self, train_dataloader, eval_dataloader):
+        model_path = self.cache_dir + '/' + self.config['model'] + '_' + self.config['dataset'] + '.m'
+        if not self.config.get('train') and os.path.exists(model_path):
+            self.load_model(model_path)
+            return
         self._logger.info('Start training ...')
         if self.model_name == 'DownstreamEmbed':
             embed_layer = DownstreamEmbed(self.config, self.data_feature)

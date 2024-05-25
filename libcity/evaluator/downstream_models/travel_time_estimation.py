@@ -82,19 +82,17 @@ class TravelTimeEstimationModel(AbstractModel):
             format(self.exp_id, self.alpha, self.n_split)
 
     def run(self, embedding_vector, label, embed_model=None,**kwargs):
-        x=embedding_vector
         self._logger.info("--- Time Estimation ---")
         min_len, max_len = self.config.get("tte_min_len", 1), self.config.get("tte_max_len", 100)
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
-        num_regions=1056
         padding_id = 0
         x_arr = np.zeros([num_samples, max_len],dtype=np.int64)
         lens_arr = np.zeros([num_samples], dtype=np.int64)
         y_arr = np.zeros([num_samples], dtype=np.float32)
         for i in range(num_samples):
             row = dfs.iloc[i]
-            path = [int(x)-num_regions for x in row['path']]
+            path = [int(x) for x in row['path']]
             lens = len(path)
 
             if len(row['path']) < max_len:
