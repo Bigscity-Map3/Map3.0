@@ -7,6 +7,7 @@ class AbstractReprLearningModel(nn.Module):
         nn.Module.__init__(self)
         self.config = config
         self.data_feature = data_feature
+        self.optimizer = None
 
     def run(self, train_dataloader=None,eval_dataloader=None):
         """

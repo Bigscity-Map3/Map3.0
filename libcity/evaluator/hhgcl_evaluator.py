@@ -71,12 +71,12 @@ def evaluation_classify(X, y, kfold=5, num_classes=5, seed=42, output_dim=128):
         for e in range(1000):
             model.train()
             opt.zero_grad()
-            ce_loss = nn.CrossEntropyLoss()(model(X_train), y_train)
+            ce_loss = nn.CrossEntropyLoss()(model(X_train.float()), y_train)
             ce_loss.backward()
             opt.step()
 
             model.eval()
-            y_pred = torch.argmax(model(X_eval), -1).detach().cpu()
+            y_pred = torch.argmax(model(X_eval.float()), -1).detach().cpu()
             acc = accuracy_score(y_eval.cpu(), y_pred, normalize=True)
             if acc > best_acc:
                 best_acc = acc
@@ -226,8 +226,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         x_tsne = tsne.fit_transform(x_input_tsne)
         sns.scatterplot(x=x_tsne[:, 0], y=x_tsne[:, 1], hue=y_predict, palette='Set1', legend=True, linewidth=0,)
         result_path = './libcity/cache/{}/evaluate_cache/{}_kmeans_tsne_{}_{}_{}_{}_{}.png'. \
-            format(self.exp_id, self.exp_id, item_type, self.model, self.dataset, self.output_dim, str(kinds))
-        plt.title('{} {} {} {}'.format(item_type, self.exp_id, self.model, self.dataset))
+            format(self.exp_id, self.exp_id, item_type, self.model_name, self.dataset, self.output_dim, str(kinds))
+        plt.title('{} {} {} {}'.format(item_type, self.exp_id, self.model_name, self.dataset))
         plt.savefig(result_path)
         return sc, db, ch, nmi, ars
 
@@ -338,38 +338,25 @@ class HHGCLEvaluator(AbstractEvaluator):
             embedding_path = self.region_embedding_path
         emb = np.load(embedding_path)
         self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
-        if self.config['clf_task']:
-            self._logger.warning('Evaluating Road Classification')
+        if self.config.get(f'{self.representation_object}_clf_label', None) is not None:
+            self._logger.warning(f'Evaluating {self.representation_object} Classification')
             y_truth,useful_index,micro_f1, macro_f1 = self._valid_clf(emb)
-            self.result['micro_f1'] = [micro_f1]
-            self.result['macro_f1'] = [macro_f1]
-            self._logger.warning('Evaluating Road Emb by TSNE ans Kmeans')
+            self.result['clf_micro_f1'] = [micro_f1]
+            self.result['clf_macro_f1'] = [macro_f1]
+            self._logger.warning(f'Evaluating {self.representation_object} Emb by TSNE ans Kmeans')
             sc, db, ch, nmi, ars = self.evaluation_cluster(y_truth,useful_index,emb, self.representation_object)
             self.result['sc'] = [sc]
             self.result['db'] = [db]
             self.result['ch'] = [ch]
             self.result['nmi'] = [nmi]
             self.result['ars'] = [ars]
-        if self.representation_object == 'region':
-
-            mae, rmse, r2, mape = self._valid_flow(emb)
-            bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
-            
-            self.result['mae'] = [mae]
-            self.result['rmse'] = [rmse]
-            self.result['mape'] = [mape]
-            self.result['r2'] = [r2]
-            self.result['bilinear_mae'] = [bilinear_mae]
-            self.result['bilinear_rmse'] = [bilinear_rmse]
-            self.result['bilinear_mape'] = [bilinear_mape]
-            self.result['bilinear_r2'] = [bilinear_r2]
         
         def add_prefix_to_keys(dictionary, prefix):
-                new_dictionary = {}
-                for key, value in dictionary.items():
-                    new_key = prefix + str(key)
-                    new_dictionary[new_key] = value
-                return new_dictionary
+            new_dictionary = {}
+            for key, value in dictionary.items():
+                new_key = prefix + str(key)
+                new_dictionary[new_key] = value
+            return new_dictionary
 
         emb = np.load(embedding_path)  # (N, F)
         if self.representation_object == 'road':
@@ -394,10 +381,24 @@ class HHGCLEvaluator(AbstractEvaluator):
             evaluate_tasks = self.config.get("evaluate_tasks", ["eci"])
             evaluate_models = self.config.get("evaluate_models", ["RegressionModel"])
             for task, model_name in zip(evaluate_tasks, evaluate_models):
+                if task not in self.data_label.keys():
+                    continue
                 downstream_model = self.get_downstream_model(model_name)
                 label = self.data_label[task]
                 result = downstream_model.run(emb, label)
                 self.result.update(add_prefix_to_keys(result, task + '_'))
+            
+            mae, rmse, r2, mape = self._valid_flow(emb)
+            self.result['mae'] = [mae]
+            self.result['rmse'] = [rmse]
+            self.result['mape'] = [mape]
+            self.result['r2'] = [r2]
+
+            bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
+            self.result['bilinear_mae'] = [bilinear_mae]
+            self.result['bilinear_rmse'] = [bilinear_rmse]
+            self.result['bilinear_mape'] = [bilinear_mape]
+            self.result['bilinear_r2'] = [bilinear_r2]
 
     def get_downstream_model(self, model):
         try:
@@ -417,7 +418,8 @@ class HHGCLEvaluator(AbstractEvaluator):
         if self.config.get('save_result', True):
             df.to_csv(result_path, index=False)
         else:
-            df.to_csv(f'raw_data/new/tmp/{self.model}_{self.dataset}.csv', index=False)
+            from libcity.utils import get_local_time
+            df.to_csv(f'raw_data/new/tmp/{self.model_name}_{self.dataset}_{get_local_time()}.csv', index=False)
             pass
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
         return self.result

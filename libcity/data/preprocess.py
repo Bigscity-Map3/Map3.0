@@ -337,7 +337,7 @@ def build_graph(rel_file, geo_file):
 
     rel = pd.read_csv(rel_file)
     geo = pd.read_csv(geo_file)
-    node_size=geo['road_id'].max()
+    node_size=geo[geo['traffic_type'] == 'road'].shape[0]
     
     edge2len = {}
     geoid2coord = {}
@@ -491,9 +491,8 @@ class preprocess_neighbor(PreProcess):
 
 
 def preprocess_all(config):
-    
     preprocess_csv(config)
-    preprocess_feature(config)
+    # preprocess_feature(config)
     preprocess_neighbor(config)
     preprocess_traj(config)
     preprocess_od(config)

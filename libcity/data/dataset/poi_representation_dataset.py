@@ -245,20 +245,17 @@ class POIRepresentationDataset(AbstractDataset):
         self.test_scale = self.config.get('test_scale', 0.1)
         self.min_len = self.config.get('min_len', 5)  # 轨迹最短长度
         self.min_frequency = self.config.get('min_frequency', 10)  # POI 最小出现次数
-        self.min_poi_cnt = self.config.get('min_poi_cnt', 5)  # 用户最少拥有 POI 数
+        self.min_poi_cnt = self.config.get('min_poi_cnt', 10)  # 用户最少拥有 POI 数
         self.pre_len = self.config.get('pre_len', 3)  # 预测后 pre_len 个 POI
         self.w2v_window_size = self.config.get('w2v_window_size', 1)
         self.data_path = './raw_data/' + self.dataset + '/'
+        self.offset = 0
         if not os.path.exists(self.data_path):
             raise ValueError("Dataset {} not exist! Please ensure the path "
                              "'./raw_data/{}/' exist!".format(self.dataset, self.dataset))
         self.usr_file = self.config.get('usr_file', self.dataset)
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.dyna_file = self.config.get('dyna_file', self.dataset)
-        # if os.path.exists(os.path.join(self.data_path, self.usr_file + '.usr')):
-        #     self._load_usr()
-        # else:
-        #     raise ValueError('Not found .usr file!')
         if os.path.exists(os.path.join(self.data_path, self.geo_file + '.geo')):
             self._load_geo()
         else:
@@ -277,6 +274,7 @@ class POIRepresentationDataset(AbstractDataset):
     def _load_geo(self):
         geo_df = pd.read_csv(os.path.join(self.data_path, self.geo_file + '.geo'))
         geo_df = geo_df[geo_df['type'] == 'Point']
+        self.offset = geo_df['geo_id'].min()
         poi_list = geo_df['coordinates'].tolist()
         lng_list = []
         lat_list = []
@@ -302,6 +300,7 @@ class POIRepresentationDataset(AbstractDataset):
     def _load_dyna(self):
         dyna_df = pd.read_csv(os.path.join(self.data_path, self.dyna_file + '.dyna'))
         dyna_df = dyna_df[dyna_df['type'] == 'trajectory']
+        # dyna_df['location'] = dyna_df['geo_id'] - self.offset
         dyna_df = dyna_df.merge(self.coor_df, left_on='location', right_on='geo_id', how='left')
         dyna_df.rename(columns={'time': 'datetime'}, inplace=True)
         dyna_df.rename(columns={'location': 'loc_index'}, inplace=True)
@@ -327,10 +326,9 @@ class POIRepresentationDataset(AbstractDataset):
         data['nyr'] = data['datetime'].apply(lambda x: datetime.fromtimestamp(x.timestamp()).strftime("%Y-%m-%d"))
 
         days = sorted(data['nyr'].drop_duplicates().to_list())
-
+        days = days[:10]
         if len(days) <= 1:
             raise ValueError('Dataset contains only one day!')
-        # days.sort()
         test_count = max(1, min(math.ceil(len(days) * self.test_scale), len(days)))
         self.split_days = [days[:-test_count], days[-test_count:]]
         self._logger.info('Days for train: {}'.format(self.split_days[0]))
