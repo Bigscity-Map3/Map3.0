@@ -9,13 +9,14 @@ from logging import getLogger
 from collections import Counter
 from random import *
 from itertools import zip_longest
-
+from libcity.data.utils import pad_session_data_one
 from libcity.data.dataset import AbstractDataset
 from libcity.model.poi_representation.utils import next_batch
 from libcity.model.poi_representation.tale import TaleData
 from libcity.model.poi_representation.poi2vec import P2VData
 from libcity.model.poi_representation.teaser import TeaserData
 from libcity.model.poi_representation.w2v import SkipGramData
+from libcity.model.poi_representation.cacsr import CacsrData
 
 
 class POIRepresentationDataLoader:
@@ -209,7 +210,36 @@ class SkipGramDataLoader(POIRepresentationDataLoader):
             pos_u, pos_v = (torch.tensor(item).long().to(self.device)
                             for item in (pos_u, pos_v))
             yield batch_count, pos_u, pos_v, neg_v
+class CacsrDataLoader(POIRepresentationDataLoader):
+    def __init__(self, config, data_feature, data):
+        super().__init__(config, data_feature, data)
+        self.dataset = CacsrData(config,data_feature)
+    def next_batch(self):
+        for batch in next_batch(sklearn.utils.shuffle(self.dataset.data_train), self.batch_size):
+            batch = sorted(batch, key=lambda x: len(x[0]), reverse=True)  
 
+            X_all_loc = [item[0] for item in batch]
+            X_all_tim = [item[1] for item in batch]
+            X_all_text = [item[2] for item in batch]
+            Y_location = [lid for item in batch for lid in item[3]] 
+            target_lengths = [item[4] for item in batch]
+            X_lengths = [item[5] for item in batch]
+            X_users = [item[6] for item in batch]
+
+            padded_X_all_loc = pad_session_data_one(X_all_loc)
+            padded_X_all_tim = pad_session_data_one(X_all_tim)
+            # padded_X_all_loc = torch.tensor(padded_X_all_loc).long().to(self.device)
+            # padded_X_all_tim = torch.tensor(padded_X_all_tim).long().to(self.device)
+            
+            
+            X_all_loc = torch.LongTensor(padded_X_all_loc).to(self.device)  # (batch, max_all_length)
+            X_all_tim = torch.LongTensor(padded_X_all_tim).to(self.device)  # (batch, max_all_length)
+            Y_location = torch.Tensor(Y_location).long().to(self.device)  # (Batch,)  
+            X_users = torch.Tensor(X_users).long().to(self.device)
+            yield X_all_loc, X_all_tim, X_all_text, Y_location, target_lengths, X_lengths, X_users
+        
+        
+    
 
 def get_dataloader(config, data_feature, data):
     model_name = config.get('model')
@@ -223,6 +253,8 @@ def get_dataloader(config, data_feature, data):
         return TeaserDataLoader(config, data_feature, data)
     if model_name in ['SkipGram', 'CBOW']:
         return SkipGramDataLoader(config, data_feature, data)
+    if model_name in ['CACSR']:
+        return CacsrDataLoader(config,data_feature,data)
     return None
 
 
@@ -374,7 +406,8 @@ class POIRepresentationDataset(AbstractDataset):
             "coor_mat": self.coor_mat,
             "id2coor_df": self.id2coor_df,
             "theta" : self.theta,
-            "coor_df" : self.coor_df
+            "coor_df" : self.coor_df,
+            "df":self.df
         }
 
     def gen_sequence(self, min_len=None, select_days=None, include_delta=False):

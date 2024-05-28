@@ -2,7 +2,7 @@ import importlib
 import numpy as np
 from torch.utils.data import DataLoader
 import copy
-
+import itertools
 from libcity.data.list_dataset import ListDataset
 from libcity.data.batch import Batch, BatchPAD
 
@@ -149,3 +149,13 @@ def split_list(lst, ratios, num_splits):
         result.append(lst[start:end])
         start = end
     return result
+
+
+def pad_session_data_one(data):
+    fillvalue = 0
+    # zip_longest
+    data = list(zip(*itertools.zip_longest(*data, fillvalue=fillvalue)))
+    res = []
+    res.extend([list(data[i]) for i in range(len(data))])
+
+    return res
