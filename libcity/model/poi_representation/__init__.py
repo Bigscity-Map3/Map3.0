@@ -6,6 +6,7 @@ from libcity.model.poi_representation.tale import Tale
 from libcity.model.poi_representation.teaser import Teaser
 from libcity.model.poi_representation.w2v import SkipGram
 from libcity.model.poi_representation.w2v import SkipGram as CBOW
+from libcity.model.poi_representation.cacsr import CACSR
 __all__ = [
     "CTLE",
     "DownstreamEmbed",
@@ -14,5 +15,6 @@ __all__ = [
     "Tale",
     "Teaser",
     "SkipGram",
-    "CBOW"
+    "CBOW",
+    "CACSR"
 ]

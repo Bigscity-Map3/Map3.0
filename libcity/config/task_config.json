@@ -122,7 +122,7 @@
     },
     "poi_representation": {
         "allowed_model": [
-            "CTLE", "DownstreamEmbed", "SkipGram", "CBOW", "Tale", "Teaser", "POI2Vec", "Hier"
+            "CTLE", "DownstreamEmbed", "SkipGram", "CBOW", "Tale", "Teaser", "POI2Vec", "Hier","CACSR"
         ],
         "allowed_dataset": [
             "foursquare_nyc", "foursquare_tky", "brightkite", "gowalla"
@@ -163,6 +163,11 @@
             "evaluator": "POIRepresentationEvaluator"
         },
         "Hier": {
+            "dataset_class": "POIRepresentationDataset",
+            "executor": "POIRepresentationExecutor",
+            "evaluator": "POIRepresentationEvaluator"
+        },
+        "CACSR": {
             "dataset_class": "POIRepresentationDataset",
             "executor": "POIRepresentationExecutor",
             "evaluator": "POIRepresentationEvaluator"
