@@ -244,8 +244,8 @@ class POIRepresentationDataset(AbstractDataset):
         self.dataset = self.config.get('dataset')
         self.test_scale = self.config.get('test_scale', 0.1)
         self.min_len = self.config.get('min_len', 5)  # 轨迹最短长度
-        self.min_frequency = self.config.get('min_frequency', 10)  # POI 最小出现次数
-        self.min_poi_cnt = self.config.get('min_poi_cnt', 10)  # 用户最少拥有 POI 数
+        self.min_frequency = self.config.get('min_frequency', 5)  # POI 最小出现次数
+        self.min_poi_cnt = self.config.get('min_poi_cnt', 5)  # 用户最少拥有 POI 数
         self.pre_len = self.config.get('pre_len', 3)  # 预测后 pre_len 个 POI
         self.w2v_window_size = self.config.get('w2v_window_size', 1)
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -298,7 +298,8 @@ class POIRepresentationDataset(AbstractDataset):
             self.coor_df = pd.concat([idx_col, lat_col, lng_col], axis=1)
 
     def _load_dyna(self):
-        dyna_df = pd.read_csv(os.path.join(self.data_path, self.dyna_file + '.dyna'))
+        dyna_df = pd.read_csv(os.path.join(self.data_path, self.dyna_file + '_poi.dyna'))
+        # TODO 区分 trajectory 和 check-in
         dyna_df = dyna_df[dyna_df['type'] == 'trajectory']
         # dyna_df['location'] = dyna_df['geo_id'] - self.offset
         dyna_df = dyna_df.merge(self.coor_df, left_on='location', right_on='geo_id', how='left')
@@ -326,7 +327,9 @@ class POIRepresentationDataset(AbstractDataset):
         data['nyr'] = data['datetime'].apply(lambda x: datetime.fromtimestamp(x.timestamp()).strftime("%Y-%m-%d"))
 
         days = sorted(data['nyr'].drop_duplicates().to_list())
-        days = days[:10]
+        num_days = self.config.get('num_days', None)
+        if num_days is not None:
+            days = days[:num_days]
         if len(days) <= 1:
             raise ValueError('Dataset contains only one day!')
         test_count = max(1, min(math.ceil(len(days) * self.test_scale), len(days)))

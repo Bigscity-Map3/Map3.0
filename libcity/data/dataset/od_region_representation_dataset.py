@@ -7,7 +7,7 @@ import pandas as pd
 from libcity.utils import ensure_dir
 from libcity.utils import geojson2geometry
 from tqdm import tqdm
-from libcity.data.preprocess import cache_dir, preprocess_all
+from libcity.data.preprocess import preprocess_all
 
 
 class ODRegionRepresentationDataset(AbstractDataset):
@@ -67,8 +67,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.remove_node_type = self.config.get("remove_node_type", "od")
         self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo_{}.npy'.format(self.dataset,
                                                                                            self.remove_node_type)
-        self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,
-                                                                                           self.remove_node_type)
+
         # 初始化
         self.data = None
         self.feature_name = {'X': 'float', 'y': 'float'}  # 此类的输入只有X和y
@@ -121,8 +120,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.poi_ids = list(geofile[geofile['traffic_type'] == 'poi']['geo_id'])
         self.num_pois = len(self.poi_ids)
         self.num_nodes = self.num_regions
-        # self.crime_count = list(geofile[geofile['traffic_type'] == 'region']['crime_count'])
-        # self.poi_function_class = list(geofile['venue_category_name'].astype('category').cat.codes)
         self._logger.info(
             "Loaded file " + self.geo_file + '.geo' + ',num_regions=' + str(self.num_regions) + ',num_roads=' + str(
                 self.num_roads) + ',num_pois=' + str(self.num_pois) + ', num_nodes=' + str(self.num_nodes))

@@ -18,16 +18,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         self.config = config
         super().__init__(config)
-        self.dataset = self.config.get('dataset')
-        self.data_path = './raw_data/' + self.dataset + '/'
-        self.geo_file = self.config.get('geo_file', self.dataset)
-        self.rel_file = self.config.get('rel_file', self.dataset)
-        assert os.path.exists(self.data_path + self.geo_file + '.geo')
-        assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        if not os.path.exists('./libcity/cache/ReMVC_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/ReMVC_{}'.format(self.dataset))
         self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
-
         self.get_region_dict()
         self.get_poi_features()
         self.get_matrix_dict()

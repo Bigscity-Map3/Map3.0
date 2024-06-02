@@ -477,8 +477,8 @@ class ReMVC(AbstractReprLearningModel):
         size //= 2
         mutual_reg = config.get('mutual', 1.0)
         poi_reg = config.get('reg', 0.0001)
-        poi_neg_size = config.get('poi_neg_size', 10)
-        flow_neg_size = config.get('flow_neg_size', 30)
+        poi_neg_size = config.get('poi_neg_size', 8)
+        flow_neg_size = config.get('flow_neg_size', 15)
         self._logger = getLogger()
         self.ssl_data = data_feature
         self.poi_model = POI_SSL(self.ssl_data, neg_size=poi_neg_size, emb_size=size, attention_size=16, temp=0.08,

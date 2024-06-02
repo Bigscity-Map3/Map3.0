@@ -66,8 +66,8 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.remove_node_type = self.config.get("remove_node_type", None)
         self.ind_to_geo_path = './libcity/cache/dataset_cache/{}/ind_to_geo_{}.npy'.format(self.dataset,
                                                                                            self.remove_node_type)
-        self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,
-                                                                                           self.remove_node_type)
+        # self.func_label_path = './libcity/cache/dataset_cache/{}/func_label_{}.npy'.format(self.dataset,
+        #                                                                                    self.remove_node_type)
         # 初始化
         self.data = None
         self.feature_name = {'X': 'float', 'y': 'float'}  # 此类的输入只有X和y
@@ -121,7 +121,7 @@ class TrafficRepresentationDataset(AbstractDataset):
             geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
             self.geofile = geofile
             self.num_nodes = self.num_roads
-            self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
+            # self.function = list(geofile[geofile['traffic_type'] == 'road']['function'])
 
     def _load_geo(self):
         """
@@ -165,7 +165,7 @@ class TrafficRepresentationDataset(AbstractDataset):
 
     def remove_0_degree_nodes(self):
         # dict保存为
-        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+        if os.path.exists(self.ind_to_geo_path): # and os.path.exists(self.func_label_path)
             region_list = np.load(self.ind_to_geo_path)
             self.geo_to_ind = {}
             self.ind_to_geo = {}
@@ -176,7 +176,7 @@ class TrafficRepresentationDataset(AbstractDataset):
                 index += 1
             self.num_nodes = index
             self.num_regions = index
-            self.function = np.load(self.func_label_path)
+            # self.function = np.load(self.func_label_path)
             self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
         # 去除在轨迹中不出现的节点，使用geo_to_ind,ind_to_geo来对节点重新编号
@@ -195,18 +195,18 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_nodes = index
         self.num_regions = index
         # 对 function_label进行映射
-        self.function = np.zeros(self.num_regions)
-        for i in range(index):
-            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        # self.function = np.zeros(self.num_regions)
+        # for i in range(index):
+        #     self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
         region_list = list(region_set)
         region_array = np.array(region_list)
         np.save(self.ind_to_geo_path, region_array)
-        np.save(self.func_label_path, self.function)
+        # np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
 
     def keep_od_nodes(self):
         # dict保存为
-        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+        if os.path.exists(self.ind_to_geo_path): # and os.path.exists(self.func_label_path):
             region_list = np.load(self.ind_to_geo_path)
             self.geo_to_ind = {}
             self.ind_to_geo = {}
@@ -217,7 +217,7 @@ class TrafficRepresentationDataset(AbstractDataset):
                 index += 1
             self.num_nodes = index
             self.num_regions = index
-            self.function = np.load(self.func_label_path)
+            # self.function = np.load(self.func_label_path)
             self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
         # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
@@ -239,18 +239,18 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_nodes = index
         self.num_regions = index
         # 对 function_label进行映射
-        self.function = np.zeros(self.num_regions)
-        for i in range(index):
-            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        # self.function = np.zeros(self.num_regions)
+        # for i in range(index):
+        #     self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
         region_list = list(region_set)
         region_array = np.array(region_list)
         np.save(self.ind_to_geo_path, region_array)
-        np.save(self.func_label_path, self.function)
+        # np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
 
     def keep_non_zero_od_nodes(self):
         # dict保存为
-        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+        if os.path.exists(self.ind_to_geo_path): # and os.path.exists(self.func_label_path):
             region_list = np.load(self.ind_to_geo_path)
             self.geo_to_ind = {}
             self.ind_to_geo = {}
@@ -261,7 +261,7 @@ class TrafficRepresentationDataset(AbstractDataset):
                 index += 1
             self.num_nodes = index
             self.num_regions = index
-            self.function = np.load(self.func_label_path)
+            # self.function = np.load(self.func_label_path)
             self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
         # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
@@ -319,18 +319,18 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_nodes = index
         self.num_regions = index
         # 对 function_label进行映射
-        self.function = np.zeros(self.num_regions)
-        for i in range(index):
-            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        # self.function = np.zeros(self.num_regions)
+        # for i in range(index):
+        #     self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
         region_list = list(region_set)
         region_array = np.array(region_list)
         np.save(self.ind_to_geo_path, region_array)
-        np.save(self.func_label_path, self.function)
+        # np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
 
     def keep_mvure_nodes(self):
         # dict保存为
-        if os.path.exists(self.ind_to_geo_path) and os.path.exists(self.func_label_path):
+        if os.path.exists(self.ind_to_geo_path): # and os.path.exists(self.func_label_path):
             region_list = np.load(self.ind_to_geo_path)
             self.geo_to_ind = {}
             self.ind_to_geo = {}
@@ -341,7 +341,7 @@ class TrafficRepresentationDataset(AbstractDataset):
                 index += 1
             self.num_nodes = index
             self.num_regions = index
-            self.function = np.load(self.func_label_path)
+            # self.function = np.load(self.func_label_path)
             self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
             return
         # 去除在od矩阵中为0的点，使用geo_to_ind,ind_to_geo来对节点重新编号
@@ -376,10 +376,10 @@ class TrafficRepresentationDataset(AbstractDataset):
         self.num_nodes = index
         self.num_regions = index
         # 对 function_label进行映射
-        self.function = np.zeros(self.num_regions)
-        for i in range(index):
-            self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
+        # self.function = np.zeros(self.num_regions)
+        # for i in range(index):
+        #     self.function[i] = self.geofile.loc[self.ind_to_geo[i], "function"]
         region_array = np.array([region for region in region_set])
         np.save(self.ind_to_geo_path, region_array)
-        np.save(self.func_label_path, self.function)
+        # np.save(self.func_label_path, self.function)
         self._logger.info("remove 0 degree nodes,num_nodes = {},num_regions = {}".format(index, index))
