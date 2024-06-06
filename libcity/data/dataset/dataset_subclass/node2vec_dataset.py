@@ -4,6 +4,7 @@ import numpy as np
 
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
 from libcity.utils import ensure_dir
+from libcity.data.preprocess import cache_dir
 
 
 class Node2VecDataset(TrafficRepresentationDataset):
@@ -18,8 +19,8 @@ class Node2VecDataset(TrafficRepresentationDataset):
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
         dir = 'libcity/cache/dataset_cache/{}/Node2Vec'
         ensure_dir(dir)
-        self.od_label_path = os.path.join(dir, f'od_label_{self.remove_node_type}.npy')
-        self.construct_od_matrix()
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
+        self.od_label = np.load(self.od_label_path)
         self.construct_graph()
 
     def get_data(self):
@@ -32,25 +33,6 @@ class Node2VecDataset(TrafficRepresentationDataset):
         :return:adj_mx
         """
         self.adj_mx = self.od_label
-
-
-    def construct_od_matrix(self):
-        if os.path.exists(self.od_label_path):
-            self.od_label = np.load(self.od_label_path)
-            self._logger.info("finish construct od graph")
-            return
-        assert self.representation_object == "region"
-        self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_region:
-            origin_region_geo_id = traj[0]
-            destination_region_geo_id = traj[-1]
-            if origin_region_geo_id in self.geo_to_ind and destination_region_geo_id in self.geo_to_ind:
-                origin_region = self.geo_to_ind[origin_region_geo_id]
-                destination_region = self.geo_to_ind[destination_region_geo_id]
-                self.od_label[origin_region][destination_region] += 1
-        np.save(self.od_label_path,self.od_label)
-        self._logger.info("finish construct od graph")
-        return self.od_label
     
     def get_data_feature(self):
         """

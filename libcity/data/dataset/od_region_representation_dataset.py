@@ -4,10 +4,8 @@ from logging import getLogger
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from libcity.utils import ensure_dir
-from libcity.utils import geojson2geometry
-from tqdm import tqdm
-from libcity.data.preprocess import preprocess_all
+from libcity.utils import ensure_dir, geojson2geometry
+from libcity.data.preprocess import preprocess_all, cache_dir
 
 
 class ODRegionRepresentationDataset(AbstractDataset):
@@ -99,10 +97,8 @@ class ODRegionRepresentationDataset(AbstractDataset):
             self._load_rel()
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        if os.path.exists(self.data_path + self.od_file + '.od'):
-            self._load_od()
-        else:
-            self.construct_od_matrix()
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
+        self.od_label = np.load(self.od_label_path)
 
     def _load_geo(self):
         """
@@ -151,43 +147,3 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.poi2road = relfile[relfile['rel_type'] == 'poi2road']
         self.road2poi = relfile[relfile['rel_type'] == 'road2poi']
         self._logger.info("Loaded file " + self.rel_file + '.rel')
-
-    def _load_od(self):
-        """
-        构造区域间的od矩阵 dyna_id,type,time,origin_id,destination_id,flow
-        :return: od_mx
-        """
-        if os.path.exists(self.od_label_path):
-            self.od_label = np.load(self.od_label_path)
-            self._logger.info("finish construct od graph")
-            return self.od_label
-        assert self.representation_object == "region"
-        odfile = pd.read_csv(self.data_path + self.od_file + '.od')
-        total_flow = odfile['flow'].sum()
-        self._logger.info("total_flow = {}".format(total_flow))
-        self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        pbar = tqdm(range(len(odfile)))
-        pbar.set_description("construct od matrix")
-        for i in pbar:
-            origin_region = odfile.loc[i, "origin_id"]
-            destination_region = odfile.loc[i, "destination_id"]
-            flow = odfile.loc[i, "flow"]
-            self.od_label[origin_region][destination_region] += flow
-        np.save(self.od_label_path, self.od_label)
-        self._logger.info("finish construct od graph")
-        return self.od_label
-
-    def construct_od_matrix(self):
-        if os.path.exists(self.od_label_path):
-            self.od_label = np.load(self.od_label_path)
-            self._logger.info("finish construct od graph")
-            return
-        assert self.representation_object == "region"
-        self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        for traj in self.traj_region:
-            origin_region = traj[0]
-            destination_region = traj[-1]
-            self.od_label[origin_region][destination_region] += 1
-        np.save(self.od_label_path, self.od_label)
-        self._logger.info("finish construct od graph")
-        return self.od_label

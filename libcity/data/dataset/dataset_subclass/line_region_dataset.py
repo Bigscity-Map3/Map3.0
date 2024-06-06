@@ -95,7 +95,8 @@ class LINERegionDataset(TrafficRepresentationDataset):
         self._logger = getLogger()
         self.feature_name = {'I': 'int', 'J': 'int', 'Neg': 'int'}
         self.num_workers = config.get('num_workers', 0)
-        self.construct_od_matrix()
+        self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
+        self.od_label = np.load(self.od_label_path)
         self.construct_graph()
         self.get_edges(self.adj_mx)
         # 采样条数
@@ -120,23 +121,6 @@ class LINERegionDataset(TrafficRepresentationDataset):
         :return:adj_mx
         """
         self.adj_mx = self.od_label
-
-    def construct_od_matrix(self):
-        if os.path.exists(self.od_label_path):
-            self.od_label = np.load(self.od_label_path)
-            self._logger.info("finish construct od graph")
-            return
-        assert self.representation_object == "region"
-        self.od_label = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        od_file = pd.read_csv(os.path.join(cache_dir, self.dataset, 'od_region_train.csv'))
-        for _, row in od_file.iterrows():
-            origin_region = int(row['origin_id'])
-            destination_region = int(row['destination_id'])
-            self.od_label[origin_region][destination_region] += 1
-        np.save(self.od_label_path, self.od_label)
-        self._logger.info("finish construct od graph")
-        return
-
 
     def _gen_sampling_table(self, POW=0.75):
         node_degree = np.zeros(self.num_nodes)

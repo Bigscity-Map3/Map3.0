@@ -8,6 +8,7 @@ import pandas as pd
 from libcity.utils import ensure_dir
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
+from libcity.utils import ensure_dir
 
 
 class HDGEDataset(AbstractDataset):
@@ -24,9 +25,10 @@ class HDGEDataset(AbstractDataset):
      self.mob_adj = np.load(self.od_label_path)
      self.num_regions = self.mob_adj.shape[0]
      self.num_nodes = self.num_regions
-     self.flow_graph_path = './libcity/cache/HDGE/{}/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
-     self.spatial_graph_path = './libcity/cache/HDGE/{}/C={}_spatial_graph.npy'.format(self.dataset,self.C)
-     self.combine_graph_path = './libcity/cache/HDGE/{}/C={} and {}_slice.npy'.format(self.dataset ,self.C ,self.time_slice)
+     ensure_dir('./libcity/cache/dataset_cache/{}/HDGE')
+     self.flow_graph_path = './libcity/cache/dataset_cache/{}/HDGE/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
+     self.spatial_graph_path = './libcity/cache/dataset_cache/{}/HDGE/C={}_spatial_graph.npy'.format(self.dataset,self.C)
+     self.combine_graph_path = './libcity/cache/dataset_cache/{}/HDGE/C={} and {}_slice.npy'.format(self.dataset ,self.C ,self.time_slice)
      ensure_dir(f'libcity/cache/HDGE/{self.dataset}')
      self.flow_graph = self.construct_flow_graph()
      self.construct_spatial_graph()
