@@ -25,8 +25,8 @@ class MGFNDataset(AbstractDataset):
         if not os.path.exists('./libcity/cache/MGFN_{}'.format(self.dataset)):
             os.mkdir('./libcity/cache/MGFN_{}'.format(self.dataset))
         self.multi_graph = None
-        self.flow_graph_path = './libcity/cache/HDGE_{}/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
-        self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
+        self.flow_graph_path = './libcity/cache/dataset_cache/{}/HDGE/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
+        self.mob_patterns_path = './libcity/cache/dataset_cache/{}/MGFN/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
         self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]

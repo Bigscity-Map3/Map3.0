@@ -61,9 +61,9 @@ class LINERegionDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         # 数据集参数
         super().__init__(config)
-        if not os.path.exists('./libcity/cache/LINE_Region_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/LINE_Region_{}'.format(self.dataset))
-        self.od_label_path = './libcity/cache/LINE_Region_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
+        dir = f'libcity/cache/dataset_cache/{self.dataset}/LINE_Region'
+        ensure_dir(dir)
+        self.od_label_path = os.path.join(dir, 'od_label_{}.npy'.format(self.remove_node_type))
         self.config = config
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'

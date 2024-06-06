@@ -20,8 +20,6 @@ class HDGEDataset(AbstractDataset):
      self.time_slice = self.config.get('time_slice',8)
      self.C = self.config.get('C',100)
      assert (24%self.time_slice == 0)
-     if not os.path.exists('./libcity/cache/HDGE_{}'.format(self.dataset)):
-         os.mkdir('./libcity/cache/HDGE_{}'.format(self.dataset))
      self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
      self.mob_adj = np.load(self.od_label_path)
      self.num_regions = self.mob_adj.shape[0]

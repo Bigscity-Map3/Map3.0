@@ -3,6 +3,7 @@ import os
 import numpy as np
 
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
+from libcity.utils import ensure_dir
 
 
 class Node2VecDataset(TrafficRepresentationDataset):
@@ -13,13 +14,11 @@ class Node2VecDataset(TrafficRepresentationDataset):
         self.data_path = './raw_data/' + self.dataset + '/'
         self.geo_file = self.config.get('geo_file', self.dataset)
         self.rel_file = self.config.get('rel_file', self.dataset)
-        # self.dyna_file = self.config.get('dyna_file',self.dataset)
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        # assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
-        if not os.path.exists('./libcity/cache/Node2Vec_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/Node2Vec_{}'.format(self.dataset))
-        self.od_label_path = './libcity/cache/Node2Vec_{}/od_label_{}.npy'.format(self.dataset, self.remove_node_type)
+        dir = 'libcity/cache/dataset_cache/{}/Node2Vec'
+        ensure_dir(dir)
+        self.od_label_path = os.path.join(dir, f'od_label_{self.remove_node_type}.npy')
         self.construct_od_matrix()
         self.construct_graph()
 

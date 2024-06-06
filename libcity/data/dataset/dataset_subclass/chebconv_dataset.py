@@ -88,7 +88,7 @@ class ChebConvDataset(AbstractDataset):
                     adj_data.append(1.0)
                     cnt = cnt + 1
         self.adj_mx = sp.coo_matrix((adj_data, (adj_row, adj_col)), shape=(self.num_nodes, self.num_nodes))
-        save_path = os.path.jon(self.cache_file_folder, self.dataset, "adj_mx.npz")
+        save_path = os.path.join(self.cache_file_folder, self.dataset, "adj_mx.npz")
         sp.save_npz(save_path, self.adj_mx)
         self._logger.info('Total link between geo = {}'.format(cnt))
         self._logger.info('Adj_mx is saved at {}'.format(save_path))

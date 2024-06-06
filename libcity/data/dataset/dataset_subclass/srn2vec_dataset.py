@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
+from libcity.utils import ensure_dir
 
 
 class SRN2VecDataset(AbstractDataset):
@@ -36,7 +37,8 @@ class SRN2VecDataset(AbstractDataset):
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
         self.construct_road_adj()
         self.n_short_paths = config.get('n_short_paths',1280)
-        self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
+        self.data_cache_file = f'./libcity/cache/dataset_cache/{self.dataset}/SRN2Vec'
+        ensure_dir(self.data_cache_file)
         node_paths = self.generate_shortest_paths(self.road_adj,self.n_short_paths)
         self.number_negative = config.get('number_negative',3)
         self.batch_size = config.get('batch_size',128)

@@ -133,9 +133,9 @@ class TravelTimeEstimationModel(AbstractModel):
             model.train()
             for batch_x,batch_lens,batch_y in train_dataloader:
                 opt.zero_grad()
-                batch_x = batch_x.cuda()
-                batch_lens = batch_lens.cuda()
-                batch_y = batch_y.cuda()
+                batch_x = batch_x.to(device)
+                batch_lens = batch_lens.to(device)
+                batch_y = batch_y.to(device)
                 preds=model(batch_x,batch_lens,**kwargs)
                 loss = loss_fn(preds, batch_y)
                 loss.backward()
@@ -145,9 +145,9 @@ class TravelTimeEstimationModel(AbstractModel):
             y_preds = []
             y_trues = []
             for batch_x, batch_lens,batch_y in test_dataloader:
-                batch_x = batch_x.cuda()
-                batch_lens = batch_lens.cuda()
-                batch_y = batch_y.cuda()
+                batch_x = batch_x.to(device)
+                batch_lens = batch_lens.to(device)
+                batch_y = batch_y.to(device)
                 y_preds.append(model(batch_x,batch_lens,**kwargs).detach().cpu())
                 y_trues.append(batch_y.detach().cpu())
 

@@ -164,7 +164,6 @@ def evaluation_reg(X, y, kfold=5, seed=42, output_dim=128):
 
     y_preds = np.concatenate(y_preds)
     y_truths = np.concatenate(y_truths)
-
     mae, rmse, mape, r2 = metrics_local(y_truths, y_preds)
     return mae, rmse, mape, r2
 

@@ -7,6 +7,7 @@ import numpy as np
 from libcity.data.dataset.abstract_dataset import AbstractDataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from libcity.data.preprocess import preprocess_all, cache_dir
+from libcity.utils import ensure_dir
 
 
 def my_cosine_similarity(a, b):
@@ -34,14 +35,12 @@ class MVUREDataset(AbstractDataset):
         self.config = config
         preprocess_all(config)
         self._logger = getLogger()
-        self.num_nodes = 0
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
-        if not os.path.exists('./libcity/cache/MVURE_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/MVURE_{}'.format(self.dataset))
-        self.in_flow_adj_path = './libcity/cache/MVURE_{}/in_flow_adj.npy'.format(self.dataset)
-        self.out_flow_adj_path = './libcity/cache/MVURE_{}/out_flow_adj.npy'.format(self.dataset)
-        self.poi_simi_path = './libcity/cache/MVURE_{}/poi_simi.npy'.format(self.dataset)
+        ensure_dir(f'./libcity/cache/dataset_cache/{self.dataset}/MVURE')
+        self.in_flow_adj_path = f'./libcity/cache/dataset_cache/{self.dataset}/MVURE/in_flow_adj.npy'
+        self.out_flow_adj_path = f'./libcity/cache/dataset_cache/{self.dataset}/MVURE/out_flow_adj.npy'
+        self.poi_simi_path = f'./libcity/cache/dataset_cache/{self.dataset}/MVURE/poi_simi.npy'
         self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]
