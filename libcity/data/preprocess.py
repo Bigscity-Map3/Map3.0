@@ -4,9 +4,11 @@ import numpy as np
 import pandas as pd
 from logging import getLogger
 from datetime import datetime
-from tqdm import tqdm
+from tqdm import tqdm,trange
 import networkx as nx
 from itertools import cycle, islice
+from random import randint
+
 
 
 cache_dir = os.path.join('libcity', 'cache', 'dataset_cache')
@@ -350,30 +352,32 @@ class preprocess_feature(PreProcess):
                             ], axis=1)
                 road_df.to_csv(os.path.join(self.data_dir, 'road_features.csv'), index=False)
 
-
+def k_shortest_paths_nx(G, source, target, k, weight='weight'):
+    return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
 
 def build_graph(rel_file, geo_file):
 
     rel = pd.read_csv(rel_file)
     geo = pd.read_csv(geo_file)
     node_size=geo[geo['traffic_type'] == 'road'].shape[0]
-    
+    offset=geo[geo['traffic_type'] == 'region'].shape[0]
+
     edge2len = {}
     geoid2coord = {}
     for i, row in tqdm(geo.iterrows(), total=geo.shape[0]):
-        geo_id = row.geo_id
+        geo_id = row.geo_id-offset
         length = float(row.road_length)
         edge2len[geo_id] = length
         # geoid2coord[geo_id] = row.coordinates
 
     graph = nx.DiGraph()
-
+    rel=rel[rel['rel_type']=="road2road"]
     for i, row in tqdm(rel.iterrows(), total=rel.shape[0]):
-        prev_id = row.origin_id
-        curr_id = row.destination_id
+        prev_id = row.origin_id-offset
+        curr_id = row.destination_id-offset
 
         # Use length as weight
-        weight = geo.iloc[prev_id].road_length
+        weight = geo.iloc[prev_id+offset].road_length
         
         # Use avg_speed as weight
         # weight = row.road_length
@@ -385,45 +389,44 @@ def build_graph(rel_file, geo_file):
 
     return graph,node_size
 
-def do_detour(G, ori_path, threshold=0, max_len=128):
-    new_path = None
-    ori_length = len(ori_path)
-    # Random select a link
-    for _ in range(10):
-        try:
-            max_length = min(max_len, len(ori_path)-1)
-            dropped_slice = randint(1, max_length)
-            print(dropped_slice, ori_length)
-            dropped_link = ori_path[dropped_slice]
-            begin_link = ori_path[dropped_slice-1]
-            end_link = ori_path[dropped_slice+1]
+def detour(graph, path,node_size, max_len=120):
+    ind=np.random.randint(len(path)-2)
+    new_len=2
+    o_id=path[ind]
+    d_id=path[ind+new_len]
+    valid_length=0
 
-            # Set target link's weight is INF
-            prev_weight = G[begin_link][dropped_link]['weight']
-            G[begin_link][dropped_link]['weight'] = float('inf')
-            # Do Dijkstra
-            added_path = nx.dijkstra_path(G, begin_link, end_link)
-            # Restore weight
-            G[begin_link][dropped_link]['weight'] = prev_weight
-            # Make New Path
-            new_path = ori_path[:dropped_slice-1]+ added_path + ori_path[dropped_slice+2:]
-            new_length = len(new_path)
-            if (new_length - ori_length) / ori_length >= threshold:
-                new_path = None
-                continue
-            elif new_path == ori_path:
-                new_path = None
-                continue
-            else:
-                break
-        except Exception as e:
-            print(e)
+    try:
+        shortest_paths = k_shortest_paths_nx(graph,o_id,d_id,2)
+    except:
+        shortest_paths = [[o_id,d_id],[o_id,d_id]]
+        valid_length=1
+        
+    original_path = path[ind:ind+new_len+1]
+
+    new_sub_path=None
+    if original_path == shortest_paths[0]:
+        if len(shortest_paths)==2:
+            new_sub_path = shortest_paths[1]
+        else:
+            new_sub_path = [o_id,d_id]
+    else:
+        new_sub_path = shortest_paths[0]
+
+    if np.max(new_sub_path) > node_size:
+        new_sub_path = [o_id,d_id]
+
+    new_path=path[:ind]+new_sub_path+path[ind+new_len+1:]
+
+    if len(new_path) > max_len:
+        new_path = new_path[:max_len]
     
-    return new_path, new_length
+    return new_path
+
 
 def preprocess_detour(config):
 
-    dataset=config.get('dataset')
+    dataset=config['dataset']
     
     if os.path.exists(cache_dir+'/{}/ori_trajs.npz'.format(dataset)):
         return
@@ -443,14 +446,15 @@ def preprocess_detour(config):
     new_paths=[]
     new_ori_paths=[]
     a=0 
-    for ind in range(10000):
+    for ind in trange(10000):
         path=traj_path[ind]
         if len(path) <= 4:
             continue
         new_ori_paths.append(path)
         new_path=detour(graph,path,node_size)
-        new_paths.append(new_path[0])
+        new_paths.append(new_path)
 
+   
     new_path_lengths=[]
     for i in new_paths:
         new_path_lengths.append(len(i))
@@ -517,3 +521,6 @@ def preprocess_all(config):
     preprocess_traj(config)
     preprocess_od(config)
     preprocess_detour(config)
+
+config={'dataset': "new_xa"}
+preprocess_detour(config)
