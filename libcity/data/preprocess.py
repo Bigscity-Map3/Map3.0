@@ -330,8 +330,6 @@ class preprocess_feature(PreProcess):
             road_df.to_csv(os.path.join(self.data_dir, 'road_features.csv'), index=False)
 
 
-def k_shortest_paths_nx(G, source, target, k, weight='weight'):
-    return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
 
 def build_graph(rel_file, geo_file):
 
@@ -366,40 +364,41 @@ def build_graph(rel_file, geo_file):
 
     return graph,node_size
 
-def detour(graph, path,node_size, max_len=120):
-    rate = 0.5
-    max_sub_path_len = int(len(path)*rate)
+def do_detour(G, ori_path, threshold=0, max_len=128):
+    new_path = None
+    ori_length = len(ori_path)
+    # Random select a link
+    for _ in range(10):
+        try:
+            max_length = min(max_len, len(ori_path)-1)
+            dropped_slice = randint(1, max_length)
+            print(dropped_slice, ori_length)
+            dropped_link = ori_path[dropped_slice]
+            begin_link = ori_path[dropped_slice-1]
+            end_link = ori_path[dropped_slice+1]
 
-    ind=np.random.randint(len(path)-max_sub_path_len)
-    new_len=np.random.randint(2,max_sub_path_len)
-    o_id=path[ind]
-    d_id=path[ind+new_len]
-    valid_length=0
-
-    try:
-        shortest_paths = k_shortest_paths_nx(graph,o_id,d_id,2)
-    except:
-        shortest_paths = [[o_id,d_id],[o_id,d_id]]
-        valid_length=1
-        
-    original_path = path[ind:ind+new_len]
-
-    new_sub_path=None
-    if original_path == shortest_paths[0]:
-        new_sub_path = shortest_paths[1]
-    else:
-        new_sub_path = shortest_paths[0]
-
-    if np.max(new_sub_path) > node_size:
-        new_sub_path = [o_id,d_id]
-
-    new_path=path[:ind]+new_sub_path+path[ind+new_len+1:]
-
-    if len(new_path) > max_len:
-        new_path = new_path[:max_len]
+            # Set target link's weight is INF
+            prev_weight = G[begin_link][dropped_link]['weight']
+            G[begin_link][dropped_link]['weight'] = float('inf')
+            # Do Dijkstra
+            added_path = nx.dijkstra_path(G, begin_link, end_link)
+            # Restore weight
+            G[begin_link][dropped_link]['weight'] = prev_weight
+            # Make New Path
+            new_path = ori_path[:dropped_slice-1]+ added_path + ori_path[dropped_slice+2:]
+            new_length = len(new_path)
+            if (new_length - ori_length) / ori_length >= threshold:
+                new_path = None
+                continue
+            elif new_path == ori_path:
+                new_path = None
+                continue
+            else:
+                break
+        except Exception as e:
+            print(e)
     
-
-    return new_path, valid_length
+    return new_path, new_length
 
 def preprocess_detour(config):
 
