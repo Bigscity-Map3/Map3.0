@@ -6,6 +6,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
 from libcity.data.preprocess import cache_dir
+from libcity.utils import ensure_dir
 
 
 def gen_index_map(df, column, offset=0):
@@ -18,16 +19,8 @@ class ReMVCDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         self.config = config
         super().__init__(config)
-        self.dataset = self.config.get('dataset')
-        self.data_path = './raw_data/' + self.dataset + '/'
-        self.geo_file = self.config.get('geo_file', self.dataset)
-        self.rel_file = self.config.get('rel_file', self.dataset)
-        assert os.path.exists(self.data_path + self.geo_file + '.geo')
-        assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        if not os.path.exists('./libcity/cache/ReMVC_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/ReMVC_{}'.format(self.dataset))
-        self.data_cache_file = './libcity/cache/dataset_cache/{}/'.format(self.dataset)
-
+        self.data_cache_file = f'./libcity/cache/dataset_cache/{self.dataset}/ReMVC'
+        ensure_dir(self.data_cache_file)
         self.get_region_dict()
         self.get_poi_features()
         self.get_matrix_dict()
@@ -120,8 +113,7 @@ class ReMVCDataset(TrafficRepresentationDataset):
         self._logger.info('Start get model flow...')
         model_flow_path = os.path.join(self.data_cache_file, 'model_flow')
         all = self.num_processes
-        if not os.path.exists(model_flow_path):
-            os.makedirs(model_flow_path)
+        ensure_dir(model_flow_path)
         pool = multiprocessing.Pool(all + 5)
         tmp = []
         for i in range(all):

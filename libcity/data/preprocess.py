@@ -12,6 +12,12 @@ from itertools import cycle, islice
 cache_dir = os.path.join('libcity', 'cache', 'dataset_cache')
 
 
+def gen_index_map(df, column, offset=0):
+        index_map = {origin: index + offset
+                     for index, origin in enumerate(df[column].drop_duplicates())}
+        return index_map
+
+
 def str2timestamp(s):
     return int(datetime.strptime(s, "%Y-%m-%d %H:%M:%S").timestamp())
 
@@ -306,28 +312,43 @@ class preprocess_od(PreProcess):
 class preprocess_feature(PreProcess):
     def __init__(self, config):
         super().__init__(config)
+        geo_df = pd.read_csv(self.geo_file)
         if not os.path.exists(os.path.join(self.data_dir, 'region_features.csv')):
-            geo_df = pd.read_csv(self.geo_file)
-            FUNCTION = geo_df['region_FUNCTION'].dropna().astype(int)
-            InCBD = geo_df['region_InCBD'].dropna().astype(int)
-            FORM_TYPE = geo_df['region_FORM_TYPE'].dropna().astype(int)
-            highway = geo_df['road_highway'].dropna().astype(int)
-            lanes = geo_df['road_lanes'].dropna().astype(int)
-            maxspeed = geo_df['road_maxspeed'].dropna().astype(int)
-            region_df = pd.concat(
-                        [
-                            pd.Series(FUNCTION, name='FUNCTION'), 
-                            pd.Series(InCBD, name='InCBD'), 
-                            pd.Series(FORM_TYPE, name='FORM_TYPE')
-                        ], axis=1)
-            road_df = pd.concat(
-                        [
-                            pd.Series(highway, name='highway'), 
-                            pd.Series(lanes, name='lanes'),
-                            pd.Series(maxspeed, name='maxspeed')
-                        ], axis=1)
-            region_df.to_csv(os.path.join(self.data_dir, 'region_features.csv'), index=False)
-            road_df.to_csv(os.path.join(self.data_dir, 'road_features.csv'), index=False)
+            flag = True
+            for key in ['region_FUNCTION', 'region_InCBD', 'region_FORM_TYPE']:
+                flag &= (key in geo_df.keys())
+            if flag:
+                FUNCTION = geo_df['region_FUNCTION'].dropna().astype(int)
+                InCBD = geo_df['region_InCBD'].dropna().astype(int)
+                FORM_TYPE = geo_df['region_FORM_TYPE'].dropna().astype(int)
+                region_df = pd.concat(
+                            [
+                                pd.Series(FUNCTION, name='FUNCTION'), 
+                                pd.Series(InCBD, name='InCBD'), 
+                                pd.Series(FORM_TYPE, name='FORM_TYPE')
+                            ], axis=1)
+                region_df.to_csv(os.path.join(self.data_dir, 'region_features.csv'), index=False)
+
+        if not os.path.exists(os.path.join(self.data_dir, 'road_features.csv')):
+            flag = True
+            for key in ['road_highway', 'road_lanes', 'road_maxspeed']:
+                flag &= (key in geo_df.keys())
+            if flag:
+                try:
+                    highway = geo_df['road_highway'].dropna().astype(int)
+                except:
+                    mp = gen_index_map(geo_df, 'road_highway')
+                    highway = geo_df['road_highway'].map(mp).dropna().astype(int)
+                # TODO 没法直接转换
+                lanes = geo_df['road_lanes'].dropna().astype(int)
+                maxspeed = geo_df['road_maxspeed'].dropna().astype(int)
+                road_df = pd.concat(
+                            [
+                                pd.Series(highway, name='highway'), 
+                                pd.Series(lanes, name='lanes'),
+                                pd.Series(maxspeed, name='maxspeed')
+                            ], axis=1)
+                road_df.to_csv(os.path.join(self.data_dir, 'road_features.csv'), index=False)
 
 
 
@@ -491,7 +512,7 @@ class preprocess_neighbor(PreProcess):
 
 def preprocess_all(config):
     preprocess_csv(config)
-    # preprocess_feature(config)
+    preprocess_feature(config)
     preprocess_neighbor(config)
     preprocess_traj(config)
     preprocess_od(config)

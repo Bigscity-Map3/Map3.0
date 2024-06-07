@@ -190,6 +190,9 @@ class BaseExecutor(object):
         elif self.learner.lower() == 'sparse_adam':
             optimizer = torch.optim.SparseAdam(self.model.parameters(), lr=self.learning_rate,
                                                eps=self.lr_epsilon, betas=self.lr_betas)
+        elif self.learner.lower() == 'asgd':
+            optimizer = torch.optim.ASGD(self.model.parameters(), lr=self.learning_rate,
+                                         alpha=self.lr_alpha, weight_decay=self.weight_decay)
         else:
             self._logger.warning('Received unrecognized optimizer, set default Adam optimizer')
             optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,

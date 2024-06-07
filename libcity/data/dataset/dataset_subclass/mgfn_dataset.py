@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from tqdm import  *
 from libcity.data.preprocess import preprocess_all, cache_dir
+from libcity.utils import ensure_dir
 
 class MGFNDataset(AbstractDataset):
     def __init__(self,config):
@@ -22,11 +23,11 @@ class MGFNDataset(AbstractDataset):
         self.time_slice = self.config.get('time_slice',24)
         self.n_cluster = self.config.get('n_cluster',7)
         assert (24 % self.time_slice == 0)
-        if not os.path.exists('./libcity/cache/MGFN_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/MGFN_{}'.format(self.dataset))
         self.multi_graph = None
-        self.flow_graph_path = './libcity/cache/HDGE_{}/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
-        self.mob_patterns_path = './libcity/cache/MGFN_{}/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
+        ensure_dir('./libcity/cache/dataset_cache/{}/HDGE')
+        ensure_dir('./libcity/cache/dataset_cache/{}/MGFN')
+        self.flow_graph_path = './libcity/cache/dataset_cache/{}/HDGE/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
+        self.mob_patterns_path = './libcity/cache/dataset_cache/{}/MGFN/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
         self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
         self.num_regions = self.mob_adj.shape[0]

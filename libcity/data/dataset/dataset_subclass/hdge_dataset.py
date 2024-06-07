@@ -4,10 +4,11 @@ from logging import getLogger
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
+from libcity.utils import ensure_dir
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
+from libcity.utils import ensure_dir
 
 
 class HDGEDataset(AbstractDataset):
@@ -20,15 +21,15 @@ class HDGEDataset(AbstractDataset):
      self.time_slice = self.config.get('time_slice',8)
      self.C = self.config.get('C',100)
      assert (24%self.time_slice == 0)
-     if not os.path.exists('./libcity/cache/HDGE_{}'.format(self.dataset)):
-         os.mkdir('./libcity/cache/HDGE_{}'.format(self.dataset))
      self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
      self.mob_adj = np.load(self.od_label_path)
      self.num_regions = self.mob_adj.shape[0]
      self.num_nodes = self.num_regions
-     self.flow_graph_path = './libcity/cache/HDGE_{}/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
-     self.spatial_graph_path = './libcity/cache/HDGE_{}/C={}_spatial_graph.npy'.format(self.dataset,self.C)
-     self.combine_graph_path = './libcity/cache/HDGE_{}/C={} and {}_slice.npy'.format(self.dataset ,self.C ,self.time_slice)
+     ensure_dir('./libcity/cache/dataset_cache/{}/HDGE')
+     self.flow_graph_path = './libcity/cache/dataset_cache/{}/HDGE/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
+     self.spatial_graph_path = './libcity/cache/dataset_cache/{}/HDGE/C={}_spatial_graph.npy'.format(self.dataset,self.C)
+     self.combine_graph_path = './libcity/cache/dataset_cache/{}/HDGE/C={} and {}_slice.npy'.format(self.dataset ,self.C ,self.time_slice)
+     ensure_dir(f'libcity/cache/HDGE/{self.dataset}')
      self.flow_graph = self.construct_flow_graph()
      self.construct_spatial_graph()
      self.combine_graph = self.combine_matrix(self.flow_graph,self.spatial_graph)

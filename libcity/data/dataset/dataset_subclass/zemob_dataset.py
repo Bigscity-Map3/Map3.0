@@ -5,10 +5,10 @@ import pandas as pd
 import numpy as np
 import geatpy as ea
 import torch
-from tqdm import tqdm
 import geopandas as gpd
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
+from libcity.utils import ensure_dir
 
 
 class ZEMobDataset(AbstractDataset):
@@ -17,7 +17,6 @@ class ZEMobDataset(AbstractDataset):
         preprocess_all(config)
         self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
-        self.data_path = './raw_data/' + self.dataset + '/'
         self.device = config.get('device', torch.device('cpu'))
         self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')
         self.mob_adj = np.load(self.od_label_path)
@@ -53,22 +52,21 @@ class ZEMobDataset(AbstractDataset):
         self.mobility_event_num = 0
 
         # 设置中间变量的缓存路径
-        if not os.path.exists('./libcity/cache/ZEMob_{}'.format(self.dataset)):
-            os.mkdir('./libcity/cache/ZEMob_{}'.format(self.dataset))
-        self.distance_matrix_path = './libcity/cache/ZEMob_{}/distance_matrix.npy'.format(self.dataset)
-        self.ppmi_matrix_path = './libcity/cache/ZEMob_{}/ppmi_matrix.npy'.format(self.dataset)
-        self.G_matrix_path = './libcity/cache/ZEMob_{}/G_matrix.npy'.format(self.dataset)
+        ensure_dir('./libcity/cache/dataset_cache/{}/ZEMob'.format(self.dataset))
+        self.distance_matrix_path = './libcity/cache/dataset_cache/{}/ZEMob/distance_matrix.npy'.format(self.dataset)
+        self.ppmi_matrix_path = './libcity/cache/dataset_cache/{}/ZEMob/ppmi_matrix.npy'.format(self.dataset)
+        self.G_matrix_path = './libcity/cache/dataset_cache/{}/ZEMob/G_matrix.npy'.format(self.dataset)
 
-        self.mobility_events_path = './libcity/cache/ZEMob_{}/mobility_events.npy'.format(self.dataset)
+        self.mobility_events_path = './libcity/cache/dataset_cache/{}/ZEMob/mobility_events.npy'.format(self.dataset)
 
-        self.A_wd_path = './libcity/cache/ZEMob_{}/A_wd.npy'.format(self.dataset)
-        self.A_we_path = './libcity/cache/ZEMob_{}/A_we.npy'.format(self.dataset)
-        self.T_wd_path = './libcity/cache/ZEMob_{}/T_wd.npy'.format(self.dataset)
-        self.T_we_path = './libcity/cache/ZEMob_{}/T_we.npy'.format(self.dataset)
-        self.P_wd_path = './libcity/cache/ZEMob_{}/P_wd.npy'.format(self.dataset)
-        self.P_we_path = './libcity/cache/ZEMob_{}/P_we.npy'.format(self.dataset)
+        self.A_wd_path = './libcity/cache/dataset_cache/{}/ZEMob/A_wd.npy'.format(self.dataset)
+        self.A_we_path = './libcity/cache/dataset_cache/{}/ZEMob/A_we.npy'.format(self.dataset)
+        self.T_wd_path = './libcity/cache/dataset_cache/{}/ZEMob/T_wd.npy'.format(self.dataset)
+        self.T_we_path = './libcity/cache/dataset_cache/{}/ZEMob/T_we.npy'.format(self.dataset)
+        self.P_wd_path = './libcity/cache/dataset_cache/{}/ZEMob/P_wd.npy'.format(self.dataset)
+        self.P_we_path = './libcity/cache/dataset_cache/{}/ZEMob/P_we.npy'.format(self.dataset)
 
-        self.label_path = './libcity/cache/ZEMob_{}/label.npy'.format(self.dataset)
+        self.label_path = './libcity/cache/dataset_cache/{}/ZEMob/label.npy'.format(self.dataset)
 
         self.process_mobility_data()
         self.construct_distance_matrix()

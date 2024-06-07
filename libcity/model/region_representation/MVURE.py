@@ -188,7 +188,7 @@ class MVURE_Layer(nn.Module):
         """
         num_nodes = adj_mx.shape[0]
         num_edges = np.count_nonzero(adj_mx)
-        g = dgl.graph()
+        g = dgl.DGLGraph()
         g = g.to(self.device)
         g.add_nodes(self.num_nodes)
         src_index = []

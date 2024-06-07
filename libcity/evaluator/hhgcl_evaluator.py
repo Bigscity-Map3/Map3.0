@@ -128,11 +128,11 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
         for e in range(2000):
             model.train()
             opt.zero_grad()
-            mse_loss = criterion(model(X_train).squeeze(),y_train)
+            mse_loss = criterion(model(X_train.float()).squeeze(),y_train)
             mse_loss.backward()
             opt.step()
             model.eval()
-            y_val_pred  = model(X_eval).squeeze()
+            y_val_pred  = model(X_eval.float()).squeeze()
             val_loss = criterion(y_eval,y_val_pred)
             if val_loss<best_mse:
                 best_mse = val_loss
@@ -164,7 +164,6 @@ def evaluation_reg(X, y, kfold=5, seed=42, output_dim=128):
 
     y_preds = np.concatenate(y_preds)
     y_truths = np.concatenate(y_truths)
-
     mae, rmse, mape, r2 = metrics_local(y_truths, y_preds)
     return mae, rmse, mape, r2
 
@@ -193,7 +192,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.num_nodes = geo_df[geo_df['traffic_type'] == self.representation_object].shape[0]
         self.num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
         self.num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
-        self.num_poi = geo_df[geo_df['traffic_type'] == 'poi'].shape[0]
+        self.num_pois = geo_df[geo_df['traffic_type'] == 'poi'].shape[0]
         self.label_data_path = os.path.join('libcity', 'cache', 'dataset_cache', self.dataset, 'label_data')
         self.preprocesse_data()
 
@@ -338,18 +337,6 @@ class HHGCLEvaluator(AbstractEvaluator):
             embedding_path = self.region_embedding_path
         emb = np.load(embedding_path)
         self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
-        if self.config.get(f'{self.representation_object}_clf_label', None) is not None:
-            self._logger.warning(f'Evaluating {self.representation_object} Classification')
-            y_truth,useful_index,micro_f1, macro_f1 = self._valid_clf(emb)
-            self.result['clf_micro_f1'] = [micro_f1]
-            self.result['clf_macro_f1'] = [macro_f1]
-            self._logger.warning(f'Evaluating {self.representation_object} Emb by TSNE ans Kmeans')
-            sc, db, ch, nmi, ars = self.evaluation_cluster(y_truth,useful_index,emb, self.representation_object)
-            self.result['sc'] = [sc]
-            self.result['db'] = [db]
-            self.result['ch'] = [ch]
-            self.result['nmi'] = [nmi]
-            self.result['ars'] = [ars]
         
         def add_prefix_to_keys(dictionary, prefix):
             new_dictionary = {}
@@ -370,6 +357,7 @@ class HHGCLEvaluator(AbstractEvaluator):
                     result = downstream_model.run(emb, label)
                 if task in ["tte"]:
                     label = self.data_label[task]
+                    kwargs.pop('graph_dict', None)
                     result = downstream_model.run(emb, label,model, **kwargs)
                 elif task in ['sts']:
                     result = downstream_model.run(model,**kwargs)
@@ -388,17 +376,33 @@ class HHGCLEvaluator(AbstractEvaluator):
                 result = downstream_model.run(emb, label)
                 self.result.update(add_prefix_to_keys(result, task + '_'))
             
-            mae, rmse, r2, mape = self._valid_flow(emb)
-            self.result['mae'] = [mae]
-            self.result['rmse'] = [rmse]
-            self.result['mape'] = [mape]
-            self.result['r2'] = [r2]
+            if 'flow' in evaluate_tasks:
+                mae, rmse, r2, mape = self._valid_flow(emb)
+                self.result['mae'] = [mae]
+                self.result['rmse'] = [rmse]
+                self.result['mape'] = [mape]
+                self.result['r2'] = [r2]
 
-            bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
-            self.result['bilinear_mae'] = [bilinear_mae]
-            self.result['bilinear_rmse'] = [bilinear_rmse]
-            self.result['bilinear_mape'] = [bilinear_mape]
-            self.result['bilinear_r2'] = [bilinear_r2]
+            if 'od' in evaluate_tasks:
+                bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(emb)
+                self.result['bilinear_mae'] = [bilinear_mae]
+                self.result['bilinear_rmse'] = [bilinear_rmse]
+                self.result['bilinear_mape'] = [bilinear_mape]
+                self.result['bilinear_r2'] = [bilinear_r2]
+
+            if 'classify' in evaluate_tasks:
+                if self.config.get(f'{self.representation_object}_clf_label', None) is not None:
+                    self._logger.warning(f'Evaluating {self.representation_object} Classification')
+                    y_truth,useful_index,micro_f1, macro_f1 = self._valid_clf(emb)
+                    self.result['clf_micro_f1'] = [micro_f1]
+                    self.result['clf_macro_f1'] = [macro_f1]
+                    self._logger.warning(f'Evaluating {self.representation_object} Emb by TSNE ans Kmeans')
+                    sc, db, ch, nmi, ars = self.evaluation_cluster(y_truth,useful_index,emb, self.representation_object)
+                    self.result['sc'] = [sc]
+                    self.result['db'] = [db]
+                    self.result['ch'] = [ch]
+                    self.result['nmi'] = [nmi]
+                    self.result['ars'] = [ars]
 
     def get_downstream_model(self, model):
         try:

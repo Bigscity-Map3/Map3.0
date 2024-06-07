@@ -24,8 +24,8 @@ class ChebConvDataset(AbstractDataset):
         self.parameters_str = \
             str(self.dataset) + '_' + str(self.train_rate) + '_' \
             + str(self.eval_rate) + '_' + str(self.scaler_type)
-        self.cache_file_name = os.path.join('./libcity/cache/dataset_cache/',
-                                            'road_rep_{}.npz'.format(self.parameters_str))
+        self.cache_file_name = os.path.join(f'./libcity/cache/dataset_cache/{self.parameters_str}',
+                                            'road_rep.npz')
         self.cache_file_folder = './libcity/cache/dataset_cache/'
         ensure_dir(self.cache_file_folder)
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -88,7 +88,7 @@ class ChebConvDataset(AbstractDataset):
                     adj_data.append(1.0)
                     cnt = cnt + 1
         self.adj_mx = sp.coo_matrix((adj_data, (adj_row, adj_col)), shape=(self.num_nodes, self.num_nodes))
-        save_path = self.cache_file_folder + "{}_adj_mx.npz".format(self.dataset)
+        save_path = os.path.join(self.cache_file_folder, self.dataset, "adj_mx.npz")
         sp.save_npz(save_path, self.adj_mx)
         self._logger.info('Total link between geo = {}'.format(cnt))
         self._logger.info('Adj_mx is saved at {}'.format(save_path))
@@ -103,7 +103,7 @@ class ChebConvDataset(AbstractDataset):
                 node_features = node_features.drop(drop_feature, axis=1)
 
         node_features = node_features.values
-        np.save(self.cache_file_folder + '{}_node_features.npy'.format(self.dataset), node_features)
+        np.save(os.path.join(self.cache_file_folder, self.dataset, 'node_features.npy'), node_features)
 
         # mask 索引
         sindex = list(range(self.num_nodes))

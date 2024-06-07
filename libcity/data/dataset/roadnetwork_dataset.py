@@ -79,6 +79,6 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
         """
         return {"adj_mx": self.adj_mx, "num_nodes": self.num_nodes,
                 "geo_to_ind": self.geo_to_ind, "ind_to_geo": self.ind_to_geo,
-                "label": {"od_matrix_predict": self.od_label, "function_cluster": np.array(self.function),
+                "label": {"od_matrix_predict": self.od_label,
                           'speed_inference': {'speed': self.speed_label},
                           'travel_time_estimation': {'time': self.time_label, 'padding_id': self.num_nodes}}}

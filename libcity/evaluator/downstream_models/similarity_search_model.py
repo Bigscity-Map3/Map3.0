@@ -134,9 +134,12 @@ class SimilaritySearchModel(AbstractModel):
         self.embedding_path = 'libcity/cache/{}/evaluate_cache/{}_embedding_{}_{}_{}.npy'.format(
             self.exp_id, self.representation_object, self.model, self.dataset, self.output_dim
         )
-        self.embedding = np.load(self.embedding_path)
-        new_row = np.zeros((1, self.embedding.shape[1]))
-        self.embedding = np.concatenate((self.embedding, new_row), axis=0)  # embedding[padding_id] = 0
+        try:
+            self.embedding = np.load(self.embedding_path)
+            new_row = np.zeros((1, self.embedding.shape[1]))
+            self.embedding = np.concatenate((self.embedding, new_row), axis=0)  # embedding[padding_id] = 0
+        except:
+            self.embedding = None
         self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'ori_trajs.npz'))
         self.query_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'query_trajs.npz'))# num,path
         

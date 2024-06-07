@@ -34,7 +34,7 @@ class TrajEncoder(nn.Module):
 
 
 class MLPReg(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers, activation, embedding, is_static,device):
+    def __init__(self, input_dim, hidden_dim, num_layers, activation, embedding, is_static,device, max_len):
         super(MLPReg, self).__init__()
 
         self.num_layers = num_layers
@@ -45,6 +45,13 @@ class MLPReg(nn.Module):
         else:    
             self.lstm = TrajEncoder(input_dim, hidden_dim, 1, embedding, device)
 
+        self.mlp = nn.Linear(max_len * input_dim, hidden_dim).to(device)
+        self.embedding = embedding
+        self.device = device
+        self.max_len = max_len
+        self.hidden_dim = hidden_dim
+        self.is_static = is_static
+
         self.layers = []
         for _ in range(self.num_layers - 1):
             self.layers.append(nn.Linear(hidden_dim, hidden_dim))
@@ -52,7 +59,11 @@ class MLPReg(nn.Module):
         self.layers = nn.ModuleList(self.layers)
 
     def forward(self, path, valid_len,**kwargs):
-        x=self.lstm(path,valid_len,**kwargs)
+        if self.is_static:
+            t = torch.from_numpy(self.embedding[path.cpu()])
+            x = self.mlp(t.view(-1, self.hidden_dim * self.max_len).float().to(self.device))
+        else:
+            x=self.lstm(path,valid_len,**kwargs)
         for i in range(self.num_layers - 1):
             x = self.activation(self.layers[i](x))
         return self.layers[-1](x).squeeze(1)
@@ -86,7 +97,8 @@ class TravelTimeEstimationModel(AbstractModel):
         min_len, max_len = self.config.get("tte_min_len", 1), self.config.get("tte_max_len", 100)
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
-        padding_id = 0
+        padding_id = embedding_vector.shape[0]
+        embedding_vector = np.concatenate((embedding_vector, np.zeros((1, embedding_vector.shape[1]))), axis=0)
         x_arr = np.zeros([num_samples, max_len],dtype=np.int64)
         lens_arr = np.zeros([num_samples], dtype=np.int64)
         y_arr = np.zeros([num_samples], dtype=np.float32)
@@ -121,21 +133,21 @@ class TravelTimeEstimationModel(AbstractModel):
         train_dataloader= DataLoader(train_dataset,batch_size=64,shuffle=True)
         test_dataloader= DataLoader(test_dataset,batch_size=64,shuffle=True)
         if is_static:
-            model = MLPReg(input_dim, hidden_dim, 3, nn.ReLU(),embedding_vector,is_static,device).to(device)
+            model = MLPReg(input_dim, hidden_dim, 3, nn.ReLU(),embedding_vector,is_static,device,max_len).to(device)
         else:
-            model = MLPReg(input_dim, hidden_dim, 3, nn.ReLU(), embed_model,is_static,device).to(device)
+            model = MLPReg(input_dim, hidden_dim, 3, nn.ReLU(), embed_model,is_static,device,max_len).to(device)
         opt = torch.optim.Adam(model.parameters())
         loss_fn=nn.MSELoss()
         patience = 5
 
         best = {"best epoch": 0, "mae": 1e9, "rmse": 1e9}
-        for epoch in range(0, max_epoch):
+        for epoch in range(max_epoch):
             model.train()
             for batch_x,batch_lens,batch_y in train_dataloader:
                 opt.zero_grad()
-                batch_x = batch_x.cuda()
-                batch_lens = batch_lens.cuda()
-                batch_y = batch_y.cuda()
+                batch_x = batch_x.to(device)
+                batch_lens = batch_lens.to(device)
+                batch_y = batch_y.to(device)
                 preds=model(batch_x,batch_lens,**kwargs)
                 loss = loss_fn(preds, batch_y)
                 loss.backward()
@@ -145,9 +157,9 @@ class TravelTimeEstimationModel(AbstractModel):
             y_preds = []
             y_trues = []
             for batch_x, batch_lens,batch_y in test_dataloader:
-                batch_x = batch_x.cuda()
-                batch_lens = batch_lens.cuda()
-                batch_y = batch_y.cuda()
+                batch_x = batch_x.to(device)
+                batch_lens = batch_lens.to(device)
+                batch_y = batch_y.to(device)
                 y_preds.append(model(batch_x,batch_lens,**kwargs).detach().cpu())
                 y_trues.append(batch_y.detach().cpu())
 
