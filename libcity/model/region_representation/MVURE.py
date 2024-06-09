@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from dgl.nn.pytorch import GATConv
 import torch.optim as optim
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.utils import need_train
+
 #[2020-IJCAI Multi-View Joint Graph Representation Learning for Urban Region Embedding]
 class MVURE(AbstractReprLearningModel):
     def __init__(self,config,data_feature):
@@ -41,7 +43,7 @@ class MVURE(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         
     def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+        if not need_train(self.config):
             return
         self.feature = self.preprocess_features(self.feature)
         model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],

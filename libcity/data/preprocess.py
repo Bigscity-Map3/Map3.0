@@ -8,7 +8,7 @@ from tqdm import tqdm,trange
 import networkx as nx
 from itertools import cycle, islice
 from random import randint
-
+from libcity.utils import ensure_dir
 
 
 cache_dir = os.path.join('libcity', 'cache', 'dataset_cache')
@@ -39,8 +39,7 @@ class PreProcess():
         self._logger = getLogger()
         self.dataset = config.get('dataset')
         self.data_dir = os.path.join(cache_dir, self.dataset)
-        if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir)
+        ensure_dir(self.data_dir)
         self.geo_file = os.path.join('raw_data', self.dataset, config.get('geo_file', self.dataset) + '.geo')
         self.rel_file = os.path.join('raw_data', self.dataset, config.get('rel_file', self.dataset) + '.rel')
         self.dyna_file = os.path.join('raw_data', self.dataset, config.get('dyna_file', self.dataset) + '.dyna')
@@ -256,28 +255,29 @@ def save_in_avg(data_dir, file_name, num_days):
     file_path = os.path.join(data_dir, file_name + '_in_avg.npy')
     if not os.path.exists(file_path):
         od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.sum(od_file, axis=0) / num_days)
+        np.save(file_path, np.sum(od_file, axis=0))
 
 
 def save_out_avg(data_dir, file_name, num_days):
     file_path = os.path.join(data_dir, file_name + '_out_avg.npy')
     if not os.path.exists(file_path):
         od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.sum(od_file, axis=1) / num_days)
+        np.save(file_path, np.sum(od_file, axis=1))
 
 
 class preprocess_od(PreProcess):
     def __init__(self, config):
         super().__init__(config)
         preprocess_traj(config)
-        geo_df = pd.read_csv(self.geo_file)
-        num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
-        num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
         if os.path.exists(self.dyna_file):
             traj_road_path = os.path.join(self.data_dir, 'traj_road.csv')
             if os.path.exists(traj_road_path):
-                traj_df = pd.read_csv(traj_road_path)
-                num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
+                # traj_df = pd.read_csv(traj_road_path)
+                # num_days = traj_df['start_time'].map(str2date).drop_duplicates().shape[0]
+                num_days = 0
+                geo_df = pd.read_csv(self.geo_file)
+                num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
+                num_roads = geo_df[geo_df['traffic_type'] == 'road'].shape[0]
                 save_traj_od_matrix(self.data_dir, 'traj_region'      , num_regions)
                 save_traj_od_matrix(self.data_dir, 'traj_region_train', num_regions)
                 save_traj_od_matrix(self.data_dir, 'traj_region_test' , num_regions)
@@ -301,8 +301,13 @@ class preprocess_od(PreProcess):
             train_df.to_csv(train_file, index=False)
             test_df.to_csv(test_file, index=False)
 
-        save_od_od_matrix(self.data_dir, 'od_region_train', num_regions)
-        save_od_od_matrix(self.data_dir, 'od_region_test' , num_regions)
+        file_path_train = os.path.join(self.data_dir, 'od_region_train_od.npy')
+        file_path_test = os.path.join(self.data_dir, 'od_region_test_od.npy')
+        if not os.path.exists(file_path_train) or not os.path.exists(file_path_test):
+            geo_df = pd.read_csv(self.geo_file)
+            num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
+            save_od_od_matrix(self.data_dir, 'od_region_train', num_regions)
+            save_od_od_matrix(self.data_dir, 'od_region_test' , num_regions)
         if not os.path.exists(os.path.join(self.data_dir, 'od_region_test_in_avg.npy')) or\
            not os.path.exists(os.path.join(self.data_dir, 'od_region_test_out_avg.npy')):
             od_df = pd.read_csv(self.od_file)
@@ -314,6 +319,9 @@ class preprocess_od(PreProcess):
 class preprocess_feature(PreProcess):
     def __init__(self, config):
         super().__init__(config)
+        if os.path.exists(os.path.join(self.data_dir, 'region_features.csv')) and \
+            os.path.exists(os.path.join(self.data_dir, 'road_features.csv')):
+            return
         geo_df = pd.read_csv(self.geo_file)
         if not os.path.exists(os.path.join(self.data_dir, 'region_features.csv')):
             flag = True
@@ -506,6 +514,10 @@ def save_neighbor(traffic_type, df, offset, data_dir, n):
 class preprocess_neighbor(PreProcess):
     def __init__(self, config):
         super().__init__(config)
+        file_path_road = os.path.join(self.data_dir, 'road_neighbor.json')
+        file_path_region = os.path.join(self.data_dir, 'region_neighbor.json')
+        if os.path.exists(file_path_road) and os.path.exists(file_path_region):
+            return
         rel_df = pd.read_csv(self.rel_file)
         geo_df = pd.read_csv(self.geo_file)
         num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]

@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 from scipy.sparse import csr_matrix
 from libcity.data.dataset.traffic_representation_dataset import TrafficRepresentationDataset
-from libcity.data.preprocess import cache_dir
-from libcity.utils import ensure_dir
+from libcity.data.preprocess import cache_dir, preprocess_all
+from libcity.utils import ensure_dir, need_train
 
 
 def gen_index_map(df, column, offset=0):
@@ -18,6 +18,9 @@ def gen_index_map(df, column, offset=0):
 class ReMVCDataset(TrafficRepresentationDataset):
     def __init__(self, config):
         self.config = config
+        preprocess_all(config)
+        if not need_train(config):
+            return
         super().__init__(config)
         self.data_cache_file = f'./libcity/cache/dataset_cache/{self.dataset}/ReMVC'
         ensure_dir(self.data_cache_file)
@@ -185,6 +188,8 @@ class ReMVCDataset(TrafficRepresentationDataset):
         return None, None, None
 
     def get_data_feature(self):
+        if not need_train(self.config):
+            return {}
         function = np.zeros(self.num_regions)
         region_df = self.geofile[self.geofile['traffic_type'] == 'region']
         for i, row in region_df.iterrows():

@@ -11,12 +11,14 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from tqdm import  *
 from libcity.data.preprocess import preprocess_all, cache_dir
-from libcity.utils import ensure_dir
+from libcity.utils import ensure_dir, need_train
 
 class MGFNDataset(AbstractDataset):
     def __init__(self,config):
         self.config = config
         preprocess_all(config)
+        if not need_train(config):
+            return
         self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -218,6 +220,8 @@ class MGFNDataset(AbstractDataset):
         return mob_patterns, cluster_label
 
     def get_data_feature(self):
+        if not need_train(self.config):
+            return {}
         """
         返回一个 dict，包含数据集的相关特征
 

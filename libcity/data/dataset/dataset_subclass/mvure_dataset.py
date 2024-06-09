@@ -7,7 +7,7 @@ import numpy as np
 from libcity.data.dataset.abstract_dataset import AbstractDataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from libcity.data.preprocess import preprocess_all, cache_dir
-from libcity.utils import ensure_dir
+from libcity.utils import ensure_dir, need_train
 
 
 def my_cosine_similarity(a, b):
@@ -34,6 +34,8 @@ class MVUREDataset(AbstractDataset):
     def __init__(self, config):
         self.config = config
         preprocess_all(config)
+        if not need_train(config):
+            return
         self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
@@ -123,6 +125,8 @@ class MVUREDataset(AbstractDataset):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
+        if not need_train(self.config):
+            return {}
         return {"mob_adj":self.mob_adj,"s_adj_sp":self.inflow_adj,"t_adj_sp":self.outflow_adj,
                 "poi_adj":self.poi_simi,"feature":self.feature,"num_nodes": self.num_nodes}
 

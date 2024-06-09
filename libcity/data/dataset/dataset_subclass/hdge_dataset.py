@@ -8,7 +8,6 @@ import pandas as pd
 from libcity.utils import ensure_dir
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
-from libcity.utils import ensure_dir
 
 
 class HDGEDataset(AbstractDataset):

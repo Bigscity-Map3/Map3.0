@@ -33,12 +33,14 @@ class TwoStepExecutor(AbstractExecutor):
 
 
     def load_model(self, cache_name):
-
         self._logger.info("Loaded model at " + cache_name)
         model_state  = torch.load(cache_name)
-        self.model.load_state_dict(model_state['model_state_dict'])
-        if 'optimizer_state_dict' in model_state:
-            self.model.optimizer.load_state_dict(model_state['optimizer_state_dict'])
+        try:
+            self.model.load_state_dict(model_state['model_state_dict'])
+            if 'optimizer_state_dict' in model_state:
+                self.model.optimizer.load_state_dict(model_state['optimizer_state_dict'])
+        except:
+            pass
 
     def save_model(self, epoch):
         ensure_dir(self.cache_dir)

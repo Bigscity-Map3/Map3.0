@@ -172,12 +172,13 @@ class HREP(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         
     def mob_loss(self, s_emb, d_emb, mob):
+        epsilon = 0.0001
         inner_prod = torch.mm(s_emb, d_emb.T)
         ps_hat = F.softmax(inner_prod, dim=-1)
         inner_prod = torch.mm(d_emb, s_emb.T)
         pd_hat = F.softmax(inner_prod, dim=-1)
-        loss = torch.sum(-torch.mul(mob, torch.log(ps_hat)) -
-                        torch.mul(mob, torch.log(pd_hat)))
+        loss = torch.sum(-torch.mul(mob, torch.log(ps_hat + epsilon)) -
+                        torch.mul(mob, torch.log(pd_hat + epsilon)))
         return loss
     
     def pair_sample(self, neighbor):

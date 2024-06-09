@@ -264,3 +264,13 @@ def set_random_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def need_train(config):
+    exp_id = config.get('exp_id')
+    model = config.get('model')
+    dataset = config.get('dataset')
+    output_dim = config.get('output_dim')
+    representation_object = config.get('representation_object')
+    embedding_path = f'libcity/cache/{exp_id}/evaluate_cache/{representation_object}_embedding_{model}_{dataset}_{output_dim}.npy'
+    return config.get('train') or not os.path.exists(embedding_path)

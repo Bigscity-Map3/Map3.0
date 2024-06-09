@@ -470,36 +470,9 @@ class ReMVC(AbstractReprLearningModel):
 
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
-        self.device = config.get('device')
-        extractor = config.get('extractor', 'MLP')
-        size = config.get('output_dim', 128)
-        assert size % 2 == 0
-        size //= 2
-        mutual_reg = config.get('mutual', 1.0)
-        poi_reg = config.get('reg', 0.0001)
-        poi_neg_size = config.get('poi_neg_size', 8)
-        flow_neg_size = config.get('flow_neg_size', 15)
         self._logger = getLogger()
         self.ssl_data = data_feature
-        self.poi_model = POI_SSL(self.ssl_data, neg_size=poi_neg_size, emb_size=size, attention_size=16, temp=0.08,
-                                 extractor=extractor, device=self.device).to(self.device)
-        self.flow_model = FLOW_SSL(self.ssl_data, neg_size=flow_neg_size, emb_size=size, temp=0.08, time_zone=48,
-                                   extractor=extractor, device=self.device).to(self.device)
-
-        self.epoch = config.get('max_epoch', 200)
-        self.learning_rate = config.get('learning_rate', 0.001)
-        self.mutual_reg = mutual_reg
-        self.poi_reg = poi_reg
-        self.mutual_neg_size = config.get('mutual_neg_size', 5)
-        self.emb_size = size
-        self.init_basic_conf()
-
-        self.opt = Adam(lr=self.learning_rate, params=[{"params": self.poi_model.poi_net.parameters()},
-                                                       {"params": self.flow_model.pickup_net.parameters()},
-                                                       {"params": self.flow_model.dropoff_net.parameters()},
-                                                       {"params": self.mutual_net.parameters()}], weight_decay=1e-5)
-
-        self.output_dim = size * 2
+        self.output_dim = self.config.get('output_dim', 128)
         self.model = config.get('model')
         self.dataset = config.get('dataset')
         self.exp_id = config.get('exp_id')
@@ -544,6 +517,32 @@ class ReMVC(AbstractReprLearningModel):
     def run(self):
         if not self.config.get('train') and os.path.exists(self.npy_cache_file):
             return
+        self.device = self.config.get('device')
+        extractor = self.config.get('extractor', 'MLP')
+        size = self.config.get('output_dim', 128)
+        assert size % 2 == 0
+        size //= 2
+        mutual_reg = self.config.get('mutual', 1.0)
+        poi_reg = self.config.get('reg', 0.0001)
+        poi_neg_size = self.config.get('poi_neg_size', 8)
+        flow_neg_size = self.config.get('flow_neg_size', 15)
+        self.poi_model = POI_SSL(self.ssl_data, neg_size=poi_neg_size, emb_size=size, attention_size=16, temp=0.08,
+                                 extractor=extractor, device=self.device).to(self.device)
+        self.flow_model = FLOW_SSL(self.ssl_data, neg_size=flow_neg_size, emb_size=size, temp=0.08, time_zone=48,
+                                   extractor=extractor, device=self.device).to(self.device)
+
+        self.epoch = self.config.get('max_epoch', 200)
+        self.learning_rate = self.config.get('learning_rate', 0.001)
+        self.mutual_reg = mutual_reg
+        self.poi_reg = poi_reg
+        self.mutual_neg_size = self.config.get('mutual_neg_size', 5)
+        self.emb_size = size
+        self.init_basic_conf()
+
+        self.opt = Adam(lr=self.learning_rate, params=[{"params": self.poi_model.poi_net.parameters()},
+                                                       {"params": self.flow_model.pickup_net.parameters()},
+                                                       {"params": self.flow_model.dropoff_net.parameters()},
+                                                       {"params": self.mutual_net.parameters()}], weight_decay=1e-5)
         self._logger.info("Start training.")
         for epoch in range(self.epoch):
             self.loss = 0.0

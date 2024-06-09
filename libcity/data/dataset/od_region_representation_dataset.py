@@ -15,7 +15,6 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.dataset = self.config.get('dataset', '')
         self.batch_size = self.config.get('batch_size', 64)
         self.cache_dataset = self.config.get('cache_dataset', True)
-        self.num_workers = self.config.get('num_workers', 0)
         self.pad_with_last_sample = self.config.get('pad_with_last_sample', True)
         self.train_rate = self.config.get('train_rate', 0.7)
         self.eval_rate = self.config.get('eval_rate', 0.1)

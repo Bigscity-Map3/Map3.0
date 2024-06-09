@@ -330,7 +330,7 @@ class POIRepresentationDataset(AbstractDataset):
             self.coor_df = pd.concat([idx_col, lat_col, lng_col], axis=1)
 
     def _load_dyna(self):
-        dyna_df = pd.read_csv(os.path.join(self.data_path, self.dyna_file + '_poi.dyna'))
+        dyna_df = pd.read_csv(os.path.join(self.data_path, self.dyna_file + '.dyna'))
         # TODO 区分 trajectory 和 check-in
         dyna_df = dyna_df[dyna_df['type'] == 'trajectory']
         # dyna_df['location'] = dyna_df['geo_id'] - self.offset
@@ -359,7 +359,7 @@ class POIRepresentationDataset(AbstractDataset):
         data['nyr'] = data['datetime'].apply(lambda x: datetime.fromtimestamp(x.timestamp()).strftime("%Y-%m-%d"))
 
         days = sorted(data['nyr'].drop_duplicates().to_list())
-        num_days = self.config.get('num_days', None)
+        num_days = self.config.get('num_days', 20)
         if num_days is not None:
             days = days[:num_days]
         if len(days) <= 1:

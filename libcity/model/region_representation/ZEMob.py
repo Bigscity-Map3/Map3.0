@@ -12,18 +12,9 @@ from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 class ZEMob(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
-
-        self.device = config.get('device', torch.device('cpu'))
-
-        # 从数据预处理中拿到PPMI矩阵（即M），G*矩阵，以及region的总数和mobility_event的总数，用于生成两个embedding
-        # 这里我们生成0-region_num的regionid，即embedding矩阵的编号，分别对应的是数据预处理得到的self.region_idx中的顺序
-        # 因此这里并不需要拿到具体的region和event的列表，我们最终只关注region的embedding
-        self.ppmi_matrix = torch.from_numpy(data_feature.get('ppmi_matrix'))
-        self.G_matrix = torch.from_numpy(data_feature.get('G_matrix'))
-        self.region_num = data_feature.get('region_num')
-        self.mobility_event_num = data_feature.get('mobility_event_num')
+        self.config = config
+        self.data_feature = data_feature
         self._logger = getLogger()
-
         # 超参数
         self.output_dim = config.get('output_dim', 64)
         self.iter = config.get('max_epoch', 1000)
@@ -41,6 +32,18 @@ class ZEMob(AbstractReprLearningModel):
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
+    def run(self, data=None):
+        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+            return
+        self.device = self.config.get('device', torch.device('cpu'))
+
+        # 从数据预处理中拿到PPMI矩阵（即M），G*矩阵，以及region的总数和mobility_event的总数，用于生成两个embedding
+        # 这里我们生成0-region_num的regionid，即embedding矩阵的编号，分别对应的是数据预处理得到的self.region_idx中的顺序
+        # 因此这里并不需要拿到具体的region和event的列表，我们最终只关注region的embedding
+        self.ppmi_matrix = torch.from_numpy(self.data_feature.get('ppmi_matrix'))
+        self.G_matrix = torch.from_numpy(self.data_feature.get('G_matrix'))
+        self.region_num = self.data_feature.get('region_num')
+        self.mobility_event_num = self.data_feature.get('mobility_event_num')
         self.region_list = torch.arange(self.region_num)
 
         # 分批加载数据，这里为了防止大型数据集的G和ppmi过大，需要在cpu分批进行读取
@@ -54,11 +57,6 @@ class ZEMob(AbstractReprLearningModel):
         # 优化器
         self.optimizer = optim.SGD(self.ZEMob_model.parameters(), lr=self.lr)
 
-
-
-    def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
-            return
         # 共训练iter轮
         for epoch in range(1, self.iter + 1):
             self.train(epoch)

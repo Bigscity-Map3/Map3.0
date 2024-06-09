@@ -147,8 +147,15 @@ def evaluation_bilinear_reg(embedding, flow, kfold=5, seed=42, output_dim=128):
     return mae,rmse,mape,r2
 
 
-def evaluation_reg(X, y, kfold=5, seed=42, output_dim=128):
+def evaluation_reg(origin_X, origin_y, kfold=5, seed=42, output_dim=128):
     kf = KFold(n_splits=kfold, random_state=seed, shuffle=True)
+    X, y = [], []
+    for i, v in enumerate(origin_y):
+        if v > 0:
+            X.append(origin_X[i])
+            y.append(v)
+    X = np.array(X)
+    y = np.array(y)
     y_preds = []
     y_truths = []
     for fold_num, (train_idx, test_idx) in enumerate(kf.split(X, y)):
@@ -279,13 +286,13 @@ class HHGCLEvaluator(AbstractEvaluator):
         dyna = 'traj' if self.representation_object == 'road' else 'od'
         self._logger.warning(f'Evaluating {self.representation_object} In-Flow Prediction')
         inflow = np.load(os.path.join(cache_dir, self.dataset, f'{dyna}_{self.representation_object}_test_in_avg.npy')).astype('float32')
-        in_mae, in_rmse, in_mape, in_r2 = evaluation_reg(emb, inflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
+        in_mae, in_rmse, in_mape, in_r2 = evaluation_reg(emb, inflow, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info(f"Result of inflow estimation in {self.dataset}:")
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(in_mae, in_rmse, in_r2, in_mape))
 
         self._logger.warning(f'Evaluating {self.representation_object} Out-Flow Prediction')
         outflow = np.load(os.path.join(cache_dir, self.dataset, f'{dyna}_{self.representation_object}_test_out_avg.npy')).astype('float32')
-        out_mae, out_rmse, out_mape, out_r2 = evaluation_reg(emb, outflow / 24, kfold=5, seed=self.seed, output_dim=self.output_dim)
+        out_mae, out_rmse, out_mape, out_r2 = evaluation_reg(emb, outflow, kfold=5, seed=self.seed, output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(out_mae, out_rmse, out_r2, out_mape))
 

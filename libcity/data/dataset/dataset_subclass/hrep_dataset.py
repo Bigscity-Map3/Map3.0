@@ -5,6 +5,7 @@ import torch
 import scipy.sparse as sp
 
 from libcity.data.dataset.dataset_subclass import MVUREDataset
+from libcity.utils import need_train
 
 
 # Heterogeneous Region Embedding with Prompt Learning
@@ -12,6 +13,8 @@ class HREPDataset(MVUREDataset):
 
     def __init__(self, config):
         super().__init__(config)
+        if not need_train(config):
+            return
         rel_df = pd.read_csv(os.path.join('./raw_data', self.dataset, self.dataset + '.rel'))
         region2region = rel_df[rel_df['rel_type'] == 'region2region']
         self.neighbor = [[] for _ in range(self.num_regions)]
@@ -57,6 +60,8 @@ class HREPDataset(MVUREDataset):
         return edge_index
 
     def get_data_feature(self):
+        if not need_train(self.config):
+            return {}
         poi_edge_index = self.create_graph(self.poi_similarity, self.importance_k)
         s_edge_index = self.create_graph(self.s_adj, self.importance_k)
         d_edge_index = self.create_graph(self.d_adj, self.importance_k)

@@ -29,11 +29,7 @@ class JCLRNT(AbstractReprLearningModel):
         self.edge_index2 = dgl.graph((e2[0], e2[1]))
         self.edge_index1 = dgl.add_self_loop(self.edge_index1)
         self.edge_index2 = dgl.add_self_loop(self.edge_index2)
-        self.txt_cache_file = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.txt'. \
-            format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.model_cache_file = './libcity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
-            format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.npy_cache_file = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_train_embedding_file = './libcity/cache/{}/evaluate_cache/traj_train_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
@@ -76,8 +72,8 @@ class JCLRNT(AbstractReprLearningModel):
                 w_batch = 0
                 self.optimizer.zero_grad()
                 node_rep1, node_rep2, seq_rep1, seq_rep2 = self.model(data_batch)
-                loss_ss = node_node_loss(node_rep1, node_rep2, self.measure,self.device)
-                # loss_ss = 0
+                # loss_ss = node_node_loss(node_rep1, node_rep2, self.measure,self.device)
+                loss_ss = 0
                 loss_tt = seq_seq_loss(seq_rep1, seq_rep2, self.measure,self.device)# 负数
                 if self.is_weighted:
                     loss_st1 = weighted_ns_loss(node_rep1, seq_rep2, w_batch, self.measure)
@@ -123,7 +119,6 @@ class JCLRNT(AbstractReprLearningModel):
 
 def jsd(z1, z2, pos_mask):
     neg_mask = 1 - pos_mask
-
     sim_mat = torch.mm(z1, z2.t())
     E_pos = math.log(2.) - F.softplus(-sim_mat)
     E_neg = F.softplus(-sim_mat) + sim_mat - math.log(2.)

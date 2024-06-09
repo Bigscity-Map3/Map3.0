@@ -1,5 +1,5 @@
 from libcity.utils.utils import get_executor, get_model, get_evaluator, \
-    get_logger, get_local_time, ensure_dir, trans_naming_rule, preprocess_data, set_random_seed
+    get_logger, get_local_time, ensure_dir, trans_naming_rule, preprocess_data, set_random_seed, need_train
 from libcity.utils.dataset import parse_time, cal_basetime, cal_timeoff, \
     caculate_time_sim, parse_coordinate, string2timestamp, timestamp2array, \
     timestamp2vec_origin,geojson2geometry
