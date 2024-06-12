@@ -3,7 +3,7 @@
     "output_dim": 10,
     "representation_object": "region",
     "max_epoch": 10,
-    "learner": "asgd",
+    "learner": "sgd",
     "learning_rate": 0.001,
     "lr_decay": true,
     "lr_scheduler": "reducelronplateau",

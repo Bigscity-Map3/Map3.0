@@ -23,7 +23,6 @@ class MGFN(AbstractReprLearningModel):
         self.dataset = config.get('dataset', '')
         self.learning_rate = config.get('learning_rate', 0.0001)
         self.weight_dacay = config.get('weight_dacay', 5e-4)
-        self.n_cluster = data_feature.get("n_cluster")
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
         self.txt_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.txt'. \
@@ -50,8 +49,7 @@ class MGFN(AbstractReprLearningModel):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if epoch % 50 == 0:
-                self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+            self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
         t1 = time.time()-start_time
         self._logger.info('cost time is {}'.format(t1 / self.iter))
         node_embedding = model.out_feature()

@@ -43,7 +43,7 @@ class Toast(AbstractReprLearningModel):
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model_name, self.dataset, self.output_dim)
         
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optim = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
         self.criterion1 = nn.CrossEntropyLoss(reduction='none')
         self.criterion2 = nn.CrossEntropyLoss()
