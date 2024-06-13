@@ -274,3 +274,9 @@ def need_train(config):
     representation_object = config.get('representation_object')
     embedding_path = f'libcity/cache/{exp_id}/evaluate_cache/{representation_object}_embedding_{model}_{dataset}_{output_dim}.npy'
     return config.get('train') or not os.path.exists(embedding_path)
+
+
+def gen_index_map(df, column, offset=0):
+        index_map = {origin: index + offset
+                     for index, origin in enumerate(df[column].drop_duplicates())}
+        return index_map

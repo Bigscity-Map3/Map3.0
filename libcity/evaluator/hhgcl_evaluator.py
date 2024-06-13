@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn import manifold
 from sklearn.preprocessing import normalize
+from libcity.utils import gen_index_map
 from libcity.data.preprocess import cache_dir
 from libcity.evaluator.utils import generate_road_representaion_downstream_data
 
@@ -240,8 +241,14 @@ class HHGCLEvaluator(AbstractEvaluator):
     def _valid_clf(self, emb):
         data = pd.read_csv(os.path.join('raw_data', self.dataset, self.dataset + '.geo'))
         label_name = self.config[f'{self.representation_object}_clf_label']
-        label = data[f'{self.representation_object}_{label_name}'].dropna().astype(int).values
+        col_name = f'{self.representation_object}_{label_name}'
+        try:
+            label = data[col_name].dropna().astype(int).values
+        except:
+            mp = gen_index_map(data, col_name)
+            label = data[col_name].dropna().map(mp).values
         num_classes = self.config.get('clf_num_classes', 5)
+        num_classes = min(num_classes, len(label.unique()))
         tmp = []
         for i in range(label.min(), label.max() + 1):
             tmp.append((label[label == i].shape[0], i))

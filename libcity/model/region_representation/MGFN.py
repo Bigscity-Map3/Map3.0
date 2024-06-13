@@ -16,7 +16,7 @@ class MGFN(AbstractReprLearningModel):
         self.mob_adj = data_feature.get("mob_adj")
         self.time_slice = data_feature.get("time_slice")
         self.num_nodes = data_feature.get("num_nodes")
-
+        self.n_cluster = data_feature.get("n_cluster")
         self._logger = getLogger()
         self.output_dim = config.get('output_dim', 128)
         self.iter = config.get('max_epoch', 2000)

@@ -30,6 +30,10 @@ def timestamp2str(timestamp):
     return formatted_datetime
 
 
+def str2timestampTZ(s):
+    return int(datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").timestamp())
+
+
 def str2date(s):
     return datetime.strptime(s, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
 
@@ -71,9 +75,9 @@ class preprocess_traj(PreProcess):
             start_time = []
             lst_traj_id, lst_usr_id = None, None
             geo_df = pd.read_csv(self.geo_file)
-            num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
+            num_regions = int(geo_df[geo_df['traffic_type'] == 'region'].shape[0])
             for _, row in tqdm(dyna_df.iterrows(), total=dyna_df.shape[0]):
-                idx = int(row['total_traj_id'])
+                # idx = int(row['total_traj_id'])
                 if lst_traj_id != row['traj_id'] or lst_usr_id != row['entity_id']:  # 轨迹划分依据还存疑，靠 traj_id 和 total_traj_id 都不行
                     idx = len(id)
                     id.append(idx)
@@ -85,8 +89,11 @@ class preprocess_traj(PreProcess):
                     hop.append(0)
                     usr_id.append(row['entity_id'])
                     traj_id.append(row['traj_id'])
-                tlist[idx].append(str2timestamp(row['time']))
-                path[idx].append(row['geo_id'] - num_regions)
+                try:
+                    tlist[idx].append(str2timestamp(row['time']))
+                except:
+                    tlist[idx].append(str2timestampTZ(row['time']))
+                path[idx].append(int(row['geo_id']) - num_regions)
                 lst_traj_id = row['traj_id']
                 lst_usr_id = row['entity_id']
             start_time, end_time, origin_id, destination_id = [], [], [], []
@@ -153,7 +160,7 @@ class preprocess_traj(PreProcess):
                 tmp1, tmp2 = [], []
                 lst_region = None
                 for j, road in enumerate(road_path):
-                    region = road2region[road]
+                    region = int(road2region[int(road)])
                     if region != lst_region:
                         tmp1.append(region)
                         tmp2.append(tlist[i][j])
