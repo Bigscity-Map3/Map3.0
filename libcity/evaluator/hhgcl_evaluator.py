@@ -248,7 +248,7 @@ class HHGCLEvaluator(AbstractEvaluator):
             mp = gen_index_map(data, col_name)
             label = data[col_name].dropna().map(mp).values
         num_classes = self.config.get('clf_num_classes', 5)
-        num_classes = min(num_classes, len(label.unique()))
+        num_classes = min(num_classes, len(set(label)))
         tmp = []
         for i in range(label.min(), label.max() + 1):
             tmp.append((label[label == i].shape[0], i))

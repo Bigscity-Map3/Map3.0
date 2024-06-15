@@ -59,7 +59,7 @@ class TrajEncoder(nn.Module):
         self.embedding = embedding
         self.n_layers = n_layers
         self.device = device
-        self.lstm = nn.LSTM(input_dim, hidden_dim, n_layers, dropout=0.1 if n_layers > 1 else 0.0, batch_first=True)
+        self.lstm = nn.LSTM(input_dim, hidden_dim, n_layers, dropout=0.1 if n_layers > 1 else 0.0, batch_first=True).to(device)
 
     def forward(self, path, valid_len):
         original_shape = path.shape  # [batch_size, traj_len]
@@ -86,12 +86,21 @@ class CLModel(nn.Module):
         elif not is_static:
             self.traj_encoder = embedding.encode_sequence
         
+        self.projection=nn.Sequential(nn.Linear(hidden_dim,hidden_dim),nn.ReLU(),nn.Linear(hidden_dim,hidden_dim)).to(self.device)
+        
 
     def forward(self, path, valid_len, pos_path, pos_valid_len, neg_path, neg_valid_len):
         batch_size = path.shape[0]
-        base_embedding = self.traj_encoder(path, valid_len).unsqueeze(-1)
-        pos_embedding = self.traj_encoder(pos_path, pos_valid_len).view(batch_size, -1, self.hidden_dim)
-        neg_embedding = self.traj_encoder(neg_path, neg_valid_len).view(batch_size, -1, self.hidden_dim)
+        path=path.to(self.device)
+        pos_path=pos_path.to(self.device)
+        neg_path=neg_path.to(self.device)
+        # import pdb
+        # pdb.set_trace()
+        
+        base_embedding = self.projection(self.traj_encoder(path, valid_len)).unsqueeze(-1)
+        pos_embedding = self.projection(self.traj_encoder(pos_path, pos_valid_len)).view(batch_size, -1, self.hidden_dim)
+
+        neg_embedding = self.projection(self.traj_encoder(neg_path, neg_valid_len)).view(batch_size, -1, self.hidden_dim)
         pos_scores = torch.bmm(pos_embedding, base_embedding).view(batch_size, -1)
         pos_label = torch.Tensor(np.full(pos_scores.shape, 1)).type(torch.FloatTensor).to(self.device)
         neg_scores = torch.bmm(neg_embedding, base_embedding).view(batch_size, -1)
@@ -143,8 +152,8 @@ class SimilaritySearchModel(AbstractModel):
         self.ori_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'ori_trajs.npz'))
         self.query_traj=np.load(os.path.join('libcity/cache/dataset_cache',self.dataset, 'query_trajs.npz'))# num,path
         
-        self.train_index=list(range(2000))
-        self.test_index=list(range(2000,10000))
+        self.train_index=list(range(5000))
+        self.test_index=list(range(5000,10000))
 
 
     def data_loader(self, padding_id, num_queries):        
@@ -258,26 +267,27 @@ class SimilaritySearchModel(AbstractModel):
         if self.is_static:
             self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim,
                                         embedding=self.embedding, is_static=self.is_static,device=self.device)
-
-            self.downstream_model.to(self.device)
-            optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
-            self._logger.info('Start training downstream model...')
-            for epoch in range(self.downstream_epoch):
-                total_loss = 0.0
-                for i in range(0, all_len , self.batch_size):
-                    l=i
-                    r=min(i+self.batch_size,all_len)
-                    loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
-                                                detour_paths[l:r], detour_length[l:r],
-                                                negtive_paths[l:r], negtive_length[l:r])
-                    optimizer.zero_grad()
-                    total_loss += loss.item()
-                    loss.backward()
-                    optimizer.step()
-                self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
         else:
             self.downstream_model = CLModel(input_dim=self.output_dim, hidden_dim=self.hidden_dim,
                                         embedding=model, is_static=self.is_static,device=self.device)
+
+        self.downstream_model.to(self.device)
+        optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
+        self._logger.info('Start training downstream model...')
+        for epoch in range(self.downstream_epoch):
+            total_loss = 0.0
+            for i in range(0, all_len , self.batch_size):
+                l=i
+                r=min(i+self.batch_size,all_len)
+                loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
+                                            detour_paths[l:r], detour_length[l:r],
+                                            negtive_paths[l:r], negtive_length[l:r])
+                optimizer.zero_grad()
+                total_loss += loss.item()
+                loss.backward()
+                optimizer.step()
+            self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
+       
 
         self.evaluation(**kwargs)
         return self.result

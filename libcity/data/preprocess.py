@@ -58,7 +58,7 @@ class preprocess_traj(PreProcess):
         file_name = 'traj_road.csv'
         self.data_file = os.path.join(self.data_dir, file_name)
         
-        if not os.path.exists(self.data_file) or not os.path.exists(self.od_file):
+        if not os.path.exists(self.data_file):
             dyna_df = pd.read_csv(self.dyna_file)
             if 'location' in dyna_df.keys():
                 return
@@ -76,9 +76,9 @@ class preprocess_traj(PreProcess):
             lst_traj_id, lst_usr_id = None, None
             geo_df = pd.read_csv(self.geo_file)
             num_regions = int(geo_df[geo_df['traffic_type'] == 'region'].shape[0])
+            gen_region_traj = True
             for _, row in tqdm(dyna_df.iterrows(), total=dyna_df.shape[0]):
-                # idx = int(row['total_traj_id'])
-                if lst_traj_id != row['traj_id'] or lst_usr_id != row['entity_id']:  # 轨迹划分依据还存疑，靠 traj_id 和 total_traj_id 都不行
+                if lst_traj_id != row['traj_id'] or lst_usr_id != row['entity_id']:  
                     idx = len(id)
                     id.append(idx)
                     path.append([])
@@ -89,10 +89,14 @@ class preprocess_traj(PreProcess):
                     hop.append(0)
                     usr_id.append(row['entity_id'])
                     traj_id.append(row['traj_id'])
-                try:
-                    tlist[idx].append(str2timestamp(row['time']))
-                except:
-                    tlist[idx].append(str2timestampTZ(row['time']))
+                if isinstance(row['time'], float):
+                    tlist[idx].append(round(row['time']))
+                    gen_region_traj = False
+                else:
+                    try:
+                        tlist[idx].append(str2timestamp(row['time']))
+                    except:
+                        tlist[idx].append(str2timestampTZ(row['time']))
                 path[idx].append(int(row['geo_id']) - num_regions)
                 lst_traj_id = row['traj_id']
                 lst_usr_id = row['entity_id']
@@ -100,8 +104,12 @@ class preprocess_traj(PreProcess):
             for i in range(id[-1] + 1):
                 duration[i] = tlist[i][-1] - tlist[i][0]
                 hop[i] = len(path[i])
-                start_time.append(timestamp2str(tlist[i][0]))
-                end_time.append(timestamp2str(tlist[i][-1]))
+                if isinstance(tlist[i][0], int):
+                    start_time.append(tlist[i][0])
+                    end_time.append(tlist[i][-1])
+                else:
+                    start_time.append(timestamp2str(tlist[i][0]))
+                    end_time.append(timestamp2str(tlist[i][-1]))
                 origin_id.append(path[i][0])
                 destination_id.append(path[i][-1])
             df = pd.concat(
@@ -132,63 +140,64 @@ class preprocess_traj(PreProcess):
             val_df.to_csv(val_file, index=False)
             test_df.to_csv(test_file, index=False)
 
-            # region traj
-            file_name = 'traj_region.csv'
-            data_file = os.path.join(self.data_dir, file_name)
-            rel_df = pd.read_csv(self.rel_file)
-            road2region_df = rel_df[rel_df['rel_type'] == 'road2region']
-            road2region = {}
-            for _, row in road2region_df.iterrows():
-                x = int(row['origin_id']) - num_regions
-                y = int(row['destination_id'])
-                road2region[x] = y
-            df = pd.concat(
-                [
-                    pd.Series(range(len(start_time)), name='dyna_id'), 
-                    pd.Series(start_time, name='start_time'), 
-                    pd.Series(end_time, name='end_time'),
-                    pd.Series(origin_id, name='origin_id'),
-                    pd.Series(destination_id, name='destination_id')
-                ], axis=1)
-            df['origin_id'] = df['origin_id'].map(road2region)
-            df['destination_id'] = df['destination_id'].map(road2region)
-            df['flow'] = [1] * len(df)
-            df.to_csv(self.od_file, index=False)
-            region_paths = []
-            region_tlists = []
-            for i, road_path in enumerate(path):
-                tmp1, tmp2 = [], []
-                lst_region = None
-                for j, road in enumerate(road_path):
-                    region = int(road2region[int(road)])
-                    if region != lst_region:
-                        tmp1.append(region)
-                        tmp2.append(tlist[i][j])
-                        lst_region = region
-                region_paths.append(tmp1)
-                region_tlists.append(tmp2)
-            df = pd.concat(
-                [
-                    pd.Series(id, name='id'), 
-                    pd.Series(region_paths, name='path'), 
-                    pd.Series(tlist, name='tlist'),
-                    pd.Series(usr_id, name='usr_id'),
-                    pd.Series(traj_id, name='traj_id'),
-                    pd.Series(start_time, name='start_time')
-                ], axis=1)
-            df.to_csv(data_file, index=False)
-            # 3:1:1
-            train_file = os.path.join(self.data_dir, 'traj_region_train.csv')
-            val_file = os.path.join(self.data_dir, 'traj_region_val.csv')
-            test_file = os.path.join(self.data_dir, 'traj_region_test.csv')
-            train_df = df.sample(frac=3/5, random_state=1)
-            df = df.drop(train_df.index)
-            val_df = df.sample(frac=1/2, random_state=1)
-            df = df.drop(val_df.index)
-            test_df = df
-            train_df.to_csv(train_file, index=False)
-            val_df.to_csv(val_file, index=False)
-            test_df.to_csv(test_file, index=False)
+            if gen_region_traj:
+                # region traj
+                file_name = 'traj_region.csv'
+                data_file = os.path.join(self.data_dir, file_name)
+                rel_df = pd.read_csv(self.rel_file)
+                road2region_df = rel_df[rel_df['rel_type'] == 'road2region']
+                road2region = {}
+                for _, row in road2region_df.iterrows():
+                    x = int(row['origin_id']) - num_regions
+                    y = int(row['destination_id'])
+                    road2region[x] = y
+                df = pd.concat(
+                    [
+                        pd.Series(range(len(start_time)), name='dyna_id'), 
+                        pd.Series(start_time, name='start_time'), 
+                        pd.Series(end_time, name='end_time'),
+                        pd.Series(origin_id, name='origin_id'),
+                        pd.Series(destination_id, name='destination_id')
+                    ], axis=1)
+                df['origin_id'] = df['origin_id'].map(road2region)
+                df['destination_id'] = df['destination_id'].map(road2region)
+                df['flow'] = [1] * len(df)
+                df.to_csv(self.od_file, index=False)
+                region_paths = []
+                region_tlists = []
+                for i, road_path in enumerate(path):
+                    tmp1, tmp2 = [], []
+                    lst_region = None
+                    for j, road in enumerate(road_path):
+                        region = int(road2region[int(road)])
+                        if region != lst_region:
+                            tmp1.append(region)
+                            tmp2.append(tlist[i][j])
+                            lst_region = region
+                    region_paths.append(tmp1)
+                    region_tlists.append(tmp2)
+                df = pd.concat(
+                    [
+                        pd.Series(id, name='id'), 
+                        pd.Series(region_paths, name='path'), 
+                        pd.Series(tlist, name='tlist'),
+                        pd.Series(usr_id, name='usr_id'),
+                        pd.Series(traj_id, name='traj_id'),
+                        pd.Series(start_time, name='start_time')
+                    ], axis=1)
+                df.to_csv(data_file, index=False)
+                # 3:1:1
+                train_file = os.path.join(self.data_dir, 'traj_region_train.csv')
+                val_file = os.path.join(self.data_dir, 'traj_region_val.csv')
+                test_file = os.path.join(self.data_dir, 'traj_region_test.csv')
+                train_df = df.sample(frac=3/5, random_state=1)
+                df = df.drop(train_df.index)
+                val_df = df.sample(frac=1/2, random_state=1)
+                df = df.drop(val_df.index)
+                test_df = df
+                train_df.to_csv(train_file, index=False)
+                val_df.to_csv(val_file, index=False)
+                test_df.to_csv(test_file, index=False)
             self._logger.info('Finish preprocess traj.')
         
 
@@ -224,6 +233,10 @@ class preprocess_csv(PreProcess):
                     df_dict['road'][key] = df_dict['road'][key].astype(int)
                 except:
                     continue
+            if 'geometry' not in df_dict['region'].keys():
+                df_dict['region']['geometry'] = geo_df[geo_df['traffic_type'] == 'region']['coordinates']
+            if 'geometry' not in df_dict['road'].keys():
+                df_dict['road']['geometry'] = geo_df[geo_df['traffic_type'] == 'road']['coordinates']
             df_dict['poi'].to_csv(os.path.join(self.data_dir, 'POI.csv'), index=False)
             df_dict['region'].to_csv(os.path.join(self.data_dir, 'region.csv'), index=False)
             df_dict['road'].to_csv(os.path.join(self.data_dir, 'road.csv'), index=False)
@@ -233,7 +246,10 @@ class preprocess_csv(PreProcess):
 def save_traj_od_matrix(data_dir, file_name, n):
     file_path = os.path.join(data_dir, file_name + '_od.npy')
     if not os.path.exists(file_path):
-        traj_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
+        try:
+            traj_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
+        except:
+            return
         od_matrix = np.zeros((n, n))
         for _, row in traj_df.iterrows():
             tmp = row['path'].split(',')
@@ -249,7 +265,10 @@ def save_traj_od_matrix(data_dir, file_name, n):
 def save_od_od_matrix(data_dir, file_name, n):
     file_path = os.path.join(data_dir, file_name + '_od.npy')
     if not os.path.exists(file_path):
-        od_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
+        try:
+            od_df = pd.read_csv(os.path.join(data_dir, file_name + '.csv'))
+        except:
+            return
         od_matrix = np.zeros((n, n))
         for _, row in od_df.iterrows():
             origin = int(row['origin_id'])
@@ -261,15 +280,21 @@ def save_od_od_matrix(data_dir, file_name, n):
 def save_in_avg(data_dir, file_name, num_days):
     file_path = os.path.join(data_dir, file_name + '_in_avg.npy')
     if not os.path.exists(file_path):
-        od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.sum(od_file, axis=0))
+        try:
+            od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
+            np.save(file_path, np.sum(od_file, axis=0))
+        except:
+            pass
 
 
 def save_out_avg(data_dir, file_name, num_days):
     file_path = os.path.join(data_dir, file_name + '_out_avg.npy')
     if not os.path.exists(file_path):
-        od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
-        np.save(file_path, np.sum(od_file, axis=1))
+        try:
+            od_file = np.load(os.path.join(data_dir, file_name + '_od.npy'))
+            np.save(file_path, np.sum(od_file, axis=1))
+        except:
+            pass
 
 
 class preprocess_od(PreProcess):
@@ -300,13 +325,14 @@ class preprocess_od(PreProcess):
         test_file = os.path.join(self.data_dir, 'od_region_test.csv')
         
         if not os.path.exists(train_file) or not os.path.exists(test_file):
-            df = pd.read_csv(self.od_file)
-            df['start_time'] = df['start_time'].map(str2timestamp)
-            df['end_time'] = df['end_time'].map(str2timestamp)
-            train_df = df.sample(frac=4/5, random_state=1)
-            test_df = df.drop(train_df.index)
-            train_df.to_csv(train_file, index=False)
-            test_df.to_csv(test_file, index=False)
+            if os.path.exists(self.od_file):
+                df = pd.read_csv(self.od_file)
+                df['start_time'] = df['start_time'].map(str2timestamp)
+                df['end_time'] = df['end_time'].map(str2timestamp)
+                train_df = df.sample(frac=4/5, random_state=1)
+                test_df = df.drop(train_df.index)
+                train_df.to_csv(train_file, index=False)
+                test_df.to_csv(test_file, index=False)
 
         file_path_train = os.path.join(self.data_dir, 'od_region_train_od.npy')
         file_path_test = os.path.join(self.data_dir, 'od_region_test_od.npy')
@@ -317,10 +343,11 @@ class preprocess_od(PreProcess):
             save_od_od_matrix(self.data_dir, 'od_region_test' , num_regions)
         if not os.path.exists(os.path.join(self.data_dir, 'od_region_test_in_avg.npy')) or\
            not os.path.exists(os.path.join(self.data_dir, 'od_region_test_out_avg.npy')):
-            od_df = pd.read_csv(self.od_file)
-            num_days = od_df['start_time'].map(str2date).drop_duplicates().shape[0]
-            save_in_avg(self.data_dir, 'od_region_test', num_days)
-            save_out_avg(self.data_dir, 'od_region_test', num_days)
+            if os.path.exists(self.od_file):
+                od_df = pd.read_csv(self.od_file)
+                num_days = od_df['start_time'].map(str2date).drop_duplicates().shape[0]
+                save_in_avg(self.data_dir, 'od_region_test', num_days)
+                save_out_avg(self.data_dir, 'od_region_test', num_days)
 
 
 class preprocess_feature(PreProcess):
@@ -356,7 +383,6 @@ class preprocess_feature(PreProcess):
                 except:
                     mp = gen_index_map(geo_df, 'road_highway')
                     highway = geo_df['road_highway'].map(mp).dropna().astype(int)
-                # TODO 没法直接转换
                 lanes = geo_df['road_lanes'].dropna().astype(int)
                 maxspeed = geo_df['road_maxspeed'].dropna().astype(int)
                 road_df = pd.concat(

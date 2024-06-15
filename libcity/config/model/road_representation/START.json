@@ -45,7 +45,7 @@
     "seed": 0,
     "batch_size": 32,
     "grad_accmu_steps": 32,
-    "max_epoch": 1,
+    "max_epoch": 100,
     "learner": "adamw",
     "learning_rate": 2e-4,
     "lr_eta_min": 0,

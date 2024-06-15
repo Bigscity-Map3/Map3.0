@@ -7,6 +7,7 @@ from geopy.distance import geodesic
 from datetime import datetime
 import os
 import pandas as pd
+from shapely import wkt
 
 
 def output(method, value, field):
@@ -178,10 +179,14 @@ def getSpeedAndTime(traj_list, geo2length, geo2speed, num_regions):
         traj2 = traj_list[i + 1]
         road_id1 = traj1['geo_id'] - num_regions
 
-        t1 = datetime.strptime(traj1['time'], '%Y-%m-%d %H:%M:%S')
-        t2 = datetime.strptime(traj2['time'], '%Y-%m-%d %H:%M:%S')
+        if isinstance(traj1['time'], (int, float)):
+            t1, t2 = traj1['time'], traj2['time']
+            t_delta = float(t2 - t1)
+        else:
+            t1 = datetime.strptime(traj1['time'], '%Y-%m-%d %H:%M:%S')
+            t2 = datetime.strptime(traj2['time'], '%Y-%m-%d %H:%M:%S')
+            t_delta = float((t2 - t1).seconds)
         length = geo2length[road_id1]
-        t_delta = float((t2 - t1).seconds)
         if t_delta > 0:
             v_temp = length * 1000 / t_delta
 
@@ -189,9 +194,13 @@ def getSpeedAndTime(traj_list, geo2length, geo2speed, num_regions):
             geo2speed[road_id1] = ((avg * n + v_temp) / (n + 1), n + 1)
 
     traj_series = [x['geo_id'] - num_regions for x in traj_list]
-    t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%d %H:%M:%S')
-    t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%d %H:%M:%S')
-    totaltime = (t_ - t0).seconds
+    if isinstance(traj_list[0]['time'], (int, float)):
+        t0, t_ = traj_list[0]['time'], traj_list[-1]['time']
+        totaltime = t_ - t0
+    else:
+        t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%d %H:%M:%S')
+        t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%d %H:%M:%S')
+        totaltime = (t_ - t0).seconds
     return traj_series, totaltime
 
 
@@ -208,7 +217,10 @@ def generate_road_representaion_downstream_data(dataset_name):
         geo2length = {}
         for index, row in geo_df.iterrows():
             if row['traffic_type'] == 'road':
-                coordinates = eval(row['coordinates'])
+                try:
+                    coordinates = eval(row['coordinates'])
+                except:
+                    coordinates = wkt.loads(row['coordinates']).coords[:]
                 geo2length[row['geo_id']] = geo2distance(coordinates)
             elif row['traffic_type'] == 'poi':
                 break

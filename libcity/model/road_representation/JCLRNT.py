@@ -264,7 +264,7 @@ class MultiViewModel(nn.Module):
         _, node_enc1, node_enc2 = self.encode_graph()
 
         batch_size, max_seq_len = sequences.size()
-        if lens :
+        if lens != None :
             pool_mask = torch.ones([batch_size,max_seq_len],dtype=torch.int64).cuda()
             for i in range(batch_size):
                 pool_mask[i,int(lens[i]):]= 0
@@ -276,6 +276,7 @@ class MultiViewModel(nn.Module):
             pool_mask = (1 - src_key_padding_mask.int()).transpose(0, 1).unsqueeze(-1)
 
         lookup_table1 = torch.cat([node_enc1, self.padding], 0)
+        
         seq_emb1 = torch.index_select(
             lookup_table1, 0, sequences.view(-1)).view(batch_size, max_seq_len, -1).transpose(0, 1)
         seq_enc1 = self.seq_encoder(seq_emb1, None, src_key_padding_mask)

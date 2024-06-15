@@ -347,7 +347,7 @@ class TrajectoryProcessingDataset(Dataset):
             tim_list = eval(traj['tlist'])
             usr_id = traj['usr_id']
             new_loc_list = [self.vocab.loc2index.get(loc, self.vocab.unk_index) for loc in loc_list]
-            new_tim_list = [datetime.datetime.utcfromtimestamp(tim) for tim in tim_list]
+            new_tim_list = [datetime.datetime.fromtimestamp(tim) for tim in tim_list]
             minutes = [new_tim.hour * 60 + new_tim.minute + 1 for new_tim in new_tim_list]
             weeks = [new_tim.weekday() + 1 for new_tim in new_tim_list]
             usr_list = [self.vocab.usr2index.get(usr_id, self.vocab.unk_index)] * len(new_loc_list)
