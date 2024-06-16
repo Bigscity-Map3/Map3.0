@@ -162,7 +162,11 @@ class SARN(AbstractReprLearningModel):
                         (sub_seg_feats_2, sub_edge_index_2, mapping_to_origin_idx_2), \
                         sub_seg_ids, sub_cellids = batch
 
-                sub_seg_feats_1 = self.feat_emb(sub_seg_feats_1)
+                try:
+                    sub_seg_feats_1 = self.feat_emb(sub_seg_feats_1)
+                except:
+                    import pdb
+                    pdb.set_trace()
                 sub_seg_feats_2 = self.feat_emb(sub_seg_feats_2)
 
                 model_rtn = self.model(sub_seg_feats_1, sub_edge_index_1, mapping_to_origin_idx_1, \

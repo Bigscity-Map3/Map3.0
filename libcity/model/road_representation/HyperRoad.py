@@ -181,7 +181,7 @@ class SingleFeedForwardNN(nn.Module):
             self.skip_connection = False
 
         self.linear = nn.Linear(self.input_dim, self.output_dim)
-        nn.init.xavier_uniform(self.linear.weight)
+        nn.init.xavier_uniform_(self.linear.weight)
 
     def forward(self, input_tensor):
         '''
