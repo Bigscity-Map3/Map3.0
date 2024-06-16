@@ -535,6 +535,8 @@ def select_geo_rel(selected_geo_ids, selected_path,new_data_name,road_path, geo_
     geo_df = pd.read_csv(geo_path)
     offset = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
     geo = []
+    if 'id' not in geofile.keys():
+        geofile['id'] = list(range(len(geofile)))
     for i in tqdm(range(geofile.shape[0]), desc='geo'):
         if int(geofile.iloc[i]['id']) in selected_geo_ids:
            geo.append(geofile.iloc[i].values.tolist())

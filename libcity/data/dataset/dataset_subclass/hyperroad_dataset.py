@@ -11,6 +11,7 @@ import scipy.sparse as sp
 from sklearn.preprocessing import OneHotEncoder
 from logging import getLogger
 
+from libcity.utils import gen_index_map
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
 
@@ -310,9 +311,13 @@ class HyperRoadDataset(AbstractDataset):
     
     def construct_hyper_feature(self):
         hyper_feature = dict()
+        feature_col = self.config.get('region_clf_label', None)
         for i in range(len(self.region_geo_df)):
             hyper_feature_i = dict()
-            hyper_feature_i['cluster'] = self.region_geo_df.loc[i, 'FUNCTION']
+            if feature_col is not None:
+                hyper_feature_i['cluster'] = self.region_geo_df.loc[i, feature_col]
+            else:
+                hyper_feature_i['cluster'] = 0
             hyper_feature[i] = hyper_feature_i
         return hyper_feature
     

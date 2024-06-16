@@ -38,6 +38,8 @@ class ContrastiveMLMExecutor(ContrastiveExecutor):
         specials = ["<pad>", "<unk>", "<sos>", "<mask>"]
         road_path="libcity/cache/dataset_cache/{}/road.csv".format(self.dataset)
         road_list=pd.read_csv(road_path)
+        if 'id' not in road_list.keys():
+            road_list['id'] = list(range(len(road_list)))
         road_list=road_list['id'].to_list()
         unk=emb[1]
         emb=emb[4:]

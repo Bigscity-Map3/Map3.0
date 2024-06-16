@@ -94,7 +94,7 @@ class JCLRNT(AbstractReprLearningModel):
         np.save(self.road_embedding_path,node_embedding)
         torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
         self.save_traj_embedding(self.traj_train,self.traj_train_embedding_file)
-        self.save_traj_embedding(self.traj_test,self.traj_test_embedding_file)
+        # self.save_traj_embedding(self.traj_test,self.traj_test_embedding_file)
     
     def encode_sequence(self,sequences,lengths):
         out,_,_=self.model.encode_sequence(sequences,lengths)

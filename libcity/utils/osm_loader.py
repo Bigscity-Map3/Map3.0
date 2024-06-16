@@ -102,6 +102,9 @@ class OSMLoader:
             self.segments['m_lon'] = m_lon
             self.segments['m_lat'] = m_lat
 
+        if 'id' not in self.segments:
+            self.segments['id'] = list(range(len(self.segments)))
+
         self.segments['inc_id'] = self.segments.id
         self.segments['c_lat'] = self.segments.m_lat
         self.segments['c_lon'] = self.segments.m_lon

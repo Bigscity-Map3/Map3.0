@@ -6,7 +6,6 @@ import geopandas as gpd
 import os
 import json
 import torch
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset
 from libcity.data.dataset import AbstractDataset
@@ -99,6 +98,9 @@ class JCLRNTDataset(AbstractDataset):
                                enumerate(self.tran_matrix_b.flatten()) if n]
         self.edge_index_aug = np.array(self.edge_index_aug, dtype=np.int32).transpose()
         self.edge_index_aug = torch.Tensor(self.edge_index_aug).int().to(self.device)
+        self_loop = torch.tensor([[self.road_num - 1], [self.road_num - 1]]).to(self.device)
+        self.edge_index = torch.cat((self.edge_index, self_loop), axis=1)
+        self.edge_index_aug = torch.cat((self.edge_index_aug, self_loop), axis=1)
         return arr
     
     def prepare_traj_test_data(self,traj_path):
