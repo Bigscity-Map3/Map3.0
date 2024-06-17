@@ -11,7 +11,6 @@ import scipy.sparse as sp
 from sklearn.preprocessing import OneHotEncoder
 from logging import getLogger
 
-from libcity.utils import gen_index_map
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
 

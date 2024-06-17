@@ -115,10 +115,10 @@ class OSMLoader:
             lat2 = self.segments.loc[i, 'e_lat']
             lon2 = self.segments.loc[i, 'e_lon']
             self.segments.loc[i,'radian'] = self.calculate_radian(lat1,lon1, lat2, lon2)
-        lon_min = self.segments.c_lon.min()
-        lon_max = self.segments.c_lon.max()
-        lat_min = self.segments.c_lat.min()
-        lat_max = self.segments.c_lat.max()
+        lon_min = min(self.segments.c_lon.min(), self.segments.s_lon.min(), self.segments.e_lon.min())
+        lon_max = max(self.segments.c_lon.max(), self.segments.s_lon.max(), self.segments.e_lon.max())
+        lat_min = min(self.segments.c_lat.min(), self.segments.s_lat.min(), self.segments.e_lat.min())
+        lat_max = max(self.segments.c_lat.max(), self.segments.s_lat.max(), self.segments.e_lat.max())
         lon_unit = 0.00568828214
         lat_unit = 0.004496402877
         self.cellspace = CellSpace(lon_unit,lat_unit,lon_min,lat_min,lon_max,lat_max)
@@ -341,7 +341,9 @@ class OSMLoader:
         # is equal to Config.sarn_seg_weight_distance_thres, which will not slow down the program.
 
         _time = time.time()
-
+        # if os.path.exists('sarn_data_tmp.csv'):
+        #     all_seg_pairs = pd.read_csv('sarn_data_tmp.csv')
+        # else:
         # ['inc_id_x', 'inc_id_y', 'distance', 'radian_delta', 'distance_weight', 'radian_weight', 'spatial_weight']
         all_seg_pairs = pd.DataFrame() 
 
@@ -354,14 +356,11 @@ class OSMLoader:
         all_cell_pairs = cs.all_neighbour_cell_pairs_permutated() # all legal neighbouring cell pairs
         segs = self.segments[['inc_id','c_lon','c_lat','radian']].copy()
         segs.loc[:, 'c_cellid_tmp'] = segs.loc[:,['c_lon','c_lat']].apply(lambda x: cs.get_cell_id_by_point(*x), axis=1)
-
         for ((i_lon_1, i_lat_1), (i_lon_2, i_lat_2)) in all_cell_pairs:
             cell_id_1 = cs.get_cell_id(i_lon_1, i_lat_1)
             cell_id_2 = cs.get_cell_id(i_lon_2, i_lat_2)
-
             segs_in_cell_1 = segs[segs['c_cellid_tmp'] == cell_id_1]
             segs_in_cell_2 = segs[segs['c_cellid_tmp'] == cell_id_2]
-
             segs_pairs = segs_in_cell_1[['inc_id','c_lon','c_lat','radian']].merge(segs_in_cell_2[['inc_id','c_lon','c_lat','radian']], how='cross')
             segs_pairs['distance'] = haversine_np(segs_pairs['c_lon_x'].values, segs_pairs['c_lat_x'].values, \
                                                     segs_pairs['c_lon_y'].values, segs_pairs['c_lat_y'].values)
@@ -373,7 +372,7 @@ class OSMLoader:
             segs_pairs = segs_pairs[['inc_id_x', 'inc_id_y', 'distance', 'radian_delta']]
 
             all_seg_pairs = pd.concat([all_seg_pairs, segs_pairs], axis = 0, ignore_index = True)
-
+        
         # calculate distance weight and radian weight
         all_seg_pairs['distance_weight'] = np.cos(0.5 * np.pi * all_seg_pairs['distance'] / Config.sarn_seg_weight_distance_thres)
         all_seg_pairs['radian_weight'] = np.cos(0.5 * np.pi * all_seg_pairs['radian_delta'] / Config.sarn_seg_weight_radian_delta_thres)
@@ -382,7 +381,9 @@ class OSMLoader:
         # duplicate alone diagonal
         all_seg_pairs = pd.concat([all_seg_pairs, all_seg_pairs.rename(columns={'inc_id_x':'inc_id_y', 'inc_id_y':'inc_id_x'})], \
                                     axis = 0, ignore_index = True)
-        
+        # all_seg_pairs.to_csv('sarn_data_tmp.csv', index=False)
+        # TODO：可能可以缓存
+
         # randomly sampling remove to allow the spatial_segments_graph
         # , having the same edge to self.adj_semgnts_graph 
         # all_seg_pairs = all_seg_pairs.sample(n = self.adj_segments_graph.number_of_edges(),
