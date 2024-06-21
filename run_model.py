@@ -25,6 +25,7 @@ if __name__ == '__main__':
                         help='whether re-train model if the model is trained before')
     parser.add_argument('--exp_id', type=str, default=None, help='id of experiment')
     parser.add_argument('--seed', type=int, default=0, help='random seed')
+    parser.add_argument('--save_result', type=str2bool, default=True, help='save result or not')
     # 增加其他可选的参数
     add_general_args(parser)
     # 解析参数

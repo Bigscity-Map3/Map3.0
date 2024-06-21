@@ -1,13 +1,14 @@
 {
   "embed_size": 128,
-  "task_epoch": 1,
+  "task_epoch": 100,
   "pre_len": 1,
-  "embed_epoch": 1,
+  "embed_epoch": 500,
   "init_param": false,
-  "downstream_model": "gru",
+  "downstream_model": "stlstm",
   "batch_size": 64,
   "downstream_batch_size": 64,
-  "clf_task" : false,
-  "poi_type_name" : "venue_category_id",
-  "is_static":true
+  "is_static":true,
+  "downstream_hidden_dim" : 128,
+  "cache": true,
+  "max_seq_len":128
 }

@@ -1,0 +1,11 @@
+File "<__array_function__ internals>", line 6, in save
+  File "/home/tangyb/miniconda3/envs/poi/lib/python3.7/site-packages/numpy/lib/npyio.py", line 530, in save
+    pickle_kwargs=dict(fix_imports=fix_imports))
+OSError: [Errno 112] Host is down
+
+OSError: [Errno 9] Bad file descriptor:
+
+File "<__array_function__ internals>", line 6, in save
+  File "/home/zhangwt/miniconda3/envs/poi/lib/python3.7/site-packages/numpy/lib/npyio.py", line 525, in save
+    file_ctx = open(file, "wb")
+OSError: [Errno 16] Device or resource busy: './libcity/cache/15/evaluate_cache/road_embedding_LINE_xa_128.npy'

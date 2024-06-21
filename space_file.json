@@ -1,0 +1,11 @@
+{
+    "learning_rate": {
+        "type": "choice",
+        "list": [0.01, 0.005]
+    },
+    "max_epoch": {
+        "type": "randint",
+        "lower": 2,
+        "upper": 4
+    }
+} 

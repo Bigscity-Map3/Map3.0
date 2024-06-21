@@ -1,0 +1,6 @@
+{
+    "output_dim": 128,
+    "max_epoch": 500,
+    "evaluate_tasks": ["tte","tsi", "sts"],
+    "evaluate_models":  ["TravelTimeEstimationModel","SpeedInferenceModel", "SimilaritySearchModel"]
+}

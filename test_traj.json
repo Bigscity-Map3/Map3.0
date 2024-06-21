@@ -1,0 +1,10 @@
+{
+    "output_dim": 128,
+    "max_epoch": 500,
+    "learning_rate": 0.0001,
+    "clf_task": false,
+    "evaluate_tasks": ["tc"],
+    "evaluate_models": ["SimilaritySearchModel"],
+    "save_result": false,
+    "n_short_paths": 80
+}

@@ -43,35 +43,16 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         test_set = self.data_feature.get('test_set')
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
 
-        if self.model_name == 'erpp':
-            pre_model = ErppLocPredictor(embed_layer, input_size=embed_size, lstm_hidden_size=hidden_size,
-                                         fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
-                                         seq2seq=pre_model_seq2seq)
-        elif self.model_name == 'stlstm':
-            pre_model = StlstmLocPredictor(embed_layer, num_slots=st_num_slots, aux_embed_size=st_aux_embed_size,
+        
+        pre_model = TrajectoryPredictor(embed_layer, num_slots=st_num_slots, aux_embed_size=st_aux_embed_size,
                                            time_thres=10800, dist_thres=0.1,
                                            input_size=embed_size, lstm_hidden_size=hidden_size,
                                            fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
                                            seq2seq=pre_model_seq2seq)
-        elif self.model_name == 'strnn':
-            st_time_window = self.config.get('st_time_window', 7200)
-            st_dist_window = self.config.get('st_dist_window', 0.1)
-            st_inter_size = self.config.get('st_inter_size', 4)
-            pre_model = StrnnLocPredictor(embed_layer, num_slots=st_num_slots,
-                                          time_window=st_time_window, dist_window=st_dist_window,
-                                          input_size=embed_size, hidden_size=hidden_size,
-                                          inter_size=st_inter_size, output_size=num_loc)
-        elif self.model_name == 'rnn':
-            pre_model = RnnLocPredictor(embed_layer, input_size=embed_size, rnn_hidden_size=hidden_size,
-                                        fc_hidden_size=hidden_size,
-                                        output_size=num_loc, num_layers=1, seq2seq=pre_model_seq2seq)
-        else:
-            pre_model = Seq2SeqLocPredictor(embed_layer, input_size=embed_size, hidden_size=hidden_size,
-                                            output_size=num_loc, num_layers=2)
+        
             
         
-
-        self.result['loc_pre_acc'], self.result['loc_pre_pre'], self.result['loc_pre_recall'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
+        self.result['loc_pre_acc1'], self.result['loc_pre_acc5'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
                        num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
     
