@@ -25,6 +25,16 @@ class HierEmbedding(nn.Module):
 
         self.dropout = nn.Dropout(0.1)
 
+    def add_unk(self):
+        old_weight = self.token_embed.weight.data
+        embed_dimension = old_weight.size(1)
+        vocab_size = old_weight.size(0)
+        self.token_embed=nn.Embedding(vocab_size+1, embed_dimension)
+        initrange = 0.5 / embed_dimension
+        self.token_embed.weight.data.uniform_(-initrange, initrange)
+        for i in range(vocab_size):
+            self.token_embed.weight.data[i] = old_weight[i]
+
     def forward(self, token, week, hour, duration):
         token = self.token_embed(token)
         week = self.week_embed(week)
@@ -32,6 +42,8 @@ class HierEmbedding(nn.Module):
         duration = self.duration_embed(duration)
 
         return self.dropout(torch.cat([token, week, hour, duration], dim=-1))
+    
+
 
 
 class Hier(AbstractModel):
@@ -77,6 +89,11 @@ class Hier(AbstractModel):
 
     def static_embed(self):
         return self.embed.token_embed.weight[:self.embed.num_vocab].detach().cpu().numpy()
+    
+    def encode(self, token, **kwargs):
+        # week, hour, duration= kwargs['week'], kwargs['hour'], kwargs['duration']
+        embed = self.embed.token_embed(token)  # (batch, seq_len, embed_size)
+        return embed
 
     def calculate_loss(self, batch):
         src_token, src_weekday, src_hour, src_duration, src_len = batch
@@ -86,3 +103,7 @@ class Hier(AbstractModel):
                                          enforce_sorted=False).data
         loss_func = nn.CrossEntropyLoss()
         return loss_func(hier_out, trg_token)
+
+    def add_unk(self):
+        self.embed.add_unk()
+    

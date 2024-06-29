@@ -22,7 +22,7 @@ class SpeedInferenceModel(AbstractModel):
         x_ = []
         index = label['speed']['index']
         for i in index:
-            x_.append(x[i])
+            x_.append(x[int(i)])
         x = np.array(x_)
         y = np.array(label['speed']['speed'])
         kf = KFold(n_splits=self.n_split)

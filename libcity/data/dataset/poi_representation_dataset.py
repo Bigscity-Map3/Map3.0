@@ -315,11 +315,13 @@ class POIRepresentationDataset(AbstractDataset):
                 self.train_set=pickle.load(f)
                 self.test_set=pickle.load(f)
                 self.w2v_data=pickle.load(f)
-                loc_index_map=pickle.load(f)
-                user_index_map=pickle.load(f)
+                self.loc_index_map=pickle.load(f)
+                self.user_index_map=pickle.load(f)
+                loc_index_map=self.loc_index_map
+                user_index_map=self.user_index_map
                 self.max_seq_len=pickle.load(f)
-                self.df = self.df[self.df['user_index'].isin(user_index_map)]
-                self.df = self.df[self.df['loc_index'].isin(loc_index_map)]
+                self.df = self.df[self.df['user_index'].isin(self.user_index_map)]
+                self.df = self.df[self.df['loc_index'].isin(self.loc_index_map)]
                 self.coor_df = self.coor_df[self.coor_df['geo_id'].isin(loc_index_map)]
                 self.df['user_index'] = self.df['user_index'].map(user_index_map)
                 self.coor_df['geo_id'] = self.coor_df['geo_id'].map(loc_index_map)
@@ -476,6 +478,8 @@ class POIRepresentationDataset(AbstractDataset):
         self.coor_mat = self.df[['loc_index', 'lat', 'lng']].drop_duplicates('loc_index').to_numpy()
         self.id2coor_df = self.df[['loc_index', 'lat', 'lng']].drop_duplicates('loc_index'). \
             set_index('loc_index').sort_index()
+        self.user_index_map=user_index_map
+        self.loc_index_map=loc_index_map
 
         # todo list 这里不应该每次都生成，而是应该有缓存，如果有缓存则直接加载
         # 需要保存那些东西呢，train_set, test_set,w2v_set, loc_index_map, user_index_map
@@ -521,7 +525,9 @@ class POIRepresentationDataset(AbstractDataset):
             "id2coor_df": self.id2coor_df,
             "theta" : self.theta,
             "coor_df" : self.coor_df,
-            "df":self.df
+            "df":self.df,
+            "loc_index_map":self.loc_index_map,
+            "offset":self.offset
         }
 
     def gen_sequence(self, min_len=None, select_days=None, include_delta=False):
@@ -621,52 +627,52 @@ class POIRepresentationDataset(AbstractDataset):
                     sessions.append(session)
                 if len(sessions) >= min_sessions:
                     res[user_index] = sessions
-        elif cut_method == 'same_date':
-            # 将同一天的 check-in 划为一条轨迹
-            for uid in tqdm(user_set, desc="cut and filter trajectory"):
-                usr_traj = traj[traj['entity_id'] == uid].to_numpy()
-                sessions = []  # 存放该用户所有的 session
-                session = []  # 单条轨迹
-                prev_date = None
-                for index, row in enumerate(usr_traj):
-                    now_time = parse_time(row[2])
-                    now_date = now_time.day
-                    if index == 0:
-                        session.append(row.tolist())
-                    else:
-                        if prev_date == now_date and len(session) < max_session_len:
-                            # 还是同一天
-                            session.append(row.tolist())
-                        else:
-                            if len(session) >= min_session_len:
-                                sessions.append(session)
-                            else:
-                                print(session)
-                            session = []
-                            session.append(row.tolist())
-                    prev_date = now_date
-                if len(session) >= min_session_len:
-                    sessions.append(session)
-                if len(sessions) >= min_sessions:
-                    res[str(uid)] = sessions
-        else:
-            # cut by fix window_len
-            if max_session_len != window_size:
-                raise ValueError('the fixed length window is not equal to max_session_len')
-            for uid in tqdm(user_set, desc="cut and filter trajectory"):
-                usr_traj = traj[traj['entity_id'] == uid].to_numpy()
-                sessions = []  # 存放该用户所有的 session
-                session = []  # 单条轨迹
-                for index, row in enumerate(usr_traj):
-                    if len(session) < window_size:
-                        session.append(row.tolist())
-                    else:
-                        sessions.append(session)
-                        session = []
-                        session.append(row.tolist())
-                if len(session) >= min_session_len:
-                    sessions.append(session)
-                if len(sessions) >= min_sessions:
-                    res[str(uid)] = sessions
+        # elif cut_method == 'same_date':
+        #     # 将同一天的 check-in 划为一条轨迹
+        #     for uid in tqdm(user_set, desc="cut and filter trajectory"):
+        #         usr_traj = traj[traj['entity_id'] == uid].to_numpy()
+        #         sessions = []  # 存放该用户所有的 session
+        #         session = []  # 单条轨迹
+        #         prev_date = None
+        #         for index, row in enumerate(usr_traj):
+        #             now_time = parse_time(row[2])
+        #             now_date = now_time.day
+        #             if index == 0:
+        #                 session.append(row.tolist())
+        #             else:
+        #                 if prev_date == now_date and len(session) < max_session_len:
+        #                     # 还是同一天
+        #                     session.append(row.tolist())
+        #                 else:
+        #                     if len(session) >= min_session_len:
+        #                         sessions.append(session)
+        #                     else:
+        #                         print(session)
+        #                     session = []
+        #                     session.append(row.tolist())
+        #             prev_date = now_date
+        #         if len(session) >= min_session_len:
+        #             sessions.append(session)
+        #         if len(sessions) >= min_sessions:
+        #             res[str(uid)] = sessions
+        # else:
+        #     # cut by fix window_len
+        #     if max_session_len != window_size:
+        #         raise ValueError('the fixed length window is not equal to max_session_len')
+        #     for uid in tqdm(user_set, desc="cut and filter trajectory"):
+        #         usr_traj = traj[traj['entity_id'] == uid].to_numpy()
+        #         sessions = []  # 存放该用户所有的 session
+        #         session = []  # 单条轨迹
+        #         for index, row in enumerate(usr_traj):
+        #             if len(session) < window_size:
+        #                 session.append(row.tolist())
+        #             else:
+        #                 sessions.append(session)
+        #                 session = []
+        #                 session.append(row.tolist())
+        #         if len(session) >= min_session_len:
+        #             sessions.append(session)
+        #         if len(sessions) >= min_sessions:
+        #             res[str(uid)] = sessions
         return res
 

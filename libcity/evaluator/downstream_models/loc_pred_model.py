@@ -32,7 +32,7 @@ class LstmUserPredictor(nn.Module, ABC):
 
     def forward(self, seq,valid_len,**kwargs):
         
-        full_embed = self.embed_layer(seq, downstream=True,pre_len=1, **kwargs)
+        full_embed = self.embed_layer.encode(seq, **kwargs)
         pack_x = pack_padded_sequence(full_embed, lengths=valid_len,batch_first=True,enforce_sorted=False)
 
         h0 = torch.zeros(self.num_layers, full_embed.size(0), self.hidden_size).to(self.device)
@@ -47,6 +47,10 @@ class LstmUserPredictor(nn.Module, ABC):
         return pred
 
 def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, num_epoch, batch_size, device):
+    def _create_src_trg(origin, fill_value):
+            src, trg = create_src_trg(origin, 0, fill_value)
+            return torch.from_numpy(src).float().to(device)
+
     logger = getLogger()
     logger.info('Start training downstream model [user_clf]...')
     clf_model = clf_model.to(device)
@@ -55,13 +59,20 @@ def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, 
 
     def one_step(batch):
         user_index, full_seq, weekday, timestamp, length, time_delta, dist, lat, lng = zip(*batch)
+        src_t = _create_src_trg(timestamp, 0)
+        src_time_delta = _create_src_trg(time_delta, 0)
+        src_dist = _create_src_trg(dist, 0)
+        src_lat = _create_src_trg(lat, 0)
+        src_lng = _create_src_trg(lng, 0)
+
         full_seq=[torch.tensor(seq,dtype=torch.long,device=device) for seq in full_seq]
         inputs = pad_sequence(full_seq,batch_first=True, padding_value=num_loc)
         targets = torch.tensor(user_index).long().to(device)
         length = list(length)
         # timestamp = torch.tensor(timestamp).long().to(device)
 
-        out = clf_model(inputs,length)
+        out = clf_model(inputs,length,user_index=user_index, timestamp=src_t,
+                        time_delta=src_time_delta, dist=src_dist, lat=src_lat, lng=src_lng)
         return out, targets
 
     score_log = []
@@ -150,8 +161,9 @@ class TrajectoryPredictor(nn.Module, ABC):
                                           self.dist_embed(dist_slot_i)], dim=-1)],
                               dim=1)  # (batch, seq_len, aux_embed_size*2)
 
-        full_embed = self.embed_layer(full_seq, downstream=True, pre_len=pre_len,
-                                      **kwargs)  # (batch_size, seq_len, input_size)
+        full_embed = self.embed_layer.encode(full_seq,**kwargs)  # (batch_size, seq_len, input_size)
+    
+
         lstm_input = torch.cat([full_embed, aux_input],
                                dim=-1)  # (batch_size, seq_len, input_size + aux_embed_size * 2)
 
@@ -165,7 +177,7 @@ class TrajectoryPredictor(nn.Module, ABC):
         return out
 
 
-def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, batch_size, device):
+def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, batch_size,device):
     def one_step(batch):
         def _create_src_trg(origin, fill_value):
             src, trg = create_src_trg(origin, pre_len, fill_value)
@@ -184,13 +196,22 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
         src_seq, trg_seq = (torch.from_numpy(item).long().to(device) for item in [src_seq, trg_seq])
 
         src_t = _create_src_trg(timestamp, 0)
+         
         src_time_delta = _create_src_trg(time_delta, 0)
         src_dist = _create_src_trg(dist, 0)
         src_lat = _create_src_trg(lat, 0)
         src_lng = _create_src_trg(lng, 0)
 
+        src_week = _create_src_trg(weekday,0).long()
+        src_hour = (src_t % (24 * 60 * 60) / 60 / 60).long()
+        src_duration = ((src_t[:, 1:] - src_t[:, :-1]) % (24 * 60 * 60) / 60 / 60).long()
+        src_duration = torch.clamp(src_duration, 0, 23)
+        res=torch.zeros([src_duration.size(0),1],dtype=torch.long).to(device)
+        src_duration = torch.hstack([res,src_duration])
+
         out = pre_model(src_seq, length, pre_len, user_index=user_index, timestamp=src_t,
-                        time_delta=src_time_delta, dist=src_dist, lat=src_lat, lng=src_lng)
+                        time_delta=src_time_delta, dist=src_dist, lat=src_lat, lng=src_lng,
+                        week=src_week,hour=src_hour,duration=src_duration)
 
         # out = out.reshape(-1, pre_model.output_size)
         out = out[index_matrix]
@@ -202,6 +223,7 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
     logger = getLogger()
     logger.info('Start training downstream model [next_loc]...')
     pre_model = pre_model.to(device)
+    
     optimizer = torch.optim.Adam(pre_model.parameters(), lr=1e-3)
 
     loss_func = nn.CrossEntropyLoss()
@@ -217,6 +239,7 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
             losses.append(loss.item())
             if (i + 1) % test_point == 0:
 

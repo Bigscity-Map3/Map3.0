@@ -216,8 +216,13 @@ class POI2Vec(HS):
         return pos_score + neg_score
 
     def static_embed(self):
-        return self.w_embeddings.weight.detach().cpu().numpy()
-
+        return self.u_embeddings.weight.detach().cpu().numpy()
+    
+    def encode(self, context,**kwargs):
+        return self.u_embeddings(context)
+        
     def calculate_loss(self, batch):
         batch_count, context, pos_pairs, neg_pairs, prop = batch
         return self.forward(context, pos_pairs, neg_pairs, prop=prop)
+    
+

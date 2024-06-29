@@ -51,6 +51,8 @@ def run_model(task=None, model_name=None, dataset_name=None, config_file=None,
     model_cache_file = './libcity/cache/{}/model_cache/{}_{}.m'.format(
         exp_id, model_name, dataset_name)
     model = get_model(config, data_feature)
+    total_num = sum([param.nelement() for param in model.parameters()])
+    logger.info('Number of model parameters: {}'.format(total_num))
     executor = get_executor(config, model, data_feature)
     # 训练
     if train or not os.path.exists(model_cache_file):

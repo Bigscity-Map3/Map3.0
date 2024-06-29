@@ -12,61 +12,7 @@ from libcity.evaluator.downstream_models.similarity_search_model import Similari
 from libcity.evaluator.hhgcl_evaluator import HHGCLEvaluator
 from libcity.utils import get_executor, get_model, get_logger, ensure_dir, set_random_seed
 
-def w():
-    models = ['SARN']
-    # models = ['SRN2Vec', 'SARN', 'HyperRoad', 'JCLRNT']
-    # models = ['DeepWalk', 'Node2Vec', 'LINE']
-    # models = ['ChebConv', 'Node2Vec', 'DeepWalk', 'GAT', 'GeomGCN', 'LINE']
-    # datasets = ['new_xa']
-    datasets = ['new_cd']
-    # datasets = ['new_bj']
-    # datasets = ['new_xa', 'new_cd', 'new_bj']
-    # gpu_id = 0
-    # exp_id = 11
-    # exp_id = 12
-    exp_id = 999
-    output_dim = 128
-
-    for dataset in datasets:
-        for i, model in enumerate(models):
-            # config = {
-            #     'model': model,
-            #     'dataset': dataset,
-            #     'exp_id': exp_id,
-            #     'output_dim': output_dim
-            # }
-            config = {
-                'model': model,
-                'dataset': dataset,
-                'exp_id': exp_id,
-                'output_dim': output_dim,
-                "device": torch.device(f"cuda:{0}"),
-                "representation_object": "road",
-                "downstream_epoch": 10
-            }
-            logger = get_logger(config)
-            # od_label_path = './libcity/cache/dataset_cache/{}/od_mx.npy'.format(dataset)
-            # od_label = np.load(od_label_path)
-            # import pdb
-
-            # pdb.set_trace()
-            # data_feature = {
-            #     "label": {"od_matrix_predict": od_label.flatten()}
-            # }
-            data_feature = {}
-            embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy' \
-                .format(exp_id, model, dataset, output_dim)
-            # embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy' \
-            #     .format(exp_id, model, dataset, output_dim)
-            if not os.path.exists(embedding_path):
-                continue
-            evaluator = HHGCLEvaluator(config, data_feature)
-            # evaluator = RepresentationEvaluator(config, data_feature)
-            # evaluator = RoadRepresentationEvaluator(config, data_feature)
-            evaluator.evaluate()
-            # downstream_model = SimilaritySearchModel(config)
-            # print(downstream_model.run()
-    
+  
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -75,58 +21,86 @@ if __name__ == '__main__':
     #                     default='GRU', help='the name of model')
     representaition_object = 'road'
     # parser.add_argument('--dataset', type=str, default='METR_LA')
-    dataset = 'xa'
+    dataset = 'porto'
+
     # parser.add_argument('--gpu_id', type=int, default=0)
     # args = vars(parser.parse_args())
     # model = args['model']
     # dataset = args['dataset']
     # gpu_id = args['gpu_id']
     gpu_id = 2
-    output_dim = 128
+    output_dim = 256
     exp_id = 'tmp'
+    
+    concat = True
     config = {
         'dataset': dataset,
         'exp_id': exp_id,
         'model': 'UUKG',
+        'embed_size': output_dim,
+        'd_model':output_dim,
         'output_dim': output_dim,
         "device": torch.device(f"cuda:{gpu_id}"),
         "representation_object": representaition_object,
-        "save_result": False,
-        "region_clf_label": "type"
+        "save_result": True,
+        "region_clf_label": "type",
+        "is_static": True
     }
+    print(config)
     logger = get_logger(config)
-    concat = False
     if concat:
-        data_feature = {}
-        uukg_embedding_path = f'./raw_data/data/{dataset}/{representaition_object}_embedding.npy'
-        evaluator = HHGCLEvaluator(config, data_feature)
-        uukg_embedding = np.load(uukg_embedding_path)
-        models = ['ZEMob', 'HDGE', 'MVURE', 'MGFN', 'ReMVC', 'HREP', 'Node2Vec', 'LINE']
-        for model in models:
-            model_embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy' \
-                        .format(16, model, dataset, 128)
-            model_embedding = np.load(model_embedding_path)
-            # pdb.set_trace()
-            embedding = np.concatenate([uukg_embedding, model_embedding], axis=1)
-            # 16_evaluate_ZEMob_porto_128.csv
-            result = {}
-            mae, rmse, r2, mape = evaluator._valid_flow(embedding)
-            result['mae'] = [mae]
-            result['rmse'] = [rmse]
-            result['mape'] = [mape]
-            result['r2'] = [r2]
-            bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = evaluator._valid_flow_using_bilinear(embedding)
-            result['bilinear_mae'] = [bilinear_mae]
-            result['bilinear_rmse'] = [bilinear_rmse]
-            result['bilinear_mape'] = [bilinear_mape]
-            result['bilinear_r2'] = [bilinear_r2]
-            y_truth,useful_index,micro_f1, macro_f1 = evaluator._valid_clf(embedding)
-            result['clf_micro_f1'] = [micro_f1]
-            result['clf_macro_f1'] = [macro_f1]
-            df = pd.DataFrame(result, index=[0])
-            result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
-                format(exp_id, exp_id, model, dataset, str(output_dim))
-            df.to_csv(result_path, index=False)
+        if representaition_object == 'region':
+            data_feature = {}
+            uukg_embedding_path = f'/home/zhangwt/tyb/tyb/remote/representation/raw_data/{dataset}/{representaition_object}_embedding.npy'
+            evaluator = HHGCLEvaluator(config, data_feature)
+            uukg_embedding = np.load(uukg_embedding_path)
+            models = ['ZEMob', 'HDGE', 'MVURE', 'MGFN', 'ReMVC', 'HREP', 'Node2Vec', 'LINE']
+            for model in models:
+                model_embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy' \
+                            .format(16, model, dataset, 128)
+                model_embedding = np.load(model_embedding_path)
+                # pdb.set_trace()
+                embedding = np.concatenate([uukg_embedding, model_embedding], axis=1)
+                # 16_evaluate_ZEMob_porto_128.csv
+                result = {}
+                mae, rmse, r2, mape = evaluator._valid_flow(embedding)
+                result['mae'] = [mae]
+                result['rmse'] = [rmse]
+                result['mape'] = [mape]
+                result['r2'] = [r2]
+                bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = evaluator._valid_flow_using_bilinear(embedding)
+                result['bilinear_mae'] = [bilinear_mae]
+                result['bilinear_rmse'] = [bilinear_rmse]
+                result['bilinear_mape'] = [bilinear_mape]
+                result['bilinear_r2'] = [bilinear_r2]
+                y_truth,useful_index,micro_f1, macro_f1 = evaluator._valid_clf(embedding)
+                result['clf_micro_f1'] = [micro_f1]
+                result['clf_macro_f1'] = [macro_f1]
+                df = pd.DataFrame(result, index=[0])
+                result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+                    format(exp_id, exp_id, model, dataset, str(output_dim))
+                df.to_csv(result_path, index=False)
+        elif representaition_object == 'road':
+            data_feature = {}
+            uukg_embedding_path = f'/home/zhangwt/tyb/tyb/remote/representation/raw_data/{dataset}/{representaition_object}_embedding.npy'
+            evaluator = HHGCLEvaluator(config, data_feature)
+            uukg_embedding = np.load(uukg_embedding_path)
+            models = ['LINE', 'SRN2Vec','Toast', 'JCLRNT','SARN', 'START','HyperRoad']
+            for model in models:
+                if model in ['SRN2Vec']:
+                    continue 
+                evaluator.model_name=model
+                print(evaluator.model_name)
+                model_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy' \
+                        .format(15, model, dataset, 128)
+                model_embedding = np.load(model_embedding_path)
+                if model == 'LINE':
+                    road_offset=np.load(f'/home/zhangwt/tyb/tyb/remote/representation/raw_data/{dataset}/region_embedding.npy').shape[0]
+                    model_embedding = model_embedding[road_offset:road_offset+uukg_embedding.shape[0], :]
+                embedding = np.concatenate([uukg_embedding, model_embedding], axis=1)
+                print(embedding.shape)
+                evaluator.evaluate(embedding)
+                  
     else:
         uukg_embedding_path = f'./raw_data/data/{dataset}/{representaition_object}_embedding.npy'
         data_feature = {}

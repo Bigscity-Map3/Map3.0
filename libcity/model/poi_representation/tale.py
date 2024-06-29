@@ -91,7 +91,7 @@ class Tale(HS):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
         embed_dimension = config.get('embed_size', 128)
-        self.w_embeddings = nn.Embedding(num_temp_vocab, embed_dimension, padding_idx=0, sparse=True)
+        self.w_embeddings = nn.Embedding(num_temp_vocab, embed_dimension, padding_idx=0)
 
     def forward(self, pos_u, pos_w, neg_w, **kwargs):
         """
@@ -107,6 +107,19 @@ class Tale(HS):
     def static_embed(self):
         return self.u_embeddings.weight.detach().cpu().numpy()
 
+    def encode(self, context,**kwargs):
+        return self.u_embeddings(context)
+
     def calculate_loss(self, batch):
         batch_count, context, pos_pairs, neg_pairs, prop = batch
         return self.forward(context, pos_pairs, neg_pairs, prop=prop)
+    
+    def add_unk(self):
+        old_weight = self.u_embeddings.weight.data
+        embed_dimension = old_weight.size(1)
+        vocab_size = old_weight.size(0)
+        self.u_embeddings=nn.Embedding(vocab_size+1, embed_dimension, sparse=True)
+        initrange = 0.5 / self.embed_dimension
+        self.u_embeddings.weight.data.uniform_(-initrange, initrange)
+        for i in range(vocab_size):
+            self.u_embeddings.weight.data[i] = old_weight[i]

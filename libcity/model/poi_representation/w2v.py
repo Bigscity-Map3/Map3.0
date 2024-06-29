@@ -305,3 +305,6 @@ class SkipGram(AbstractModel):
     def calculate_loss(self, batch):
         batch_count, pos_u, pos_v, neg_v = batch
         return self.forward(pos_u, pos_v, neg_v)
+    
+    def encode(self, tokens,**kwargs):
+        return self.u_embeddings(tokens)

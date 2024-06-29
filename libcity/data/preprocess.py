@@ -46,7 +46,7 @@ class PreProcess():
         ensure_dir(self.data_dir)
         self.geo_file = os.path.join('raw_data', self.dataset, config.get('geo_file', self.dataset) + '.geo')
         self.rel_file = os.path.join('raw_data', self.dataset, config.get('rel_file', self.dataset) + '.rel')
-        self.dyna_file = os.path.join('raw_data', self.dataset, config.get('dyna_file', self.dataset) + '.dyna')
+        self.dyna_file = os.path.join('raw_data', self.dataset, config.get('dyna_file', self.dataset) + '.gpstraj')
         self.od_file = os.path.join('raw_data', self.dataset, config.get('od_file', self.dataset) + '.od')
 
 
@@ -567,5 +567,5 @@ def preprocess_all(config):
     preprocess_od(config)
     preprocess_detour(config)
 
-config={'dataset': "new_xa"}
-preprocess_detour(config)
+# config={'dataset': "new_xa"}
+# preprocess_detour(config)

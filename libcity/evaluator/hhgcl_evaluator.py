@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn import manifold
 from sklearn.preprocessing import normalize
-from libcity.utils import gen_index_map
+from libcity.utils import gen_index_map, ensure_dir
 from libcity.data.preprocess import cache_dir
 from libcity.evaluator.utils import generate_road_representaion_downstream_data
 
@@ -345,12 +345,13 @@ class HHGCLEvaluator(AbstractEvaluator):
             raise AttributeError('evaluate model is not found')
 
     def evaluate_embedding(self, model=None,**kwargs):
-        if self.representation_object == 'road':
-            embedding_path = self.road_embedding_path
-        else:
-            embedding_path = self.region_embedding_path
-        emb = np.load(embedding_path)
-        self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
+        # if self.representation_object == 'road':
+        #     embedding_path = self.road_embedding_path
+        # else:
+        #     embedding_path = self.region_embedding_path
+        # emb = np.load(embedding_path)
+        emb=model
+        # self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
         
         def add_prefix_to_keys(dictionary, prefix):
             new_dictionary = {}
@@ -359,7 +360,7 @@ class HHGCLEvaluator(AbstractEvaluator):
                 new_dictionary[new_key] = value
             return new_dictionary
 
-        emb = np.load(embedding_path)  # (N, F)
+        # emb = np.load(embedding_path)  # (N, F)
         if self.representation_object == 'road':
             evaluate_tasks = self.config.get("evaluate_tasks", [ "tte","tsi", "sts"])
             evaluate_models = self.config.get("evaluate_models", [ "TravelTimeEstimationModel","SpeedInferenceModel", "SimilaritySearchModel"])
@@ -374,7 +375,7 @@ class HHGCLEvaluator(AbstractEvaluator):
                     kwargs.pop('graph_dict', None)
                     result = downstream_model.run(emb, label,model, **kwargs)
                 elif task in ['sts']:
-                    result = downstream_model.run(model,**kwargs)
+                    result = downstream_model.run(model=emb,**kwargs)
                 self.result.update(add_prefix_to_keys(result, task + '_'))
             if 'tte_best epoch' in self.result.keys():
                 del self.result['tte_best epoch']
@@ -428,6 +429,7 @@ class HHGCLEvaluator(AbstractEvaluator):
         self.evaluate_embedding(model,**kwargs)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model_name, self.dataset, str(self.output_dim))
+        ensure_dir('./libcity/cache/{}/evaluate_cache'.format(self.exp_id))
         self._logger.info(self.result)
         df = pd.DataFrame(self.result, index=[0])
         self._logger.info(df)

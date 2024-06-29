@@ -21,6 +21,7 @@ from libcity.model.abstract_model import AbstractModel
 from libcity.model.poi_representation.cacsr_sample import cacsr_sample
 import os
 import pandas as pd
+
 class DotDict(dict):
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
@@ -514,34 +515,14 @@ class CACSR(AbstractModel):
         else:
             raise ValueError("rnn_type should be ['GRU', 'LSTM', 'BiLSTM']")
 
-        # if self.downstream == 'TUL':
-        #     self.dense = nn.Linear(in_features=self.hidden_size * self.bi, out_features=self.user_size)
-        #     self.projection = nn.Sequential(nn.Linear(self.hidden_size * self.bi, self.hidden_size * self.bi), nn.ReLU())
-        # elif self.downstream == 'POI_RECOMMENDATION':
+
         self.projection = nn.Sequential(
-            nn.Linear(self.hidden_size * self.bi + self.user_emb_size, self.hidden_size * self.bi + self.user_emb_size),
+            nn.Linear(self.hidden_size * self.bi, self.hidden_size * self.bi + self.user_emb_size),
             nn.ReLU())
-            # dense layer
-        self.dense = nn.Linear(in_features=self.hidden_size * self.bi + self.user_emb_size, out_features=self.loc_size)
-        #else:
-        #    raise ValueError('downstream should in [TUL, POI_RECOMMENDATION]!')
-        # self.dense_adv = nn.Linear(in_features=self.hidden_size, out_features=self.loc_size)
-        # init weight
+        self.dense = nn.Linear(in_features=self.hidden_size * self.bi , out_features=self.loc_size)
         self.apply(self._init_weight)
 
     def _init_weight(self, module):
-        # if isinstance(module, nn.Embedding):
-        #     nn.init.xavier_normal_(module.weight)
-        # elif isinstance(module, nn.Linear):
-        #     nn.init.xavier_uniform_(module.weight)
-        # elif isinstance(module, nn.LSTM):
-        #     for name, param in module.named_parameters():
-        #         if 'weight_ih' in name:
-        #             nn.init.xavier_uniform_(param.data)
-        #         elif 'weight_hh' in name:
-        #             nn.init.orthogonal_(param.data)
-        #         elif 'bias' in name:
-        #             nn.init.constant_(param.data, 0)
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
@@ -636,8 +617,125 @@ class CACSR(AbstractModel):
 
         return avg_hidden
 
-    def forward(self, batch, mode='test', adv=1, downstream='POI_RECOMMENDATION'):
+    def forward(self, batch, mode='test', adv=1):
+        # downstream shouldn't affect the train process
         # X_all_loc, X_all_tim, X_all_text, Y_location, target_lengths, X_lengths, X_users
+        loc = batch[0]#.X_all_loc
+        tim = batch[1]#.X_all_tim
+        Y_location = batch[3]
+        cur_len = batch[4]#.target_lengths  
+        all_len = batch[5]#.X_lengths  
+        user = batch[6]#.X_users
+        batch_size = batch[0].shape[0]#.X_all_loc.shape[0]
+        indice = torch.tensor(random.sample(range(loc.shape[0]), min(loc.shape[0], batch_size * 16)))
+
+        loc_emb = self.emb_loc(loc)
+        tim_emb = self.emb_tim(tim)
+        user_emb = self.emb_user(user)
+
+        if mode == 'train' and adv == 1:
+            loc_noise = torch.normal(self.loc_noise_mean, self.loc_noise_sigma, loc_emb.shape).to(loc_emb.device)
+            tim_noise = torch.normal(self.tim_noise_mean, self.tim_noise_sigma, tim_emb.shape).to(loc_emb.device)
+            user_noise = torch.normal(self.user_noise_mean, self.user_noise_sigma, user_emb.shape).to(loc_emb.device)
+
+            loc_emb_STNPos = loc_emb + loc_noise
+            tim_emb_STNPos = tim_emb + tim_noise
+            user_emb_STNPos = user_emb + user_noise
+            x_STNPos = torch.cat([loc_emb_STNPos, tim_emb_STNPos], dim=2).permute(1, 0, 2)  # batch_first=False
+            pack_x_STNPos = pack_padded_sequence(x_STNPos, lengths=all_len, enforce_sorted=False)
+            # modified by Tianyi
+            if self.rnn_type == 'GRU':
+                lstm_out_STNPos, h_n_STNPos = self.lstm(pack_x_STNPos)  # max_len*batch*hidden_size
+            elif self.rnn_type == 'LSTM':
+                lstm_out_STNPos, (h_n_STNPos, c_n_STNPos) = self.lstm(pack_x_STNPos)  # max_len*batch*hidden_size
+            elif self.rnn_type == 'BiLSTM':
+                lstm_out_STNPos, (h_n_STNPos, c_n_STNPos) = self.lstm(pack_x_STNPos)  # max_len*batch*hidden_size
+            else:
+                raise ValueError('rnn_type is not in [GRU, LSTM, BiLSTM]!')
+
+            lstm_out_STNPos, out_len_STNPos = pad_packed_sequence(lstm_out_STNPos, batch_first=True)
+            final_out_STNPos = lstm_out_STNPos[0, (all_len[0] - 1): all_len[0], :]
+            for i in range(1, batch_size): 
+                final_out_STNPos = torch.cat(
+                    [final_out_STNPos, lstm_out_STNPos[i, (all_len[i] - 1): all_len[i], :]], dim=0)
+
+        # concatenate and permute
+        x = torch.cat([loc_emb, tim_emb], dim=2).permute(1, 0, 2)  # batch_first=False
+        # pack
+        pack_x = pack_padded_sequence(x, lengths=all_len, enforce_sorted=False)
+
+        # modified by Tianyi
+        if self.rnn_type == 'GRU':
+            lstm_out, h_n = self.lstm(pack_x)  # max_len*batch*hidden_size
+        elif self.rnn_type == 'LSTM':
+            lstm_out, (h_n, c_n) = self.lstm(pack_x)  # max_len*batch*hidden_size
+        elif self.rnn_type == 'BiLSTM':
+            lstm_out, (h_n, c_n) = self.lstm(pack_x)  # max_len*batch*hidden_size
+
+        # unpack
+        lstm_out, out_len = pad_packed_sequence(lstm_out, batch_first=True)
+
+        final_out = lstm_out[0, (all_len[0] - 1): all_len[0], :]
+        for i in range(1, batch_size):  
+            final_out = torch.cat([final_out, lstm_out[i, (all_len[i] - 1): all_len[i], :]], dim=0)
+        dense = self.dense(final_out)  # Batch * loc_size
+
+
+        ####################   adv  start    #####################
+        if mode == 'train' and adv == 1:
+            final_out_STNPos = self.dropout_1(final_out_STNPos)
+            final_out = self.dropout_2(final_out)
+
+            avg_STNPos = self.projection(final_out_STNPos)
+            avg_Anchor = self.projection(final_out)
+
+            cos = nn.CosineSimilarity(dim=-1)
+            cont_crit = nn.CrossEntropyLoss()
+            sim_matrix = cos(avg_STNPos.unsqueeze(1),
+                             avg_Anchor.unsqueeze(0))
+
+            adv_imposter = self.generate_adv(final_out, user)  # [n,b,t,d] or [b,t,d]  
+
+            batch_size = final_out.size(0)
+
+            avg_adv_imposter = self.projection(adv_imposter)
+
+            adv_sim = cos(avg_STNPos, avg_adv_imposter).unsqueeze(1)  # [b,1]
+
+            adv_disTarget = self.generate_cont_adv(final_out_STNPos,  # todo
+                                                   final_out, dense,
+                                                   self.tau, self.pos_eps)
+            avg_adv_disTarget = self.projection(adv_disTarget)
+
+            pos_sim = cos(avg_STNPos, avg_adv_disTarget).unsqueeze(-1)  # [b,1]
+            logits = torch.cat([sim_matrix, adv_sim], 1) / self.tau
+
+            identity = torch.eye(batch_size, device=final_out.device)
+            pos_sim = identity * pos_sim
+            neg_sim = sim_matrix.masked_fill(identity == 1, 0)
+            new_sim_matrix = pos_sim + neg_sim
+            new_logits = torch.cat([new_sim_matrix, adv_sim], 1)
+
+            labels = torch.arange(batch_size,
+                                  device=final_out.device)
+
+            cont_loss = cont_crit(logits, labels)
+            new_cont_loss = cont_crit(new_logits, labels)
+
+            cont_loss = 0.5 * (cont_loss + new_cont_loss)
+
+        return cont_loss
+
+    def calculate_loss(self, batch):
+        return self(batch, mode='train', adv=self.adv)
+    
+    def static_embed(self):
+        return self.emb_loc.weight[:self.loc_size].data.cpu().numpy()
+
+    @torch.no_grad()
+    def encode(self, batch, downstream='tul'):
+        # encode for downstream with no grad
+        # user_embed is not train, so we remove the user embed
         loc = batch[0]#.X_all_loc
         tim = batch[1]#.X_all_tim
         Y_location = batch[3]
@@ -687,45 +785,6 @@ class CACSR(AbstractModel):
             tim_emb = self.emb_tim(tim)
             user_emb = self.emb_user(user)
 
-        if mode == 'train' and adv == 1:
-            loc_noise = torch.normal(self.loc_noise_mean, self.loc_noise_sigma, loc_emb.shape).to(loc_emb.device)
-            tim_noise = torch.normal(self.tim_noise_mean, self.tim_noise_sigma, tim_emb.shape).to(loc_emb.device)
-            user_noise = torch.normal(self.user_noise_mean, self.user_noise_sigma, user_emb.shape).to(loc_emb.device)
-
-            loc_emb_STNPos = loc_emb + loc_noise
-            tim_emb_STNPos = tim_emb + tim_noise
-            user_emb_STNPos = user_emb + user_noise
-            x_STNPos = torch.cat([loc_emb_STNPos, tim_emb_STNPos], dim=2).permute(1, 0, 2)  # batch_first=False
-            pack_x_STNPos = pack_padded_sequence(x_STNPos, lengths=all_len, enforce_sorted=False)
-            # modified by Tianyi
-            if self.rnn_type == 'GRU':
-                lstm_out_STNPos, h_n_STNPos = self.lstm(pack_x_STNPos)  # max_len*batch*hidden_size
-            elif self.rnn_type == 'LSTM':
-                lstm_out_STNPos, (h_n_STNPos, c_n_STNPos) = self.lstm(pack_x_STNPos)  # max_len*batch*hidden_size
-            elif self.rnn_type == 'BiLSTM':
-                lstm_out_STNPos, (h_n_STNPos, c_n_STNPos) = self.lstm(pack_x_STNPos)  # max_len*batch*hidden_size
-            else:
-                raise ValueError('rnn_type is not in [GRU, LSTM, BiLSTM]!')
-
-            lstm_out_STNPos, out_len_STNPos = pad_packed_sequence(lstm_out_STNPos, batch_first=True)
-
-            if downstream == 'POI_RECOMMENDATION':
-                final_out_STNPos = lstm_out_STNPos[0, (all_len[0] - cur_len[0]): all_len[0], :]
-                all_user_emb_STNPos = user_emb_STNPos[0].unsqueeze(dim=0).repeat(cur_len[0], 1) 
-                for i in range(1, batch_size):  
-                    final_out_STNPos = torch.cat(
-                        [final_out_STNPos, lstm_out_STNPos[i, (all_len[i] - cur_len[i]): all_len[i], :]], dim=0)
-                    all_user_emb_STNPos = torch.cat(
-                        [all_user_emb_STNPos, user_emb_STNPos[i].unsqueeze(dim=0).repeat(cur_len[i], 1)], dim=0)
-                final_out_STNPos = torch.cat([final_out_STNPos, all_user_emb_STNPos], 1)
-            elif downstream == 'TUL':
-                final_out_STNPos = lstm_out_STNPos[0, (all_len[0] - 1): all_len[0], :]
-                for i in range(1, batch_size): 
-                    final_out_STNPos = torch.cat(
-                        [final_out_STNPos, lstm_out_STNPos[i, (all_len[i] - 1): all_len[i], :]], dim=0)
-            else:
-                raise ValueError('downstream is not in [POI_RECOMMENDATION, TUL]')
-
         # concatenate and permute
         x = torch.cat([loc_emb, tim_emb], dim=2).permute(1, 0, 2)  # batch_first=False
         # pack
@@ -742,105 +801,14 @@ class CACSR(AbstractModel):
         # unpack
         lstm_out, out_len = pad_packed_sequence(lstm_out, batch_first=True)
 
-        # out_len即all_len batch*max_len*hidden_size
-        # concatenate
-        if downstream == 'POI_RECOMMENDATION':
-            final_out = lstm_out[0, (all_len[0] - cur_len[0]): all_len[0], :]
-            all_user_emb = user_emb[0].unsqueeze(dim=0).repeat(cur_len[0], 1)  
-            for i in range(1, batch_size):  
-                final_out = torch.cat([final_out, lstm_out[i, (all_len[i] - cur_len[i]): all_len[i], :]], dim=0)
-                all_user_emb = torch.cat([all_user_emb, user_emb[i].unsqueeze(dim=0).repeat(cur_len[i], 1)], dim=0)
-            final_out = torch.cat([final_out, all_user_emb], 1)
-        elif downstream == 'TUL':
-            final_out = lstm_out[0, (all_len[0] - 1): all_len[0], :]
-            for i in range(1, batch_size):  
-                final_out = torch.cat([final_out, lstm_out[i, (all_len[i] - 1): all_len[i], :]], dim=0)
-        else:
-            raise ValueError('downstream is not in [POI_RECOMMENDATION, TUL]')
+        final_out = lstm_out[0, (all_len[0] - 1): all_len[0], :]
+        for i in range(1, batch_size):  
+            final_out = torch.cat([final_out, lstm_out[i, (all_len[i] - 1): all_len[i], :]], dim=0)
+        
         dense = self.dense(final_out)  # Batch * loc_size
-
-        # dense_STNPos = self.dense(final_out_STNPos)  # Batch * loc_size
-        # print(dense_STNPos)
         pred = nn.LogSoftmax(dim=1)(dense)  # result 
+        return pred
 
-        ####################   adv  start    #####################
-        if mode == 'train' and adv == 1:
-            final_out_STNPos = self.dropout_1(final_out_STNPos)
-            final_out = self.dropout_2(final_out)
-
-            # proj_enc_h = self.projection(hidden_states)
-            # proj_dec_h = self.projection(sequence_output)
-
-            avg_STNPos = self.projection(final_out_STNPos)
-            avg_Anchor = self.projection(final_out)
-
-            cos = nn.CosineSimilarity(dim=-1)
-            cont_crit = nn.CrossEntropyLoss()
-            sim_matrix = cos(avg_STNPos.unsqueeze(1),
-                             avg_Anchor.unsqueeze(0))
-            if downstream == 'POI_RECOMMENDATION':
-                # adv_imposter = self.generate_adv(final_out, batch.Y_location)  # [n,b,t,d] or [b,t,d]
-                adv_imposter = self.generate_adv(final_out, torch.index_select(Y_location.clone().detach().to(self.device), dim=0, index=indice).to(self.device))  # [n,b,t,d] or [b,t,d]
-
-            elif downstream == 'TUL':
-                adv_imposter = self.generate_adv(final_out, batch.X_users)  # [n,b,t,d] or [b,t,d]
-            else:
-                raise ValueError('downstream is not in [POI_RECOMMENDATION, TUL]')
-
-            batch_size = final_out.size(0)
-
-            avg_adv_imposter = self.projection(adv_imposter)
-            # avg_pert = self.avg_pool(proj_pert_dec_h,
-            #                          decoder_attention_mask)
-
-            adv_sim = cos(avg_STNPos, avg_adv_imposter).unsqueeze(1)  # [b,1]
-
-            adv_disTarget = self.generate_cont_adv(final_out_STNPos,  # todo
-                                                   final_out, dense,
-                                                   self.tau, self.pos_eps)
-            avg_adv_disTarget = self.projection(adv_disTarget)
-
-            pos_sim = cos(avg_STNPos, avg_adv_disTarget).unsqueeze(-1)  # [b,1]
-            logits = torch.cat([sim_matrix, adv_sim], 1) / self.tau
-
-            identity = torch.eye(batch_size, device=final_out.device)
-            pos_sim = identity * pos_sim
-            neg_sim = sim_matrix.masked_fill(identity == 1, 0)
-            new_sim_matrix = pos_sim + neg_sim
-            new_logits = torch.cat([new_sim_matrix, adv_sim], 1)
-
-            labels = torch.arange(batch_size,
-                                  device=final_out.device)
-
-            cont_loss = cont_crit(logits, labels)
-            new_cont_loss = cont_crit(new_logits, labels)
-
-            cont_loss = 0.5 * (cont_loss + new_cont_loss)
-        ####################   adv  end     #####################
-        criterion = nn.NLLLoss().to(self.device)  #
-
-        if downstream == 'POI_RECOMMENDATION':
-            s_loss_score = criterion(pred, torch.index_select(Y_location.clone().detach().to(self.device), dim=0, index=indice)).requires_grad_(True)
-            _, top_k_pred = torch.topk(pred, k=self.loc_size)  # (batch, K)=(batch, num_class) 
-        elif downstream == 'TUL':
-            s_loss_score = criterion(pred, batch.X_users).requires_grad_(True)
-            _, top_k_pred = torch.topk(pred, k=self.user_size)  # (batch, K)=(batch, num_class)  
-        else:
-            raise ValueError('downstream is not in [POI_RECOMMENDATION, TUL]')
-
-        if mode == 'train' and adv == 1:
-            return s_loss_score, cont_loss, top_k_pred, indice
-        else:
-            return s_loss_score, top_k_pred, indice
-    def calculate_loss(self, batch):
-        if self.adv == 1:
-            s_loss_score, cont_loss, top_k_pred, indice = self(batch, mode='train', adv=self.adv)
-            return (1 - self.weight) * s_loss_score + cont_loss * self.weight
-        else:
-            s_loss_score, top_k_pred, indice = self(batch, mode='train', adv=self.adv)
-            return s_loss_score
-    def static_embed(self):
-        return self.emb_loc.weight[:self.loc_size].data.cpu().numpy()
 class CacsrData:
     def __init__(self,config,data_feature):
         self.distance_theta = data_feature.get('distance_theta',1)

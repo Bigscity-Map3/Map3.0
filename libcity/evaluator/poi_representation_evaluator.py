@@ -9,6 +9,7 @@ from sklearn import metrics
 from sklearn.metrics import adjusted_rand_score
 from libcity.model.poi_representation.static import StaticEmbed, DownstreamEmbed
 from sklearn.metrics import normalized_mutual_info_score
+from libcity.utils import ensure_dir
 
 
 
@@ -18,6 +19,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self._logger = getLogger()
         self.config = config
         self.data_feature = data_feature
+
         self.model_name = self.config.get('downstream_model', 'gru')
         self.device = self.config.get('device')
         self.result = {}
@@ -25,6 +27,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self.dataset = config.get('dataset')
         self.exp_id = config.get('exp_id')
         self.embed_size = config.get('embed_size')
+        self.token_model=['POI2Vec','Tale','SkipGram','Teaser','Hier','CTLE']
 
     def collect(self, batch):
         pass
@@ -42,15 +45,26 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
+        # sparse = self.config.get('learner',None)
+        if self.model in self.token_model:
+            print("use static model replace sparse model")
+            embed_layer=embed_layer.static_embed()
+            loc_index_map=self.data_feature.get('loc_index_map')
+            # poi_offset=self.data_feature.get('poi_offset')
+            uukg_embedding_path = f'/home/zhangwt/remote/zwt/Map3.0/raw_data/{self.dataset}/poi_embedding.npy'
+            uukg_embedding=np.load(uukg_embedding_path)
+            # poi_embedding=uukg_embedding[poi_offset:]
+            poi_embedding=uukg_embedding[list(loc_index_map.keys())]
+            embed_layer=np.concatenate([embed_layer,poi_embedding],axis=1)
+            embed_layer=StaticEmbed(embed_layer)
+        # embed_layer.add_unk()
 
-        
+            
         pre_model = TrajectoryPredictor(embed_layer, num_slots=st_num_slots, aux_embed_size=st_aux_embed_size,
                                            time_thres=10800, dist_thres=0.1,
                                            input_size=embed_size, lstm_hidden_size=hidden_size,
                                            fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
                                            seq2seq=pre_model_seq2seq)
-        
-            
         
         self.result['loc_pre_acc1'], self.result['loc_pre_acc5'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
@@ -65,6 +79,18 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         task_epoch = self.config.get('task_epoch', 5)
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
+
+        if self.model in self.token_model:
+            print("use static model replace token model")
+            embed_layer=embed_layer.static_embed()
+            loc_index_map=self.data_feature.get('loc_index_map')
+            # poi_offset=self.data_feature.get('poi_offset')
+            uukg_embedding_path = f'/home/zhangwt/remote/zwt/Map3.0/raw_data/{self.dataset}/poi_embedding.npy'
+            uukg_embedding=np.load(uukg_embedding_path)
+            # poi_embedding=uukg_embedding[poi_offset:]
+            poi_embedding=uukg_embedding[list(loc_index_map.keys())]
+            embed_layer=np.concatenate([embed_layer,poi_embedding],axis=1)
+            embed_layer=StaticEmbed(embed_layer)
 
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
 
@@ -82,6 +108,13 @@ class POIRepresentationEvaluator(AbstractEvaluator):
 
         if not self.config.get('is_static', True):
             embed_layer=embed_layer.static_embed()
+            loc_index_map=self.data_feature.get('loc_index_map')
+            # poi_offset=self.data_feature.get('poi_offset')
+            uukg_embedding_path = f'/home/zhangwt/remote/zwt/Map3.0/raw_data/{self.dataset}/poi_embedding.npy'
+            uukg_embedding=np.load(uukg_embedding_path)
+            # poi_embedding=uukg_embedding[poi_offset:]
+            poi_embedding=uukg_embedding[list(loc_index_map.keys())]
+            embed_layer=np.concatenate([embed_layer,poi_embedding],axis=1)
             embed_layer=StaticEmbed(embed_layer)
 
         num_loc = self.data_feature.get('num_loc')
@@ -132,24 +165,24 @@ class POIRepresentationEvaluator(AbstractEvaluator):
                     loss.backward()
                     optimizer.step()
                 
-            pres_raw=[]
-            test_labels=[]
-            for _, batch in enumerate(next_batch(valid_ind, downstream_batch_size)):
-                bacth_input = torch.tensor(inputs[batch],dtype=torch.long,device=device)
-                batch_label = torch.tensor(labels[batch],dtype=torch.long,device=device)
-                bacth_input=embed_layer(bacth_input)
-                out=clf_model(bacth_input)
+                pres_raw=[]
+                test_labels=[]
+                for _, batch in enumerate(next_batch(valid_ind, downstream_batch_size)):
+                    bacth_input = torch.tensor(inputs[batch],dtype=torch.long,device=device)
+                    batch_label = torch.tensor(labels[batch],dtype=torch.long,device=device)
+                    bacth_input=embed_layer(bacth_input)
+                    out=clf_model(bacth_input)
 
-                pres_raw.append(out.detach().cpu().numpy())
-                test_labels.append(batch_label.detach().cpu().numpy())
+                    pres_raw.append(out.detach().cpu().numpy())
+                    test_labels.append(batch_label.detach().cpu().numpy())
 
-            pres_raw, test_labels = np.concatenate(pres_raw), np.concatenate(test_labels)
-            pres = pres_raw.argmax(-1)
+                pres_raw, test_labels = np.concatenate(pres_raw), np.concatenate(test_labels)
+                pres = pres_raw.argmax(-1)
 
-            pre = precision_score(test_labels, pres, average='macro', zero_division=0.0)
-            acc, recall = accuracy_score(test_labels, pres), recall_score(test_labels, pres, average='macro', zero_division=0.0)
-            f1_micro, f1_macro = f1_score(test_labels, pres, average='micro'), f1_score(test_labels, pres, average='macro')
-            score_log.append([acc, pre, recall, f1_micro, f1_macro])
+                pre = precision_score(test_labels, pres, average='macro', zero_division=0.0)
+                acc, recall = accuracy_score(test_labels, pres), recall_score(test_labels, pres, average='macro', zero_division=0.0)
+                f1_micro, f1_macro = f1_score(test_labels, pres, average='micro'), f1_score(test_labels, pres, average='macro')
+                score_log.append([acc, pre, recall, f1_micro, f1_macro])
         
         best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.mean(score_log, axis=0)
         logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
@@ -209,7 +242,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         poi_type_name = self.config.get('poi_type_name', None)
         if poi_type_name is not None:
             self.evaluate_loc_clf()
-            self.evaluate_loc_cluster()
+            # self.evaluate_loc_cluster()
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.embed_size))
         self._logger.info(self.result)
@@ -220,7 +253,8 @@ class POIRepresentationEvaluator(AbstractEvaluator):
                 writer.writeheader()
                 writer.writerow(dictionary)
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
-            format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.embed_size))
+            format('uukg', self.exp_id, self.model, self.dataset, str(self.embed_size))
+        ensure_dir('./libcity/cache/{}/evaluate_cache/'.format('uukg'))
         dict_to_csv(self.result, result_path)
         self._logger.info('Evaluate result is saved at {}'.format(result_path))
 

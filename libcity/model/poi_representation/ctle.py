@@ -109,7 +109,6 @@ class CTLE(AbstractModel):
         self.embed = ctle_embedding
         self.add_module('embed', ctle_embedding)
 
-
         encoder_layer = nn.TransformerEncoderLayer(d_model=self.embed_size, nhead=num_heads,
                                                    dim_feedforward=hidden_size, dropout=0.1)
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers,
@@ -145,7 +144,12 @@ class CTLE(AbstractModel):
 
     def static_embed(self):
         return self.embed.token_embed.weight[:self.num_vocab].detach().cpu().numpy()
-
+    
+    def encode(self, origin_tokens, **kwargs):
+        src_t_batch=kwargs['timestamp']
+        ctle_out = self.forward(origin_tokens, timestamp=src_t_batch)
+        return ctle_out
+        
     def calculate_loss(self, batch):
         origin_tokens, origin_hour, masked_tokens, src_t_batch, mask_index = batch
         ctle_out = self.forward(masked_tokens, timestamp=src_t_batch)  # (batch_size, src_len, embed_size)

@@ -148,6 +148,8 @@ class POIRepresentationExecutor(AbstractExecutor):
                 loss = self.model.calculate_loss(batch)
                 self.optimizer.zero_grad()
                 loss.backward()
+                if self.clip_grad_norm:
+                    torch.nn.utils.clip_grad_norm(self.model.parameters(), self.max_grad_norm)
                 self.optimizer.step()
                 losses.append(loss.item())
 

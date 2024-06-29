@@ -43,6 +43,10 @@ class Road(Dataset):
         neg_hypers = self.hyperedge_negative_sampling(anchor_node, pos_hyper)
 
         hyper_class = self.hyper_feature[pos_hyper]['cluster']
+        if hyper_class=='N':
+            hyper_class = 0
+        else:
+            hyper_class = 1
 
         l_lanes = self.road_feature[anchor_node]['lanes']
         l_maxspeed = self.road_feature[anchor_node]['maxspeed']

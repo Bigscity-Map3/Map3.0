@@ -27,10 +27,13 @@ class StaticEmbed(nn.Module):
         embed_size = embed_mat.shape[1]
 
         embed_mat = np.concatenate([embed_mat, np.zeros((1, embed_size))], axis=0)
-        self.embed = nn.Parameter(torch.from_numpy(embed_mat).float(), requires_grad=False)
+        self.embed = nn.Parameter(torch.from_numpy(embed_mat).float(),requires_grad=True)
 
     def forward(self, token, **kwargs):
         """
         @param token: input token index.
         """
         return self.embed[token].detach()
+    
+    def encode(self,token,**kwargs):
+        return self.embed[token]

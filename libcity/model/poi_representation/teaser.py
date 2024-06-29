@@ -20,7 +20,7 @@ class Teaser(AbstractModel):
         embed_dimension = config.get('embed_size', 128)
         self.__dict__.update(locals())
 
-        self.u_embeddings = nn.Embedding(num_vocab + 1, embed_dimension, sparse=True)
+        self.u_embeddings = nn.Embedding(num_vocab+1, embed_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(num_vocab, embed_dimension + week_embed_dimension, sparse=True)
         self.user_embeddings = nn.Embedding(num_user, embed_dimension + week_embed_dimension, sparse=True)
         self.week_embeddings = nn.Embedding(2, week_embed_dimension, sparse=True)
@@ -74,6 +74,12 @@ class Teaser(AbstractModel):
     def calculate_loss(self, batch):
         batch_count, pos_u, pos_v, neg_v, user, week, neg_ne, neg_nn = batch
         return self.forward(pos_u, pos_v, neg_v, user, week, neg_ne, neg_nn)
+    
+    def encode(self, pos_u, week):
+        embed_u = self.u_embeddings(pos_u)
+        embed_week = self.week_embeddings(week)
+        embed_cat = torch.cat([embed_u, embed_week], dim=-1)
+        return embed_cat
 
 
 def dis(lat1, lng1, lat2, lng2):

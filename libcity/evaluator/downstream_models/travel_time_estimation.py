@@ -50,6 +50,7 @@ class MLPReg(nn.Module):
         self.device = device
         self.max_len = max_len
         self.hidden_dim = hidden_dim
+        self.input_dim = input_dim
         self.is_static = is_static
 
         self.layers = []
@@ -61,7 +62,7 @@ class MLPReg(nn.Module):
     def forward(self, path, valid_len,**kwargs):
         if self.is_static:
             t = torch.from_numpy(self.embedding[path.cpu()])
-            x = self.mlp(t.view(-1, self.hidden_dim * self.max_len).float().to(self.device))
+            x = self.mlp(t.view(-1, self.input_dim * self.max_len).float().to(self.device))
         else:
             x=self.lstm(path,valid_len,**kwargs)
         for i in range(self.num_layers - 1):
@@ -145,6 +146,7 @@ class TravelTimeEstimationModel(AbstractModel):
             model.train()
             for batch_x,batch_lens,batch_y in train_dataloader:
                 opt.zero_grad()
+
                 batch_x = batch_x.to(device)
                 batch_lens = batch_lens.to(device)
                 batch_y = batch_y.to(device)

@@ -12,6 +12,9 @@ class TwoStepExecutor(AbstractExecutor):
         self.exp_id = config.get('exp_id', None)
         self._logger = getLogger()
 
+        
+        self._logger.info('Total parameter numbers: {}'.format(total_num))
+
         self.cache_dir = './libcity/cache/{}/model_cache'.format(self.exp_id)
         self.evaluate_res_dir = './libcity/cache/{}/evaluate_cache'.format(self.exp_id)
         ensure_dir(self.cache_dir)

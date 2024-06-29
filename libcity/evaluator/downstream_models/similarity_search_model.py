@@ -12,6 +12,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 import networkx as nx
 from itertools import cycle, islice
 from tqdm import tqdm
+import copy
 
 from libcity.evaluator.downstream_models.abstract_model import AbstractModel
 from libcity.data.preprocess import preprocess_detour
@@ -249,7 +250,6 @@ class SimilaritySearchModel(AbstractModel):
         """
         返回评估结果
         """
-
         ori_paths=torch.from_numpy(self.ori_traj['trajs'][:2000])
         ori_length=torch.from_numpy(self.ori_traj['lengths'][:2000])
 
@@ -274,6 +274,7 @@ class SimilaritySearchModel(AbstractModel):
         self.downstream_model.to(self.device)
         optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
         self._logger.info('Start training downstream model...')
+        best_loss=-1
         for epoch in range(self.downstream_epoch):
             total_loss = 0.0
             for i in range(0, all_len , self.batch_size):
@@ -286,7 +287,11 @@ class SimilaritySearchModel(AbstractModel):
                 total_loss += loss.item()
                 loss.backward()
                 optimizer.step()
+
+            if best_loss==-1 or total_loss<best_loss:
+                self.best_model=copy.deepcopy(self.downstream_model)
             self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
+        self.downstream_model=self.best_model
        
 
         self.evaluation(**kwargs)
