@@ -183,8 +183,12 @@ def getSpeedAndTime(traj_list, geo2length, geo2speed, num_regions):
             t1, t2 = traj1['time'], traj2['time']
             t_delta = float(t2 - t1)
         else:
-            t1 = datetime.strptime(traj1['time'], '%Y-%m-%d %H:%M:%S')
-            t2 = datetime.strptime(traj2['time'], '%Y-%m-%d %H:%M:%S')
+            try:
+                t1 = datetime.strptime(traj1['time'], '%Y-%m-%d %H:%M:%S')
+                t2 = datetime.strptime(traj2['time'], '%Y-%m-%d %H:%M:%S')
+            except:
+                t1 = datetime.strptime(traj1['time'], '%Y-%m-%dT%H:%M:%SZ')
+                t2 = datetime.strptime(traj2['time'], '%Y-%m-%dT%H:%M:%SZ')
             t_delta = float((t2 - t1).seconds)
         length = geo2length[road_id1]
         if t_delta > 0:
@@ -198,8 +202,12 @@ def getSpeedAndTime(traj_list, geo2length, geo2speed, num_regions):
         t0, t_ = traj_list[0]['time'], traj_list[-1]['time']
         totaltime = t_ - t0
     else:
-        t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%d %H:%M:%S')
-        t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%d %H:%M:%S')
+        try:
+            t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%d %H:%M:%S')
+            t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%d %H:%M:%S')
+        except:
+            t0 = datetime.strptime(traj_list[0]['time'], '%Y-%m-%dT%H:%M:%SZ')
+            t_ = datetime.strptime(traj_list[-1]['time'], '%Y-%m-%dT%H:%M:%SZ')
         totaltime = (t_ - t0).seconds
     return traj_series, totaltime
 
@@ -209,7 +217,7 @@ def generate_road_representaion_downstream_data(dataset_name):
     if not os.path.exists(save_data_path):
         os.makedirs(save_data_path)
     # read files
-    traj_df_reader = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.dyna'), low_memory=False, sep=',', chunksize=100)
+    traj_df_reader = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.gpstraj'), low_memory=False, sep=',', chunksize=100)
     geo_df = pd.read_csv(os.path.join('raw_data', dataset_name, dataset_name + '.geo'), low_memory=False)
     num_regions = geo_df[geo_df['traffic_type'] == 'region'].shape[0]
     # length.csv

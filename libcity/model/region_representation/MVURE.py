@@ -3,7 +3,7 @@ from logging import getLogger
 import numpy as np
 import torch
 import torch.nn as nn
-import os
+import time
 import dgl
 import torch.nn.functional as F
 from dgl.nn.pytorch import GATConv
@@ -41,29 +41,32 @@ class MVURE(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.mvure_model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],
+                                 self.feature.shape[2], self.output_dim, self.device)
         
     def run(self, data=None):
         if not need_train(self.config):
             return
+        start_time = time.time()
         self.feature = self.preprocess_features(self.feature)
-        model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],
-                                 self.feature.shape[2], self.output_dim, self.device)
-        model.to(self.device)
-        self._logger.info(model)
-        total_num = sum([param.nelement() for param in model.parameters()])
+        self.mvure_model.to(self.device)
+        self._logger.info(self.mvure_model)
+        total_num = sum([param.nelement() for param in self.mvure_model.parameters()])
         self._logger.info('Total parameter numbers: {}'.format(total_num))
-        optimizer = optim.Adam(model.parameters(),lr=self.learning_rate, weight_decay=self.weight_dacay)
+        optimizer = optim.Adam(self.mvure_model.parameters(),lr=self.learning_rate, weight_decay=self.weight_dacay)
         item_num, _ = self.mob_adj.shape
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
         outs = None
         for epoch in range(self.iter):
-            model.train()
-            outs, loss_embedding = model()
-            loss = model.calculate_loss(loss_embedding)
+            self.mvure_model.train()
+            outs, loss_embedding = self.mvure_model()
+            loss = self.mvure_model.calculate_loss(loss_embedding)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
+        t1 = time.time()-start_time
+        self._logger.info('cost time is '+str(t1/self.iter))
         node_embedding = outs
         node_embedding = node_embedding.detach().cpu().numpy()
         np.save(self.npy_cache_file, node_embedding)

@@ -1,11 +1,12 @@
 from logging import getLogger
-import os
+import time
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch import optim
+from libcity.utils import need_train
 
 
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
@@ -170,6 +171,7 @@ class HREP(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.net = HRE(self.embedding_size, self.dropout, self.gcn_layers).to(self.device)
         
     def mob_loss(self, s_emb, d_emb, mob):
         epsilon = 0.0001
@@ -196,24 +198,23 @@ class HREP(AbstractReprLearningModel):
         return positive, negative
         
     def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+        if not need_train(self.config):
             return
+        start_time = time.time()
         features = self.data_feature.get('features')
         rel_emb = self.data_feature.get('rel_emb')
         edge_index = self.data_feature.get('edge_index')
         poi_similarity = self.data_feature.get('poi_similarity')
         mobility = self.data_feature.get('mobility')
         neighbor = self.data_feature.get('neighbor')
-        
-        net = HRE(self.embedding_size, self.dropout, self.gcn_layers).to(self.device)
-        optimizer = optim.Adam(net.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
+        optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
         loss_fn1 = torch.nn.TripletMarginLoss()
         loss_fn2 = torch.nn.MSELoss()
         final_loss = 0
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
         for epoch in range(self.epochs):
             optimizer.zero_grad()
-            region_emb, n_emb, poi_emb, s_emb, d_emb = net(features, rel_emb, edge_index)
+            region_emb, n_emb, poi_emb, s_emb, d_emb = self.net(features, rel_emb, edge_index)
 
             pos_idx, neg_idx = self.pair_sample(neighbor)
 
@@ -229,9 +230,11 @@ class HREP(AbstractReprLearningModel):
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
             final_loss = loss.item()
 
-
+        t1 = time.time()-start_time
+        self._logger.info('cost time is '+str(t1/self.epochs))
         region_emb = region_emb.cpu().detach().numpy()
         np.save(self.npy_cache_file, region_emb)
+        
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(region_emb)) + ',' + str(len(region_emb[0])) + ')')
         return final_loss

@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import time
 import torch
 from torch import optim
 from torch.utils.data import DataLoader, Dataset
@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from logging import getLogger
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.utils import need_train
 
 
 class ZEMob(AbstractReprLearningModel):
@@ -31,10 +32,6 @@ class ZEMob(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-
-    def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
-            return
         self.device = self.config.get('device', torch.device('cpu'))
 
         # 从数据预处理中拿到PPMI矩阵（即M），G*矩阵，以及region的总数和mobility_event的总数，用于生成两个embedding
@@ -54,13 +51,18 @@ class ZEMob(AbstractReprLearningModel):
         self.ZEMob_model = ZEMobModel(self.region_num, self.mobility_event_num, self.output_dim, self.ppmi_matrix, self.G_matrix, self.device)
         self.ZEMob_model.to(self.device)
 
+    def run(self, data=None):
+        if not need_train(self.config):
+            return
+        start_time = time.time()
         # 优化器
         self.optimizer = optim.SGD(self.ZEMob_model.parameters(), lr=self.lr)
 
         # 共训练iter轮
         for epoch in range(1, self.iter + 1):
             self.train(epoch)
-
+        t1 = time.time()-start_time
+        self._logger.info('cost time is '+str(t1/self.iter))
         # 保存结果
         with open(self.txt_cache_file, 'w', encoding='UTF-8') as f:
             f.write('{} {}\n'.format(self.region_num, self.output_dim))
@@ -71,7 +73,7 @@ class ZEMob(AbstractReprLearningModel):
                 f.write('{}\n'.format(embedding))
         np.save(self.npy_cache_file, embeddings)
         torch.save(self.ZEMob_model.state_dict(), self.model_cache_file)
-
+        
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(self.region_num) + ',' + str(self.output_dim) + ')')
 

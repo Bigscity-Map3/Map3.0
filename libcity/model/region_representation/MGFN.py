@@ -1,12 +1,13 @@
 import time
 from logging import getLogger
-import os
 import torch
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.utils import need_train
+
 
 class MGFN(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
@@ -31,20 +32,21 @@ class MGFN(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.mgfn_model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim).to(self.device)
 
     def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+        if not need_train(self.config):
             return
+        start_time = time.time()
         input_tensor = torch.Tensor(self.mob_patterns).to(self.device)
         label = torch.Tensor(self.mob_adj).to(self.device)
         criterion = SimLoss().to(self.device)
-        model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim).to(self.device)
-        optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
+        optimizer = optim.Adam(self.mgfn_model.parameters(), lr=self.learning_rate, weight_decay=self.weight_dacay)
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
         start_time = time.time()
         for epoch in range(self.iter):
-            model.train()
-            s_out, t_out = model(input_tensor)
+            self.mgfn_model.train()
+            s_out, t_out = self.mgfn_model(input_tensor)
             loss = criterion(s_out, t_out, label)
             optimizer.zero_grad()
             loss.backward()
@@ -52,7 +54,7 @@ class MGFN(AbstractReprLearningModel):
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
         t1 = time.time()-start_time
         self._logger.info('cost time is {}'.format(t1 / self.iter))
-        node_embedding = model.out_feature()
+        node_embedding = self.mgfn_model.out_feature()
         node_embedding = node_embedding.cpu().detach().numpy()
         np.save(self.npy_cache_file, node_embedding)
         self._logger.info('词向量和模型保存完成')
@@ -113,7 +115,7 @@ class GraphStructuralEncoder(nn.Module):
         self.d_model=d_model
         self.self_attn = nn.MultiheadAttention(d_model*2, nhead, dropout=dropout)
         # Implementation of Feedforward model
-        self.linear1 = nn.Linear(d_model, dim_feedforward,)
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
         self.linear2 = nn.Linear(dim_feedforward, d_model)
 

@@ -5,10 +5,11 @@ import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
 import math
-import os
+import time
 
 from logging import getLogger
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.utils import need_train
 
 
 FType = torch.FloatTensor
@@ -482,6 +483,27 @@ class ReMVC(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
+        self.device = self.config.get('device')
+        extractor = self.config.get('extractor', 'MLP')
+        size = self.config.get('output_dim', 128)
+        assert size % 2 == 0
+        size //= 2
+        mutual_reg = self.config.get('mutual', 1.0)
+        poi_reg = self.config.get('reg', 0.0001)
+        poi_neg_size = self.config.get('poi_neg_size', 8)
+        flow_neg_size = self.config.get('flow_neg_size', 15)
+        self.poi_model = POI_SSL(self.ssl_data, neg_size=poi_neg_size, emb_size=size, attention_size=16, temp=0.08,
+                                 extractor=extractor, device=self.device).to(self.device)
+        self.flow_model = FLOW_SSL(self.ssl_data, neg_size=flow_neg_size, emb_size=size, temp=0.08, time_zone=48,
+                                   extractor=extractor, device=self.device).to(self.device)
+
+        self.epoch = self.config.get('max_epoch', 200)
+        self.learning_rate = self.config.get('learning_rate', 0.001)
+        self.mutual_reg = mutual_reg
+        self.poi_reg = poi_reg
+        self.mutual_neg_size = self.config.get('mutual_neg_size', 5)
+        self.emb_size = size
+        self.init_basic_conf()
 
     def init_basic_conf(self):
         self.mutual_net = torch.nn.Sequential(nn.Linear(self.emb_size * 2, 1)).to(self.device)
@@ -515,30 +537,9 @@ class ReMVC(AbstractReprLearningModel):
         return loss
 
     def run(self):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+        if not need_train(self.config):
             return
-        self.device = self.config.get('device')
-        extractor = self.config.get('extractor', 'MLP')
-        size = self.config.get('output_dim', 128)
-        assert size % 2 == 0
-        size //= 2
-        mutual_reg = self.config.get('mutual', 1.0)
-        poi_reg = self.config.get('reg', 0.0001)
-        poi_neg_size = self.config.get('poi_neg_size', 8)
-        flow_neg_size = self.config.get('flow_neg_size', 15)
-        self.poi_model = POI_SSL(self.ssl_data, neg_size=poi_neg_size, emb_size=size, attention_size=16, temp=0.08,
-                                 extractor=extractor, device=self.device).to(self.device)
-        self.flow_model = FLOW_SSL(self.ssl_data, neg_size=flow_neg_size, emb_size=size, temp=0.08, time_zone=48,
-                                   extractor=extractor, device=self.device).to(self.device)
-
-        self.epoch = self.config.get('max_epoch', 200)
-        self.learning_rate = self.config.get('learning_rate', 0.001)
-        self.mutual_reg = mutual_reg
-        self.poi_reg = poi_reg
-        self.mutual_neg_size = self.config.get('mutual_neg_size', 5)
-        self.emb_size = size
-        self.init_basic_conf()
-
+        start_time = time.time()
         self.opt = Adam(lr=self.learning_rate, params=[{"params": self.poi_model.poi_net.parameters()},
                                                        {"params": self.flow_model.pickup_net.parameters()},
                                                        {"params": self.flow_model.dropoff_net.parameters()},
@@ -559,7 +560,8 @@ class ReMVC(AbstractReprLearningModel):
                 self.opt.step()
 
             self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, self.loss))
-        
+        t1 = time.time()-start_time
+        self._logger.info('cost time is '+str(t1/self.epoch))
         output_flow = self.flow_model.get_emb()
         output_poi = self.poi_model.get_emb()
         output = np.concatenate((output_flow, output_poi), axis=1)
