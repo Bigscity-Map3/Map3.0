@@ -1,9 +1,9 @@
 from logging import getLogger
 import numpy as np
-import os
 
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 from libcity.model.region_representation import utils
+from libcity.utils import need_train
 
 import torch
 import torch.nn as nn
@@ -39,8 +39,8 @@ class GMEL(AbstractReprLearningModel):
         self.multitask_ratio = config.get('multitask_ratio',[1,0,0])
         self.grad_norm = config.get('grad_norm',1.0)
 
-    def run(self,data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+    def run(self, train_dataloader=None, eval_dataloader=None):
+        if not need_train(self.config):
             return
         g,num_nodes,node_feats,train_data,train_inflow,train_outflow,trip_od_valid,trip_volume_valid,trip_od_train,trip_volume_train = self.data_post_process()
         model = GMELModel(g,num_nodes,in_dim=node_feats.shape[1],h_dim = self.output_dim,num_hidden_layers=self.num_hidden_layers,dropout=0, device=self.device, reg_param=0).to(self.device)
