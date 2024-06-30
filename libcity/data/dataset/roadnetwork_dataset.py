@@ -17,7 +17,7 @@ class RoadNetWorkDataset(TrafficRepresentationDataset):
         self.edge_index = []
         assert os.path.exists(self.data_path + self.geo_file + '.geo')
         assert os.path.exists(self.data_path + self.rel_file + '.rel')
-        assert os.path.exists(self.data_path + self.dyna_file + '.dyna')
+        assert os.path.exists(self.data_path + self.dyna_file + '.gpstraj')
         super().__init__(config)
         self.construct_graph()
         self.construct_od_matrix()

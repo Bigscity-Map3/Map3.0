@@ -387,7 +387,10 @@ class preprocess_feature(PreProcess):
                     mp = gen_index_map(geo_df, 'road_highway')
                     highway = geo_df['road_highway'].map(mp).dropna().astype(int)
                 lanes = geo_df['road_lanes'].dropna().astype(int)
-                maxspeed = geo_df['road_maxspeed'].dropna().astype(int)
+                try:
+                    maxspeed = geo_df['road_maxspeed'].dropna().astype(int)
+                except:
+                    maxspeed = [None] * len(geo_df)
                 road_df = pd.concat(
                             [
                                 pd.Series(highway, name='highway'), 

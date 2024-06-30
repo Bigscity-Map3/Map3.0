@@ -1,4 +1,4 @@
-import json
+import time
 import os
 from logging import getLogger
 import random
@@ -48,10 +48,18 @@ class HDGE(AbstractReprLearningModel):
     def run(self,data=None):
         if not self.config.get('train') and os.path.exists(self.npy_cache_file):
             return
+        start_time = time.time()
         combine_matrix = self.combine_graph
         walks = self.simulate_walks(combine_matrix,self.num_walks,self.walk_length)
         model = self.learn_embeddings(walks = walks, dimensions=self.output_dim,
                                  window_size=self.window_size, workers=self.num_workers, iters=self.iter)
+        t1 = time.time()-start_time
+        self._logger.info('cost time is '+str(t1/self.iter))
+        vocab_size = len(model.wv.index_to_key)
+        vector_size = model.vector_size
+        # 计算参数量
+        params_total = vocab_size * vector_size
+        self._logger.info('Number of model parameters: {}'.format(params_total))
         model.wv.save_word2vec_format(self.txt_cache_file)
         model.save(self.model_cache_file)
         node_embedding = np.zeros(shape=(self.num_nodes, self.output_dim), dtype=np.float32)
@@ -61,7 +69,6 @@ class HDGE(AbstractReprLearningModel):
                     node_embedding[node] = node_embedding[node]+model.wv[str(node)+"_"+str(t)]
             node_embedding[node] = node_embedding[node]/self.time_slice
         np.save(self.npy_cache_file, node_embedding)
-
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(node_embedding)) + ',' + str(len(node_embedding[0])) + ')')
 

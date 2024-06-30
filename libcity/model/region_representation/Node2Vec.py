@@ -1,11 +1,12 @@
 import random
-import os
+import time
 import networkx as nx
 import numpy as np
 from gensim.models import Word2Vec
 
 from logging import getLogger
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.utils import need_train
 
 
 # Reference: https://github.com/aditya-grover/node2vec
@@ -197,8 +198,9 @@ class Node2Vec(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+        if not need_train(self.config):
             return
+        start_time = time.time()
         nx_g = nx.from_numpy_matrix(self.adj_mx, create_using=nx.DiGraph())
         g = Graph(nx_g, self.is_directed, self.p, self.q)
         g.preprocess_transition_probs()
@@ -207,6 +209,13 @@ class Node2Vec(AbstractReprLearningModel):
 
         model = learn_embeddings(walks=walks, dimensions=self.output_dim,
                                  window_size=self.window_size, workers=self.num_workers, iters=self.iter)
+        t1 = time.time()-start_time
+        self._logger.info('cost time is '+str(t1/self.iter))
+        vocab_size = len(model.wv.index_to_key)
+        vector_size = model.vector_size
+        # 计算参数量
+        params_total = vocab_size * vector_size
+        self._logger.info('Number of model parameters: {}'.format(params_total))
         model.wv.save_word2vec_format(self.txt_cache_file)
         model.save(self.model_cache_file)
 
@@ -221,6 +230,5 @@ class Node2Vec(AbstractReprLearningModel):
             index = int(temp[0])
             node_embedding[index] = temp[1:]
         np.save(self.npy_cache_file, node_embedding)
-
         self._logger.info('词向量和模型保存完成')
         self._logger.info('词向量维度：(' + str(len(model.wv)) + ',' + str(len(model.wv[0])) + ')')

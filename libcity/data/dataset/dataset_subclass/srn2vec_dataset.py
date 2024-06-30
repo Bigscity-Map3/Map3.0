@@ -36,7 +36,7 @@ class SRN2VecDataset(AbstractDataset):
         self.road_num = len(self.road_tag)
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
         self.construct_road_adj()
-        self.n_short_paths = config.get('n_short_paths',1280)
+        self.n_short_paths = config.get('n_short_paths',80)
         self.data_cache_file = f'./libcity/cache/dataset_cache/{self.dataset}/SRN2Vec'
         ensure_dir(self.data_cache_file)
         node_paths = self.generate_shortest_paths(self.road_adj,self.n_short_paths)
@@ -75,8 +75,7 @@ class SRN2VecDataset(AbstractDataset):
                 if Pr[i, k] == -9999 and k != i:
                     return []
                 return path[::-1]
-            if not os.path.exists(nodes_paths_cache_file):
-                os.makedirs(nodes_paths_cache_file)
+            ensure_dir(nodes_paths_cache_file)
             total = 500000
             counter = 0
             _, P = shortest_path(
