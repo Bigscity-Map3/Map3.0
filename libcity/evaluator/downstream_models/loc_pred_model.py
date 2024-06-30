@@ -78,7 +78,7 @@ def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, 
     score_log = []
     test_point = max(1, int(len(train_set) / batch_size / 2))
     logger.info('Test set size: {}'.format(len(test_set)))
-
+    patiences = 5
     for epoch in range(num_epoch):
         for i, batch in enumerate(next_batch(shuffle(train_set), batch_size)):
             out, label = one_step(batch)
@@ -101,6 +101,12 @@ def traj_user_classification(train_set, test_set, num_user, num_loc, clf_model, 
                 f1_micro, f1_macro = f1_score(labels, pres, average='micro'), f1_score(labels, pres, average='macro')
                 score_log.append([acc, pre, recall, f1_micro, f1_macro])
                 best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
+                if acc >= best_acc or f1_macro >= best_f1_macro:
+                    patiences = 5
+                else:
+                    patiences -= 1
+                    if patiences == 0:
+                        break 
                 
         logger.info('epoch {} complete!'.format(epoch))
         logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
@@ -229,6 +235,7 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
     loss_func = nn.CrossEntropyLoss()
 
     score_log = []
+    patiences = 5
     test_point = max(1, int(len(train_set) / batch_size / 2))
     logger.info('Test set size: {}'.format(len(test_set)))
     for epoch in range(num_epoch):
@@ -260,6 +267,12 @@ def loc_prediction(train_set, test_set, num_loc, pre_model, pre_len, num_epoch, 
                 logger.info('Acc@1 %.6f, Acc@5 %.6f, F1-micro %.6f, F1-macro %.6f' % (
                 acc1, acc5, f1_micro, f1_macro))
                 best_acc1, best_acc5, best_f1_micro, best_f1_macro = np.max(score_log, axis=0)
+                if acc1 >= best_acc1 or acc5 >= best_acc5:
+                    patiences = 5
+                else:
+                    patiences -= 1
+                    if patiences == 0:
+                        break 
                 
         logger.info('epoch {} complete! avg loss:{}'.format(epoch,np.mean(losses)))
         # logger.info('Best Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (

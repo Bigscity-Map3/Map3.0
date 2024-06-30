@@ -1,6 +1,7 @@
 {
+    "embed_size": 128,
     "output_dim": 128,
-    "max_epoch": 20,
+    "max_epoch": 2000,
     "evaluate_tasks": ["tte","tsi", "sts"],
     "evaluate_models":  ["TravelTimeEstimationModel","SpeedInferenceModel", "SimilaritySearchModel"]
 }

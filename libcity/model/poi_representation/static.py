@@ -37,3 +37,5 @@ class StaticEmbed(nn.Module):
     
     def encode(self,token,**kwargs):
         return self.embed[token]
+    
+

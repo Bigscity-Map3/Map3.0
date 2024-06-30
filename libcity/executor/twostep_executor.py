@@ -12,7 +12,7 @@ class TwoStepExecutor(AbstractExecutor):
         self.exp_id = config.get('exp_id', None)
         self._logger = getLogger()
 
-        
+        total_num = sum([param.nelement() for param in self.model.parameters()])
         self._logger.info('Total parameter numbers: {}'.format(total_num))
 
         self.cache_dir = './libcity/cache/{}/model_cache'.format(self.exp_id)
@@ -32,7 +32,7 @@ class TwoStepExecutor(AbstractExecutor):
         """
         use data to train model with config
         """
-        return self.model.run()
+        return self.model.run(train_dataloader,eval_dataloader)
 
 
     def load_model(self, cache_name):

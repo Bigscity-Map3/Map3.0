@@ -142,6 +142,7 @@ class TravelTimeEstimationModel(AbstractModel):
         patience = 5
 
         best = {"best epoch": 0, "mae": 1e9, "rmse": 1e9}
+
         for epoch in range(max_epoch):
             model.train()
             for batch_x,batch_lens,batch_y in train_dataloader:

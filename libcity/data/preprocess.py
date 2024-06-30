@@ -35,7 +35,8 @@ def str2timestampTZ(s):
 
 
 def str2date(s):
-    return datetime.strptime(s, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+    # TODO check 是不是冲突了
+    return datetime.fromtimestamp(s).strftime("%Y-%m-%d")
 
 
 class PreProcess():
@@ -327,8 +328,10 @@ class preprocess_od(PreProcess):
         if not os.path.exists(train_file) or not os.path.exists(test_file):
             if os.path.exists(self.od_file):
                 df = pd.read_csv(self.od_file)
-                df['start_time'] = df['start_time'].map(str2timestamp)
-                df['end_time'] = df['end_time'].map(str2timestamp)
+                import pdb
+                pdb.set_trace()
+                df['start_time'] = df['start_time']#.map(str2timestamp)
+                df['end_time'] = df['end_time']#.map(str2timestamp)
                 train_df = df.sample(frac=4/5, random_state=1)
                 test_df = df.drop(train_df.index)
                 train_df.to_csv(train_file, index=False)

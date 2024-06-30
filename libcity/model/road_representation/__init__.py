@@ -10,6 +10,7 @@ from libcity.model.road_representation.HyperRoad import HyperRoad
 from libcity.model.road_representation.SARN import SARN
 from libcity.model.road_representation.Toast import Toast
 from libcity.model.road_representation.START import START
+from libcity.model.road_representation.HRNR import HRNR
 __all__ = [
     "ChebConv",
     "LINE",
@@ -22,5 +23,6 @@ __all__ = [
     "HyperRoad",
     "SARN",
     "Toast",
-    "START"
+    "START",
+    "HRNR"
 ]

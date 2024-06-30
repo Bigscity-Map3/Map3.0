@@ -345,13 +345,13 @@ class HHGCLEvaluator(AbstractEvaluator):
             raise AttributeError('evaluate model is not found')
 
     def evaluate_embedding(self, model=None,**kwargs):
-        # if self.representation_object == 'road':
-        #     embedding_path = self.road_embedding_path
-        # else:
-        #     embedding_path = self.region_embedding_path
-        # emb = np.load(embedding_path)
-        emb=model
-        # self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
+        if self.representation_object == 'road':
+            embedding_path = self.road_embedding_path
+        else:
+            embedding_path = self.region_embedding_path
+        emb = np.load(embedding_path)
+        # emb=model
+        self._logger.info(f'Load {self.representation_object} emb {embedding_path}, shape = {emb.shape}')
         
         def add_prefix_to_keys(dictionary, prefix):
             new_dictionary = {}
