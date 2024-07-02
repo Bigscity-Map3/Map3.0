@@ -328,8 +328,6 @@ class preprocess_od(PreProcess):
         if not os.path.exists(train_file) or not os.path.exists(test_file):
             if os.path.exists(self.od_file):
                 df = pd.read_csv(self.od_file)
-                import pdb
-                pdb.set_trace()
                 df['start_time'] = df['start_time']#.map(str2timestamp)
                 df['end_time'] = df['end_time']#.map(str2timestamp)
                 train_df = df.sample(frac=4/5, random_state=1)

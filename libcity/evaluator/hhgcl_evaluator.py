@@ -345,6 +345,7 @@ class HHGCLEvaluator(AbstractEvaluator):
             raise AttributeError('evaluate model is not found')
 
     def evaluate_embedding(self, model=None,**kwargs):
+        
         if self.representation_object == 'road':
             embedding_path = self.road_embedding_path
         else:
@@ -372,10 +373,9 @@ class HHGCLEvaluator(AbstractEvaluator):
                     result = downstream_model.run(emb, label)
                 if task in ["tte"]:
                     label = self.data_label[task]
-                    kwargs.pop('graph_dict', None)
                     result = downstream_model.run(emb, label,model, **kwargs)
                 elif task in ['sts']:
-                    result = downstream_model.run(model=emb,**kwargs)
+                    result = downstream_model.run(model=model,**kwargs)
                 self.result.update(add_prefix_to_keys(result, task + '_'))
             if 'tte_best epoch' in self.result.keys():
                 del self.result['tte_best epoch']

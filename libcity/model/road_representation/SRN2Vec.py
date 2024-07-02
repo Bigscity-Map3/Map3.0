@@ -31,35 +31,43 @@ class SRN2Vec(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.road_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
-        self.model = SRN2VecModule(node_num=self.num_nodes, device=self.device, emb_dim=self.output_dim, out_dim=2)
-        self.optim = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.model = SRN2VecModule(node_num=self.num_nodes, device=self.device, emb_dim=self.output_dim, out_dim=2).to(self.device)
 
-    def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
-            return
-        self.model.to(self.device)
-        start_time = time.time()
-        for epoch in tqdm(range(self.iter)):
+    def calculate_loss(self, batch):
+
+        X = batch[0].to(self.device)
+        y = batch[1].float().to(self.device)
+        yh = self.model(X)
+        loss = self.model.loss_func(yh.squeeze(), y.squeeze())
+        return loss
+    
+    def run(self,train_dataloader,eval_dataloader=None):
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        for epoch in range(self.iter):
             self.model.train()
-            total_loss = 0
-            for data, labels in self.dataloader:
-                X = data.to(self.device)
-                y = labels.float().to(self.device)
-                self.optim.zero_grad()
-                yh = self.model(X)
-                loss = self.model.loss_func(yh.squeeze(), y.squeeze())
+            for batch in tqdm(self.dataloader):
+                optimizer.zero_grad()
+                loss = self.calculate_loss(batch)
                 loss.backward()
-                self.optim.step()
-                total_loss += loss.item()
-            self._logger.info("Epoch {}, Loss {}".format(epoch, total_loss))
-        t1 = time.time() - start_time
-        self._logger.info("cost time is " + str(t1 / self.iter))
-        node_embedding = self.model.embedding.weight.data.cpu().detach().numpy()
-        np.save(self.npy_cache_file, node_embedding)
-        np.save(self.road_embedding_path, node_embedding)
-        self._logger.info('词向量和模型保存完成')
-        self._logger.info('保存至 ' + self.npy_cache_file)
-        self._logger.info('词向量维度：(' + str(len(node_embedding)) + ',' + str(len(node_embedding[0])) + ')')
+                optimizer.step()
+            if eval_dataloader is not None:
+                self.evaluate(eval_dataloader)
+        self.save_model()
+        self.save_embedding()
+    def save_model(self):
+        torch.save(self.model, self.model_cache_file)
+        self._logger.info('Model saved to {}'.format(self.model_cache_file))
+    
+    def save_embedding(self):
+        self.model.eval()
+        embedding = self.model.embedding.weight.cpu().detach().numpy()
+        np.save(self.npy_cache_file, embedding)
+        self._logger.info('Embedding saved to {}'.format(self.npy_cache_file))
+
+
+    def encode(self, batch):
+        X = batch[0].to(self.device)
+        return self.model.embedding(X)
 
 
 class SRN2VecModule(nn.Module):
@@ -74,14 +82,7 @@ class SRN2VecModule(nn.Module):
 
     def forward(self, x):
         emb = self.embedding(x)
-        # y_emb = self.embedding(vy)
-
-        # x = self.lin_vx(emb[:, 0])
-        # y = self.lin_vy(emb[:, 1])
         x = emb[:, 0, :] * emb[:, 1, :]  # aggregate embeddings
-
         x = self.lin_out(x)
-
         yh = self.act_out(x)
-
         return yh

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import dgl
 import numpy_indexed as npi
+from logging import getLogger
 
 def build_graph_from_matrix(adjm, node_feats, device='cpu'):
     '''
@@ -54,6 +55,7 @@ def mini_batch_gen(train_data, mini_batch_size, num_nodes, negative_sampling_rat
     '''
     generator of mini-batch samples
     '''
+    logger = getLogger()
     # positive data
     pos_samples = train_data
     # negative sampling to get negative data
@@ -66,6 +68,7 @@ def mini_batch_gen(train_data, mini_batch_size, num_nodes, negative_sampling_rat
     # shuffle
     samples = samples[torch.randperm(samples.shape[0])]
     # cut to mini-batches and wrap them by a generator
+    logger.info('Number of samples: {}'.format(samples.shape[0]//mini_batch_size))
     for i in range(0, samples.shape[0], mini_batch_size):
         yield samples[i:i+mini_batch_size]
 

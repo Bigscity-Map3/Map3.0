@@ -93,6 +93,7 @@ class ODRegionRepresentationDataset(AbstractDataset):
         else:
             raise ValueError('Not found .geo file!')
         if os.path.exists(self.data_path + self.rel_file + '.rel'):  # .rel file is not necessary
+
             self._load_rel()
         else:
             self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -130,6 +131,18 @@ class ODRegionRepresentationDataset(AbstractDataset):
         self.poi2region = relfile[relfile['rel_type'] == 'poi2region']
         self.region2poi = relfile[relfile['rel_type'] == 'region2poi']
         self.region2region = relfile[relfile['rel_type'] == 'region2region']
+        if self.region2region.shape[0]==0:
+            n=len(self.centroid)
+            tempa=[]
+            tempb=[]
+            for i in range(n):
+                for j in range(n):
+                    if i != j:
+                        tempa.append(i)
+                        tempb.append(j)
+
+            data={"origin_id":tempa,"destination_id":tempb}
+            self.region2region=pd.DataFrame(data)
         self.region2region = self.region2region.reset_index(drop=True)
         self.adj_mx = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         for i in range(len(self.region2region)):

@@ -7,8 +7,8 @@
 #     done
 # done
 
-python run_model.py --task road_representation --model HRNR --dataset bj --gpu_id 1 --config dim128_road_20 --exp_id hrnr
-python run_model.py --task road_representation --model HRNR --dataset cd --gpu_id 1 --config dim128_road_20 --exp_id hrnr
-python run_model.py --task road_representation --model HRNR --dataset singapore --gpu_id 1 --config dim128_road_20 --exp_id hrnr
-python run_model.py --task road_representation --model HRNR --dataset porto --gpu_id 1 --config dim128_road_20 --exp_id hrnr
-python run_model.py --task road_representation --model HRNR --dataset sanfransico --gpu_id 1 --config dim128_road_20 --exp_id hrnr
+# python run_model.py --task road_representation --model HRNR --dataset bj --gpu_id 1 --config dim128_road_20 --exp_id hrnr
+# python run_model.py --task road_representation --model HRNR --dataset cd --gpu_id 1 --config dim128_road_20 --exp_id hrnr
+# python run_model.py --task road_representation --model HRNR --dataset singapore --gpu_id 1 --config dim128_road_20 --exp_id hrnr
+# python run_model.py --task road_representation --model HRNR --dataset porto --gpu_id 1 --config dim128_road_20 --exp_id hrnr
+python run_model.py --task road_representation --model HRNR --dataset $1 --gpu_id 1 --config dim128_road_20 --exp_id hrnr

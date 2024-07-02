@@ -22,12 +22,13 @@ class MGFNDataset(AbstractDataset):
         self._logger = getLogger()
         self.dataset = self.config.get('dataset', '')
         self.data_path = './raw_data/' + self.dataset + '/'
-        self.time_slice = self.config.get('time_slice',24)
-        self.n_cluster = self.config.get('n_cluster',7)
+        self.time_slice = self.config.get('time_slice',6)
+        self.n_cluster = self.config.get('n_cluster',2)
         assert (24 % self.time_slice == 0)
         self.multi_graph = None
         ensure_dir(f'./libcity/cache/dataset_cache/{self.dataset}/HDGE')
         ensure_dir(f'./libcity/cache/dataset_cache/{self.dataset}/MGFN')
+
         self.flow_graph_path = './libcity/cache/dataset_cache/{}/HDGE/{}_slice_flow_graph.npy'.format(self.dataset,self.time_slice)
         self.mob_patterns_path = './libcity/cache/dataset_cache/{}/MGFN/{}_slice_{}_clusters_mob_patterns.npy'.format(self.dataset,self.time_slice,self.n_cluster)
         self.od_label_path = os.path.join(cache_dir, self.dataset, 'od_region_train_od.npy')

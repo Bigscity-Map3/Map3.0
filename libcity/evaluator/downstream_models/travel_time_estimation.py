@@ -60,6 +60,7 @@ class MLPReg(nn.Module):
         self.layers = nn.ModuleList(self.layers)
 
     def forward(self, path, valid_len,**kwargs):
+
         if self.is_static:
             t = torch.from_numpy(self.embedding[path.cpu()])
             x = self.mlp(t.view(-1, self.input_dim * self.max_len).float().to(self.device))
@@ -94,8 +95,9 @@ class TravelTimeEstimationModel(AbstractModel):
             format(self.exp_id, self.alpha, self.n_split)
 
     def run(self, embedding_vector, label, embed_model=None,**kwargs):
+
         self._logger.info("--- Time Estimation ---")
-        min_len, max_len = self.config.get("tte_min_len", 1), self.config.get("tte_max_len", 100)
+        min_len, max_len = self.config.get("tte_min_len", 10), self.config.get("tte_max_len", 128)
         dfs = label['time']
         num_samples = int(len(dfs) * 0.001)
         padding_id = embedding_vector.shape[0]
@@ -133,6 +135,7 @@ class TravelTimeEstimationModel(AbstractModel):
         test_dataset = TimeEstimationDataset(test_data_X,test_lens,test_data_y)
         train_dataloader= DataLoader(train_dataset,batch_size=64,shuffle=True)
         test_dataloader= DataLoader(test_dataset,batch_size=64,shuffle=True)
+
         if is_static:
             model = MLPReg(input_dim, hidden_dim, 3, nn.ReLU(),embedding_vector,is_static,device,max_len).to(device)
         else:

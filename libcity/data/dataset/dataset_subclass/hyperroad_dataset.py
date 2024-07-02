@@ -422,6 +422,7 @@ class HyperRoadDataset(AbstractDataset):
         return {'dataloader':self.train_dataloader,'num_nodes':self.road_num,'num_classes':self.num_classes,'input_x':self.input_x, 'c':self.coords, 'onehot_input_feats':self.onehot_input_feats,
                 'norms':[self.norm_GG, self.norm_HH, self.norm_HG],"one_hot_dim":self.one_hot_dim,"lane_cls_num":self.lanes_cls,"speed_cls":self.speed_cls,"oneway_cls":self.oneway_cls}
 
+
 def preproces_network_dgl(city="Singapore"):
     data_file = "../resource/data/" + city + "/preprocess_dgl.pkl"
     road_graph, road_feature = pickle.load(open(data_file, "rb"))

@@ -33,31 +33,36 @@ class GMEL(AbstractReprLearningModel):
         self.output_dim //= 2
         self.iter = config.get('max_epoch', 10)
         self._logger = getLogger()
-        self.mini_batch_size = config.get('batch_size',1000)
+        self.mini_batch_size = config.get('mini_batch_size',1000)
         self.num_hidden_layers = config.get('num_hidden_layers',3)
         self.learning_rate = config.get('learning_rate', 1e-3)
         self.multitask_ratio = config.get('multitask_ratio',[1,0,0])
         self.grad_norm = config.get('grad_norm',1.0)
 
-    def run(self,data=None):
+    def run(self,train_data=None,eval_data=None):
         if not self.config.get('train') and os.path.exists(self.npy_cache_file):
             return
         g,num_nodes,node_feats,train_data,train_inflow,train_outflow,trip_od_valid,trip_volume_valid,trip_od_train,trip_volume_train = self.data_post_process()
         model = GMELModel(g,num_nodes,in_dim=node_feats.shape[1],h_dim = self.output_dim,num_hidden_layers=self.num_hidden_layers,dropout=0, device=self.device, reg_param=0).to(self.device)
+        total_num = sum([param.nelement() for param in model.parameters()])
+        self._logger.info('Total number of parameters: {}'.format(total_num))
         best_rmse = 1e20
         optimizer = torch.optim.Adam(model.parameters(), self.learning_rate)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.1)
         src_embedding = None
         dst_embedding = None
+        self._logger.info('Start training...')
+        
         for epoch in range(self.iter):
             model.train()
             mini_batch_gen = utils.mini_batch_gen(train_data,self.mini_batch_size,num_nodes=num_nodes,negative_sampling_rate=0)
-            for mini_batch in mini_batch_gen:
+        
+            for step,mini_batch in enumerate(mini_batch_gen):
                 optimizer.zero_grad()
                 trip_od = mini_batch[:, :2].long().to(self.device)
                 trip_volume = mini_batch[:, -1].float().to(self.device)
                 loss = model.get_loss(trip_od, trip_volume, train_inflow, train_outflow, g, multitask_weights=self.multitask_ratio)
-                # self._logger.info("Epoch {:04d} | mini batch Loss = {:.4f}".format(epoch, loss))
+                self._logger.info("Epoch {:04d} Step {:04d} | mini batch Loss = {:.4f}".format(epoch, step, loss))
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_norm)
                 optimizer.step()
@@ -317,6 +322,7 @@ class GATInputLayer(nn.Module):
         return {'t': self.fc0(edges.data['d'])}
 
     def edge_attention(self, edges):
+        
         # edge UDF for equation (2)
         z2 = torch.cat([edges.src['z'], edges.dst['z'], edges.data['t']], dim=1)
         a = self.attn_fc(z2)
@@ -329,7 +335,7 @@ class GATInputLayer(nn.Module):
     def reduce_func(self, nodes):
         # reduce UDF for equation (3) & (4)
         # equation (3)
-
+        
         alpha = F.softmax(nodes.mailbox['e'], dim=1) # fix
         # equation (4). this is the core update part.
         z_neighbor = torch.sum(alpha * nodes.mailbox['z'], dim=1)

@@ -8,8 +8,6 @@ import random
 from logging import getLogger
 
 
-
-
 class START(nn.Module):
 
     def __init__(self, config, data_feature):
@@ -20,6 +18,7 @@ class START(nn.Module):
         self.vocab_size = data_feature.get('vocab_size')
         self.usr_num = data_feature.get('usr_num')
         self.d_model = self.config.get('d_model', 768)
+        self.output_dim = self.d_model
         self.pooling = self.config.get('pooling', 'mean')
 
         self._logger = getLogger()
@@ -78,19 +77,23 @@ class START(nn.Module):
                                       output_attentions=output_attentions)  # (B, T, d_model)
         a = self.mask_l(bert_output)
         return pool_out_view1, pool_out_view2, a
+        
     def save_token_embedding(self,graph_dict):
         emb=self.bert.get_token_embedding(graph_dict)
         return emb
     
     def encode_sequence(self,sequences,lens,**kwargs):
-
         device=sequences.device
 
         graph_dict=kwargs['graph_dict']
+        if 'tlist' in kwargs:
+            tlist=kwargs['tlist']
+            batch_temporal_mat = self._cal_mat(tlist).to(device)
+        else:
+            batch_temporal_mat=torch.zeros([sequences.size(0),sequences.size(1),self.d_model]).to(device)
         
         batch_size, max_seq_len = sequences.size()
-        batch_temporal_mat = torch.zeros(batch_size, max_seq_len, max_seq_len,
-                                     dtype=torch.long).to(device)
+        
         padding_masks = torch.ones([batch_size,max_seq_len],dtype=torch.int64).to(device)
         for i in range(batch_size):
             padding_masks[i,int(lens[i]):]= 0
@@ -98,6 +101,16 @@ class START(nn.Module):
         token_emb, _, _ = self.bert(x=sequences, padding_masks=padding_masks,
                                                 batch_temporal_mat=batch_temporal_mat, graph_dict=graph_dict) 
         return token_emb[:, 0, :] # batch,d_model
+    
+    def _cal_mat(self, tim_list):
+        # calculate the temporal relation matrix
+        seq_len = len(tim_list)
+        mat = np.zeros((seq_len, seq_len))
+        for i in range(seq_len):
+            for j in range(seq_len):
+                off = abs(tim_list[i] - tim_list[j])
+                mat[i][j] = off
+        return mat  # (seq_len, seq_len)
     
 def drop_path_func(x, drop_prob=0., training=False):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
@@ -598,7 +611,6 @@ class BERTEmbedding(nn.Module):
             (B, T, d_model)
 
         """
-
         if self.add_gat:
             x = self.token_embedding(node_features=graph_dict['node_features'],
                                          edge_index_input=graph_dict['edge_index'],

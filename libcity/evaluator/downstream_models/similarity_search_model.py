@@ -82,26 +82,32 @@ class CLModel(nn.Module):
         self.device = device
         self.tau = tau
         self.hidden_dim = hidden_dim
+        self.is_static = is_static
         if is_static:
             self.traj_encoder = TrajEncoder(input_dim, hidden_dim, n_layers, embedding, device)
         elif not is_static:
             self.traj_encoder = embedding.encode_sequence
+            self.transfer = nn.Linear(embedding.d_model, hidden_dim).to(device)
         
         self.projection=nn.Sequential(nn.Linear(hidden_dim,hidden_dim),nn.ReLU(),nn.Linear(hidden_dim,hidden_dim)).to(self.device)
         
 
-    def forward(self, path, valid_len, pos_path, pos_valid_len, neg_path, neg_valid_len):
+    def forward(self, path, valid_len, pos_path, pos_valid_len, neg_path, neg_valid_len,**kwargs):
         batch_size = path.shape[0]
         path=path.to(self.device)
         pos_path=pos_path.to(self.device)
         neg_path=neg_path.to(self.device)
-        # import pdb
-        # pdb.set_trace()
         
-        base_embedding = self.projection(self.traj_encoder(path, valid_len)).unsqueeze(-1)
-        pos_embedding = self.projection(self.traj_encoder(pos_path, pos_valid_len)).view(batch_size, -1, self.hidden_dim)
+    
+        if self.is_static:
+            base_embedding = self.projection(self.traj_encoder(path, valid_len)).unsqueeze(-1)
+            pos_embedding = self.projection(self.traj_encoder(pos_path, pos_valid_len)).view(batch_size, -1, self.hidden_dim)
+            neg_embedding = self.projection(self.traj_encoder(neg_path, neg_valid_len)).view(batch_size, -1, self.hidden_dim)
+        else:
+            base_embedding = self.projection(self.transfer(self.traj_encoder(path, valid_len,**kwargs))).unsqueeze(-1)
+            pos_embedding = self.projection(self.transfer(self.traj_encoder(pos_path, pos_valid_len,**kwargs))).view(batch_size, -1, self.hidden_dim)
+            neg_embedding = self.projection(self.transfer(self.traj_encoder(neg_path, neg_valid_len,**kwargs))).view(batch_size, -1, self.hidden_dim)
 
-        neg_embedding = self.projection(self.traj_encoder(neg_path, neg_valid_len)).view(batch_size, -1, self.hidden_dim)
         pos_scores = torch.bmm(pos_embedding, base_embedding).view(batch_size, -1)
         pos_label = torch.Tensor(np.full(pos_scores.shape, 1)).type(torch.FloatTensor).to(self.device)
         neg_scores = torch.bmm(neg_embedding, base_embedding).view(batch_size, -1)
@@ -129,7 +135,7 @@ class SimilaritySearchModel(AbstractModel):
         self.min_len = config.get('min_len', 20)
         self.max_len = config.get('max_len', 50)
         self.detour_rate = config.get('detour_rate', 0.8)
-        self.downstream_epoch = config.get('downstream_epoch', 10)
+        self.downstream_epoch = config.get('downstream_epoch', 20)
         self.batch_size = config.get('downstream_batch_size', 64)
         self.learning_rate = self.config.get('learning_rate', 0.001)
         self.weight_decay = self.config.get('weight_decay', 1e-5)
@@ -161,11 +167,13 @@ class SimilaritySearchModel(AbstractModel):
         num_samples = len(self.test_traj_df)
         x_arr = np.full([num_samples, self.max_len], padding_id, dtype=np.int32)
         x_len = np.zeros([num_samples], dtype=np.int32)
+        tlist=[]
         for i in range(num_samples):
             row = self.test_traj_df.iloc[i]
             path_arr = np.array(row['path'], dtype=np.int32)
             x_arr[i, :row['path_len']] = path_arr
             x_len[i] = row['path_len']
+            tlist.append(path_arr)
         
         random_index = np.random.permutation(num_samples)
         q_arr = np.full([num_queries, self.max_len], padding_id, dtype=np.int32)
@@ -282,7 +290,7 @@ class SimilaritySearchModel(AbstractModel):
                 r=min(i+self.batch_size,all_len)
                 loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
                                             detour_paths[l:r], detour_length[l:r],
-                                            negtive_paths[l:r], negtive_length[l:r])
+                                            negtive_paths[l:r], negtive_length[l:r],**kwargs)
                 optimizer.zero_grad()
                 total_loss += loss.item()
                 loss.backward()

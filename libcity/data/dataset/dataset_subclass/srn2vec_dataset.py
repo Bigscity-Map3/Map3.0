@@ -43,7 +43,12 @@ class SRN2VecDataset(AbstractDataset):
         self.number_negative = config.get('number_negative',3)
         self.batch_size = config.get('batch_size',128)
         self.window_size = config.get('window_size',900)
-        self.train_pairs = self.extract_pairs(self.road_length,self.road_tag,node_paths,self.window_size,self.number_negative)
+        self.cache_file = os.path.join(self.data_cache_file, f'cache_{self.window_size}_{self.number_negative}_{self.n_short_paths}.npy')
+        if os.path.exists(self.cache_file):
+            self.train_pairs = np.load(self.cache_file)
+        else:
+            self.train_pairs = self.extract_pairs(self.road_length,self.road_tag,node_paths,self.window_size,self.number_negative)
+            np.save(self.cache_file,self.train_pairs)
 
 
     def construct_road_adj(self):
@@ -119,7 +124,6 @@ class SRN2VecDataset(AbstractDataset):
         :param window_size:window_size in meter
         :param number_negative: snumber negative to draw for each node
         :return:
-
         Returns:
         list: training pairs
         """

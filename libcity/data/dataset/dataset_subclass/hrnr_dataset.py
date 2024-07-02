@@ -37,21 +37,20 @@ class HRNRDataset(AbstractDataset):
             raise ValueError("Dataset {} not exist! Please ensure the path "
                              "'./raw_data/{}/' exist!".format(self.dataset, self.dataset))
 
-        self.cache_file_folder = "./libcity/cache/dataset_cache"
+        self.cache_file_folder = "./libcity/cache/dataset_cache/"
         ensure_dir(self.cache_file_folder)
         self.geo_file = self.data_path + self.config.get("geo_file", self.dataset) + ".geo"
         self.rel_file = self.data_path + self.config.get("rel_file", self.dataset) + ".rel"
 
         # HRNR data
         
-        self.node_features = os.path.join(self.cache_file_folder, self.config.get("node_features"))
-        self.label_train_set = os.path.join(self.cache_file_folder, self.config.get("label_train_set"))
-        self.adj = os.path.join(self.cache_file_folder, self.config.get("adj"))
-        self.tsr = os.path.join(self.cache_file_folder, self.config.get("struct_assign", "struct_assign"))
-        self.trz = os.path.join(self.cache_file_folder, self.config.get("fnc_assign", "fnc_assign"))
-        print(self.node_features)
+        self.node_features = os.path.join(self.cache_file_folder, f"cache_{self.dataset}_node_features.pickle")
+        self.label_train_set = os.path.join(self.cache_file_folder, f"cache_{self.dataset}_label_train_set.pickle")
+        self.adj = os.path.join(self.cache_file_folder, f"cache_{self.dataset}_adj.pickle")
+        self.tsr = os.path.join(self.cache_file_folder, f"cache_{self.dataset}_struct_assign.pickle")
+        self.trz = os.path.join(self.cache_file_folder, f"cache_{self.dataset}_fnc_assign.pickle")
 
-        self.device = self.config.get('device', torch.device('cpu'))
+        self.device = self.config.get('device', torch.device('cuda:1'))
 
         self.num_nodes = 0
         self.node_feature_list = []
@@ -60,7 +59,13 @@ class HRNRDataset(AbstractDataset):
         
         self._transfer_files()
         self._calc_transfer_matrix()
+
         self._logger.info("Dataset initialization Done.")
+        self._logger.info("num_nodes: " + str(self.num_nodes))
+        self._logger.info("lane_num: " + str(self.lane_num))
+        self._logger.info("type_num: " + str(self.type_num))
+        self._logger.info("length_num: " + str(self.length_num))
+
 
     def _transfer_files(self):
         """
@@ -88,7 +93,8 @@ class HRNRDataset(AbstractDataset):
             self.length_num = self.length_feature.max().item() + 10
             self.node_feature = torch.tensor(self.node_feature_list[:, 3], dtype=torch.long, device=self.device)
             return
-        
+        # import pdb
+        # pdb.set_trace()
         geo = pd.read_csv(self.geo_file)
         geo = geo[geo.type=="LineString"]
         rel = pd.read_csv(self.rel_file)
@@ -97,7 +103,7 @@ class HRNRDataset(AbstractDataset):
         rel.origin_id = rel.origin_id - offset
         rel.destination_id = rel.destination_id - offset
         self.num_nodes = geo.shape[0]
-        geo_ids = list(geo["road_id"].apply(int))
+        geo_ids = list(geo["geo_id"].apply(int)-offset) 
         self._logger.info("Geo_N is " + str(self.num_nodes))
         feature_dict = {}
         for geo_id in geo_ids:
@@ -110,6 +116,7 @@ class HRNRDataset(AbstractDataset):
 
         # node_features [[lane, type, length, id]]
         for geo_id in geo_ids:
+
             node_features = feature_dict[geo_id]
             self.node_feature_list.append(node_features[3:6] + [geo_id])
         self.node_feature_list = np.array(self.node_feature_list)
@@ -261,6 +268,7 @@ class HRNRDataset(AbstractDataset):
         # 正样本和负样本 1:1 提取
         label_pred_train = pickle.load(open(self.label_train_set, "rb"))
         label_pred_train_false = []
+        
         true_sample_cnt = len(label_pred_train)
         while len(label_pred_train_false) < true_sample_cnt:
             x = random.randint(0, self.num_nodes - 1)

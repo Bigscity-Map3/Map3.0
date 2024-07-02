@@ -229,7 +229,7 @@ def generate_road_representaion_downstream_data(dataset_name):
                     coordinates = eval(row['coordinates'])
                 except:
                     coordinates = wkt.loads(row['coordinates']).coords[:]
-                geo2length[row['location']] = geo2distance(coordinates)
+                geo2length[row['road_id']] = geo2distance(coordinates)
             elif row['traffic_type'] == 'poi':
                 break
         geo2lengthdf = pd.DataFrame.from_dict(geo2length, orient='index', columns=['length'])

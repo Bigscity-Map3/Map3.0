@@ -10,6 +10,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset
 from libcity.data.dataset import AbstractDataset
 from libcity.data.preprocess import preprocess_all, cache_dir
+import pickle
 
 
 class TrajRoadDataset(Dataset):
@@ -27,6 +28,7 @@ class JCLRNTDataset(AbstractDataset):
 
     def __init__(self,config):
         self.config = config
+        self.model='jclrnt'
         preprocess_all(config)
         self.device = config.get('device')
         self._logger = getLogger()
@@ -45,17 +47,39 @@ class JCLRNTDataset(AbstractDataset):
         self.traj_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
         self.adj_json_path = os.path.join(data_cache_dir, 'road_neighbor.json')
         self.road_feature_path = os.path.join(data_cache_dir, 'road_features.csv')
-        self.number_negative = config.get('number_negative',3)
         self.batch_size = config.get('batch_size',64)
         self.min_len=config.get('min_len',10)
-        self.max_len = config.get('max_len', 64)
+        self.max_len = config.get('max_len', 128)
+
+        # cache_dir
+        self.cache_file_folder = './libcity/cache/dataset_cache/'
+        self.cache_file_name = os.path.join(self.cache_file_folder,
+                                            f'{self.model}_{self.dataset}_{int(self.edge_threshold*10)}_{self.max_len}_{self.min_len}.pickle')
         self.construct_road_adj()
-        self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
-        self.traj_arr = self.prepare_traj_data()
-        train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
-        test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
-        self.traj_arr_train = self.prepare_traj_test_data(train_path)
-        self.traj_arr_test = self.prepare_traj_test_data(test_path)
+        if os.path.exists(self.cache_file_name):
+            self._logger.info('cache_file_name='+self.cache_file_name)
+            with open(self.cache_file_name, 'rb') as file:
+                self.edge_index=pickle.load(file)
+                self.od_matrix=pickle.load(file)
+                self.edge_index_aug=pickle.load(file)
+                self.traj_arr_train=pickle.load(file)
+                self.traj_arr_test=pickle.load(file)
+                self._logger.info('load cache file success')
+        else: 
+            self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
+            self.traj_arr = self.prepare_traj_data()
+            train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
+            test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
+            self.traj_arr_train = self.prepare_traj_test_data(train_path)
+            self.traj_arr_test = self.prepare_traj_test_data(test_path)
+            with open(self.cache_file_name, 'wb') as file:
+                pickle.dump(self.edge_index,file)
+                pickle.dump(self.od_matrix,file)
+                pickle.dump(self.edge_index_aug,file)
+                pickle.dump(self.traj_arr_train,file)
+                pickle.dump(self.traj_arr_test,file)
+                self._logger.info('save cache file success')
+        
         self.generate_train_data()
 
 
@@ -74,6 +98,7 @@ class JCLRNTDataset(AbstractDataset):
         self.od_matrix=np.zeros((self.road_num,self.road_num),dtype=np.float32)
         traj_df = pd.read_csv(self.train_path)
         traj_list = []
+        # construct od flow and traj # cache traj
         for i in tqdm(range(len(traj_df))):
             path = traj_df.loc[i, 'path']
             path = path[1:len(path) - 1].split(',')
@@ -84,10 +109,12 @@ class JCLRNTDataset(AbstractDataset):
                 destination_road=path[-1]
                 self.od_matrix[origin_road][destination_road]+=1
                 self.edge_index.append((origin_road,destination_road))
+        # padding traj
         arr = np.full([len(traj_list), self.max_len], self.road_num, dtype=np.int32)
         for i in range(len(traj_list)):
             path_arr = np.array(traj_list[i],dtype=np.int32)
             arr[i,:len(traj_list[i])]=path_arr
+        
         self.edge_index = np.array(self.edge_index, dtype=np.int32).transpose()
         self.edge_index = torch.Tensor(self.edge_index).int().to(self.device)
         self.tran_matrix = self.od_matrix / (self.od_matrix.max(axis=1, keepdims=True, initial=0.) + 1e-9)
@@ -120,7 +147,7 @@ class JCLRNTDataset(AbstractDataset):
         return arr
     
     def generate_train_data(self):
-        train_dataset=TrajRoadDataset(self.traj_arr)
+        train_dataset=TrajRoadDataset(self.traj_arr_train)
         self.train_dataloader=DataLoader(train_dataset,batch_size=self.batch_size,shuffle=True, num_workers=4)
 
     def get_data(self):
