@@ -536,7 +536,7 @@ class ReMVC(AbstractReprLearningModel):
 
         return loss
 
-    def run(self):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not need_train(self.config):
             return
         start_time = time.time()

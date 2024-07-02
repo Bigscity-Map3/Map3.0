@@ -232,6 +232,11 @@ class HREP(AbstractReprLearningModel):
 
         t1 = time.time()-start_time
         self._logger.info('cost time is '+str(t1/self.epochs))
+        total_num = sum([param.nelement() for param in self.net.parameters()])
+        embs = [region_emb, n_emb, poi_emb, s_emb, d_emb]
+        for emb in embs:
+            total_num += emb.view(-1).shape[0]
+        self._logger.info('Total parameter numbers: {}'.format(total_num))
         region_emb = region_emb.cpu().detach().numpy()
         np.save(self.npy_cache_file, region_emb)
         

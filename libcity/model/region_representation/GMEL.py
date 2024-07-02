@@ -1,9 +1,9 @@
 from logging import getLogger
 import numpy as np
-import os
 
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
 from libcity.model.region_representation import utils
+from libcity.utils import need_train
 
 import torch
 import torch.nn as nn

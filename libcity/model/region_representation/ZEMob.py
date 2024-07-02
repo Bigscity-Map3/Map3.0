@@ -51,7 +51,7 @@ class ZEMob(AbstractReprLearningModel):
         self.ZEMob_model = ZEMobModel(self.region_num, self.mobility_event_num, self.output_dim, self.ppmi_matrix, self.G_matrix, self.device)
         self.ZEMob_model.to(self.device)
 
-    def run(self, data=None):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not need_train(self.config):
             return
         start_time = time.time()

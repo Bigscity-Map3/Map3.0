@@ -34,7 +34,7 @@ class MGFN(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.mgfn_model = MGFN_layer(graph_num=self.n_cluster, node_num=self.num_nodes, output_dim=self.output_dim).to(self.device)
 
-    def run(self, data=None):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not need_train(self.config):
             return
         start_time = time.time()

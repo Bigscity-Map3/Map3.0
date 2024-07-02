@@ -44,15 +44,13 @@ class MVURE(AbstractReprLearningModel):
         self.mvure_model = MVURE_Layer(self.mob_adj, self.s_adj_sp, self.t_adj_sp, self.poi_adj, self.feature[0],
                                  self.feature.shape[2], self.output_dim, self.device)
         
-    def run(self, data=None):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not need_train(self.config):
             return
         start_time = time.time()
         self.feature = self.preprocess_features(self.feature)
         self.mvure_model.to(self.device)
         self._logger.info(self.mvure_model)
-        total_num = sum([param.nelement() for param in self.mvure_model.parameters()])
-        self._logger.info('Total parameter numbers: {}'.format(total_num))
         optimizer = optim.Adam(self.mvure_model.parameters(),lr=self.learning_rate, weight_decay=self.weight_dacay)
         item_num, _ = self.mob_adj.shape
         self._logger.info("start training,lr={},weight_dacay={}".format(self.learning_rate,self.weight_dacay))
@@ -67,6 +65,10 @@ class MVURE(AbstractReprLearningModel):
             self._logger.info("Epoch {}, Loss {}".format(epoch, loss.item()))
         t1 = time.time()-start_time
         self._logger.info('cost time is '+str(t1/self.iter))
+        total_num = sum([param.nelement() for param in self.mvure_model.parameters()])
+        total_num += outs.view(-1).shape[0]
+        total_num += loss_embedding.view(-1).shape[0]
+        self._logger.info('Total parameter numbers: {}'.format(total_num))
         node_embedding = outs
         node_embedding = node_embedding.detach().cpu().numpy()
         np.save(self.npy_cache_file, node_embedding)

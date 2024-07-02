@@ -1,5 +1,4 @@
 import time
-import os
 from logging import getLogger
 import random
 
@@ -8,6 +7,7 @@ from gensim.models import Word2Vec
 from tqdm import tqdm
 
 from libcity.model.abstract_replearning_model import AbstractReprLearningModel
+from libcity.utils import need_train
 
 #[2017-CIKM region Representation Learning via Mobility Flow]
 class HDGE(AbstractReprLearningModel):
@@ -45,8 +45,8 @@ class HDGE(AbstractReprLearningModel):
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
     #一共是time_slice * num_nodes
-    def run(self,data=None):
-        if not self.config.get('train') and os.path.exists(self.npy_cache_file):
+    def run(self, train_dataloader=None, eval_dataloader=None):
+        if not need_train(self.config):
             return
         start_time = time.time()
         combine_matrix = self.combine_graph

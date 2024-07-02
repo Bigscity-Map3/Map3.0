@@ -197,7 +197,7 @@ class Node2Vec(AbstractReprLearningModel):
         self.npy_cache_file = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy'.\
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
-    def run(self, data=None):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not need_train(self.config):
             return
         start_time = time.time()
