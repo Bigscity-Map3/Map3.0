@@ -50,6 +50,27 @@ class HyperRoad(AbstractReprLearningModel):
 
     def forward(self, batch):
         return self.model(batch)
+
+    def calculate_loss(self,sample_batched):
+        anchor = sample_batched['anchor'].to(self.device)
+        pos_edge = sample_batched['pos_edge'].to(self.device)
+        neg_edges = sample_batched['neg_edges'].to(self.device)
+        pos_hyper = sample_batched['pos_hyper'].to(self.device)
+        neg_hypers = sample_batched['neg_hypers'].to(self.device)
+        hyper_class = sample_batched['hyper_class'].to(self.device)
+        l_lanes = sample_batched['l_lanes'].to(self.device)
+        l_maxspeed = sample_batched['l_maxspeed'].to(self.device)
+        l_oneway = sample_batched['l_oneway'].to(self.device)
+        batch_data = anchor, pos_edge, neg_edges, pos_hyper, neg_hypers, hyper_class, l_lanes, l_maxspeed, l_oneway
+
+        loss, gnn_loss, hgnn_loss, tag_loss = self.model(batch_data)
+        return loss
+    
+    def get_entity_embedding(self):
+        node_embedding,_ = self.model.update()
+        node_embedding=node_embedding.cpu().detach().numpy()
+        return node_embedding
+
     
     def run(self, data=None):
         if not self.config.get('train') and os.path.exists(self.road_embedding_path):

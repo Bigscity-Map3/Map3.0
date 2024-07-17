@@ -16,8 +16,6 @@ import dgl
 from veccity.utils import tool_funcs, OSMLoader, EdgeIndex
 from veccity.upstream.abstract_replearning_model import AbstractReprLearningModel
 
-import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 class FeatEmbedding(nn.Module):
     def __init__(self, nsegid_code, nhighway_code,
@@ -116,7 +114,6 @@ class SARN(AbstractReprLearningModel):
             if _idx >= 0:
                 self.seg_idx_to_cellid[_idx] = _cellid
         assert sum(filter(lambda x: x < 0, self.seg_idx_to_cellid)) == 0
-
 
     def run(self,data=None):
         if not self.config.get('train') and os.path.exists(self.road_embedding_path):

@@ -59,42 +59,29 @@ class JCLRNT(AbstractReprLearningModel):
         self.model = MultiViewModel(self.num_nodes, self.output_dim, self.hidden_size, self.edge_index1, self.edge_index2,
                                self.graph_encoder1, self.graph_encoder2, self.seq_encoder,self.device).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+    
+    def calculate_loss(self,data_batch):
+        data_batch = data_batch.to(self.device)
+        w_batch = 0
+        # self.optimizer.zero_grad()
+        node_rep1, node_rep2, seq_rep1, seq_rep2 = self.model(data_batch)
+        # loss_ss = node_node_loss(node_rep1, node_rep2, self.measure,self.device)
+        loss_ss = 0
+        loss_tt = seq_seq_loss(seq_rep1, seq_rep2, self.measure,self.device)# 负数
+        if self.is_weighted:
+            loss_st1 = weighted_ns_loss(node_rep1, seq_rep2, w_batch, self.measure)
+            loss_st2 = weighted_ns_loss(node_rep2, seq_rep1, w_batch, self.measure)
+        else:
+            loss_st1 = node_seq_loss(node_rep1, seq_rep2, data_batch, self.measure,self.device)# 负数
+            loss_st2 = node_seq_loss(node_rep2, seq_rep1, data_batch, self.measure,self.device)
+        loss_st = (loss_st1 + loss_st2) / 2
+        loss = self.l_ss * loss_ss + self.l_tt * loss_tt + self.l_st * loss_st
+        return loss
 
-    def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
-            return
-        start_time = time.time()
-        for epoch in tqdm(range(self.iter)):
-            total_loss = 0
-            self.model.train()
-            for n, data_batch in enumerate(self.dataloader):
-                data_batch = data_batch.to(self.device)
-                w_batch = 0
-                self.optimizer.zero_grad()
-                node_rep1, node_rep2, seq_rep1, seq_rep2 = self.model(data_batch)
-                # loss_ss = node_node_loss(node_rep1, node_rep2, self.measure,self.device)
-                loss_ss = 0
-                loss_tt = seq_seq_loss(seq_rep1, seq_rep2, self.measure,self.device)# 负数
-                if self.is_weighted:
-                    loss_st1 = weighted_ns_loss(node_rep1, seq_rep2, w_batch, self.measure)
-                    loss_st2 = weighted_ns_loss(node_rep2, seq_rep1, w_batch, self.measure)
-                else:
-                    loss_st1 = node_seq_loss(node_rep1, seq_rep2, data_batch, self.measure,self.device)# 负数
-                    loss_st2 = node_seq_loss(node_rep2, seq_rep1, data_batch, self.measure,self.device)
-                loss_st = (loss_st1 + loss_st2) / 2
-                loss = self.l_ss * loss_ss + self.l_tt * loss_tt + self.l_st * loss_st
-                total_loss += loss
-                loss.backward()
-                self.optimizer.step()
-            self._logger.info("Epoch {}, Loss {}".format(epoch, total_loss))
-        t1 = time.time()-start_time
-        self._logger.info('cost time is '+str(t1/self.iter))
-
+    def get_entity_embedding(self):
         node_embedding = self.model.encode_graph()[0].cpu().detach().numpy().squeeze(1)
-        np.save(self.road_embedding_path,node_embedding)
-        torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
-        self.save_traj_embedding(self.traj_train,self.traj_train_embedding_file)
-        # self.save_traj_embedding(self.traj_test,self.traj_test_embedding_file)
+        return node_embedding
+
     
     def encode_sequence(self,sequences,lengths):
         out,_,_=self.model.encode_sequence(sequences,lengths)

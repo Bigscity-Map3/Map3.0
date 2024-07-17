@@ -194,7 +194,12 @@ class SRN2VecDataset(AbstractDataset):
                 eval_dataloader: Dataloader composed of Batch (class) \n
                 test_dataloader: Dataloader composed of Batch (class)
         """
-        return None, None, None
+        train_data = np.array(self.train_pairs)
+        data = torch.tensor(train_data[:,[0,1]])
+        labels = torch.tensor(train_data[:,[2,3]])
+        dataset = TensorDataset(data, labels)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
+        return dataloader, None, None
 
     def get_data_feature(self):
         """

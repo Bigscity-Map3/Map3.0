@@ -1,49 +1,19 @@
 {
     "line": {
         "allowed_model": [
-            "ChebConv", "LINE", "GAT", "Node2Vec", "DeepWalk", "GeomGCN","JCLRNT","SRN2Vec","HyperRoad","SARN","Toast","START","HRNR"
+           "JCLRNT","SRN2Vec","HyperRoad","SARN","Toast","START","HRNR"
         ],
         "allowed_dataset": [
             "xa","bj","cd"
         ],
-        "ChebConv": {
-            "dataset_class": "ChebConvDataset",
-            "executor": "ChebConvExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
-        "GeomGCN": {
-            "dataset_class": "ChebConvDataset",
-            "executor": "ChebConvExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
-        "GAT": {
-            "dataset_class": "ChebConvDataset",
-            "executor": "ChebConvExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
-        "Node2Vec": {
-            "dataset_class": "RoadNetWorkDataset",
-            "executor": "TwoStepExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
-        "DeepWalk": {
-            "dataset_class": "RoadNetWorkDataset",
-            "executor": "TwoStepExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
-        "LINE": {
-            "dataset_class": "LINEDataset",
-            "executor": "LINEExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
         "SRN2Vec": {
             "dataset_class": "SRN2VecDataset",
-            "executor": "TwoStepExecutor",
+            "executor": "LineExecutor",
             "evaluator": "HHGCLEvaluator"
         },
         "JCLRNT": {
             "dataset_class": "JCLRNTDataset",
-            "executor": "TwoStepExecutor",
+            "executor": "LineExecutor",
             "evaluator": "HHGCLEvaluator"
         },
         "Toast": {
@@ -53,7 +23,7 @@
         },
         "HyperRoad": {
             "dataset_class": "HyperRoadDataset",
-            "executor": "TwoStepExecutor",
+            "executor": "LineExecutor",
             "evaluator": "HHGCLEvaluator"
         },
         "SARN": {
@@ -68,22 +38,17 @@
         },
         "HRNR":{
             "dataset_class": "HRNRDataset",
-            "executor": "TwoStepExecutor",
+            "executor": "LineExecutor",
             "evaluator": "HHGCLEvaluator"
         }
     },
     "region": {
         "allowed_model": [
-            "Node2Vec","HDGE","MGFN","LINE","ZEMob","MVURE","GMEL","ReMVC","HREP"
+            "HDGE","MGFN","ZEMob","MVURE","GMEL","ReMVC","HREP"
         ],
         "allowed_dataset": [
             "xa","cd","bj"
         ],
-         "Node2Vec": {
-            "dataset_class": "Node2VecDataset",
-            "executor": "TwoStepExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
         "HDGE": {
             "dataset_class": "HDGEDataset",
             "executor": "TwoStepExecutor",
@@ -92,11 +57,6 @@
         "MGFN": {
             "dataset_class": "MGFNDataset",
             "executor": "TwoStepExecutor",
-            "evaluator": "HHGCLEvaluator"
-        },
-        "LINE": {
-            "dataset_class": "LINERegionDataset",
-            "executor": "LINEExecutor",
             "evaluator": "HHGCLEvaluator"
         },
         "ZEMob": {

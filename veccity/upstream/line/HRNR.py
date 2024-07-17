@@ -52,6 +52,8 @@ class HRNR(AbstractReprLearningModel):
 
         self.node_emb, self.init_emb = None, None
 
+        self.loss_fn = torch.nn.CrossEntropyLoss()
+
         self.model_cache_file = './veccity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.road_embedding_path = './veccity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
@@ -63,63 +65,18 @@ class HRNR(AbstractReprLearningModel):
         output_state = torch.cat((self.node_emb[x], self.init_emb[x]), 1)
         pred_tra = self.linear(output_state)
         return pred_tra
-        
-    def run(self, train_dataloader, eval_dataloader):
-        self._logger.info("Starting training...")
-        hparams = dict_to_object(self.config.config)
-        ce_criterion = torch.nn.CrossEntropyLoss()
-        max_f1 = 0
-        max_auc = 0
-        count = 0
-        model_optimizer = torch.optim.Adam(self.parameters(), lr=hparams.lp_learning_rate)
-        eval_dataloader_iter = iter(eval_dataloader)
-        patience = 50
-        for i in range(hparams.max_epoch):
-            self._logger.info("epoch " + str(i) + ", processed " + str(count))
-            for step, (train_set, train_label) in enumerate(train_dataloader):
-                model_optimizer.zero_grad()
-                train_set = train_set.clone().detach()
-                train_label = train_label.clone().detach()
-                pred = self(train_set)
-                loss = ce_criterion(pred, train_label)
-                loss.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(self.parameters(), hparams.lp_clip)
-                model_optimizer.step()
-                if count % 20 == 0:
-                    eval_data = get_next(eval_dataloader_iter)
-                    if eval_data is None:
-                        eval_dataloader_iter = iter(eval_dataloader)
-                        eval_data = get_next(eval_dataloader_iter)
-                    test_set, test_label = eval_data
-                    precision, recall, f1, auc = self.test_label_pred(test_set, test_label, self.device)
-                    if auc > max_auc:
-                        max_auc = auc
-                        node_embedding = self.graph_enc.node_emb_layer.weight.data.cpu().numpy()
-                        np.save(self.road_embedding_path,node_embedding)
-                    if f1 > max_f1:
-                        max_f1 = f1
-                    
-                    if auc >= max_auc and f1 >= max_f1:
-                        patience = 50
-                    else:
-                        patience -= 1
-                        if patience == 0:
-                            self._logger.info("early stop")
-                            self._logger.info("max_auc: " + str(max_auc))
-                            self._logger.info("max_f1: " + str(max_f1))
-                            self._logger.info("step " + str(count))
-                            self._logger.info(loss.item())
-                            return
-                    self._logger.info("max_auc: " + str(max_auc))
-                    self._logger.info("max_f1: " + str(max_f1))
-                    self._logger.info("step " + str(count))
-                    self._logger.info(loss.item())
-                count += 1
-                
-        # node_embedding = self.graph_enc.node_emb_layer.weight.data.cpu().numpy()
-        # np.save(self.road_embedding_path,node_embedding)
-        # 在pipeline 会save
-        # torch.save((self.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
+    
+    def calculate_loss(self,batch):
+        train_set,train_label=batch
+        train_set = train_set.clone().detach()
+        train_label = train_label.clone().detach()
+        pred = self.forward(train_set)
+        loss = self.loss_fn(pred, train_label)
+        return loss
+    
+    def get_entity_embedding(self):
+        node_embedding = self.graph_enc.node_emb_layer.weight.data.cpu().numpy()
+        return node_embedding
     
     def test_label_pred(self,  test_set, test_label, device):
         right = 0

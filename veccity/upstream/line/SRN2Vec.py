@@ -34,36 +34,26 @@ class SRN2Vec(AbstractReprLearningModel):
         self.model = SRN2VecModule(node_num=self.num_nodes, device=self.device, emb_dim=self.output_dim, out_dim=2).to(self.device)
 
     def calculate_loss(self, batch):
-
         X = batch[0].to(self.device)
         y = batch[1].float().to(self.device)
         yh = self.model(X)
         loss = self.model.loss_func(yh.squeeze(), y.squeeze())
         return loss
-    
-    def run(self,train_dataloader,eval_dataloader=None):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        for epoch in range(self.iter):
-            self.model.train()
-            for batch in tqdm(self.dataloader):
-                optimizer.zero_grad()
-                loss = self.calculate_loss(batch)
-                loss.backward()
-                optimizer.step()
-            if eval_dataloader is not None:
-                self.evaluate(eval_dataloader)
-        self.save_model()
-        self.save_embedding()
+
     def save_model(self):
         torch.save(self.model, self.model_cache_file)
         self._logger.info('Model saved to {}'.format(self.model_cache_file))
+    
+    def get_entity_embedding(self):
+        self.model.eval()
+        embedding = self.model.embedding.weight.cpu().detach().numpy()
+        return embedding
     
     def save_embedding(self):
         self.model.eval()
         embedding = self.model.embedding.weight.cpu().detach().numpy()
         np.save(self.npy_cache_file, embedding)
         self._logger.info('Embedding saved to {}'.format(self.npy_cache_file))
-
 
     def encode(self, batch):
         X = batch[0].to(self.device)
