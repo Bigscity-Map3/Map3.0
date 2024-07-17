@@ -15,10 +15,15 @@ from veccity.data.dataset.dataset_subclass.hrep_dataset import HREPDataset
 from veccity.data.dataset.dataset_subclass.toast_dataset import ToastDataset
 from veccity.data.dataset.dataset_subclass.bertlm_constrastive_dataset import ContrastiveLMDataset
 from veccity.data.dataset.dataset_subclass.hrnr_dataset import HRNRDataset
+from veccity.data.dataset.dataset_subclass.cacsr_dataset import CacsrData
+from veccity.data.dataset.dataset_subclass.point2vec_dataset import P2VData
+from veccity.data.dataset.dataset_subclass.skipgram_dataset import SkipGramData
+from veccity.data.dataset.dataset_subclass.tale_dataset import TaleData
+from veccity.data.dataset.dataset_subclass.teaser_dataset import TeaserData
 
 __all__ = [
     'CONVGCNDataset',
-    'ChebConvDataset',\
+    'ChebConvDataset',
     "GSNetDataset",
     "Node2VecDataset",
     "LINEDataset",
@@ -36,4 +41,9 @@ __all__ = [
     "ToastDataset",
     "ContrastiveLMDataset",
     "HRNRDataset",
+    "TaleData",
+    "SkipGramData",
+    "CacsrData",
+    "P2VData",
+    "TeaserData",
 ]

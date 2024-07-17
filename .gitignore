@@ -5,8 +5,10 @@ raw_data/
 veccity/log/
 veccity/cache/
 .idea/
+.vscode/
 2
 run_sf.sh
 run_sf.sh
 run1.sh
 run0.sh
+

@@ -97,13 +97,13 @@ class ConfigParser(object):
         # 接着加载每个阶段的 default config
         default_file_list = []
         # model
-        default_file_list.append('model/{}/{}.json'.format(self.config['task'], self.config['model']))
+        default_file_list.append('upstream/{}/{}.json'.format(self.config['task'], self.config['model']))
         # dataset
         default_file_list.append('data/{}.json'.format(self.config['dataset_class']))
         # executor
         default_file_list.append('executor/{}.json'.format(self.config['executor']))
         # evaluator
-        default_file_list.append('evaluator/{}.json'.format(self.config['evaluator']))
+        default_file_list.append('downstream/{}.json'.format(self.config['evaluator']))
         # 加载所有默认配置
         for file_name in default_file_list:
             with open('./veccity/config/{}'.format(file_name), 'r') as f:

@@ -5,7 +5,7 @@ from veccity.executor.abstract_tradition_executor import AbstractTraditionExecut
 from veccity.executor.chebconv_executor import ChebConvExecutor
 from veccity.executor.general_executor import GeneralExecutor
 from veccity.executor.twostep_executor import TwoStepExecutor
-from veccity.executor.poi_representation_executor import POIRepresentationExecutor
+from veccity.executor.point_executor import PointExecutor
 from veccity.executor.contra_mlm_executor import ContrastiveMLMExecutor
 
 __all__ = [
@@ -16,6 +16,6 @@ __all__ = [
     "ChebConvExecutor",
     "LINEExecutor",
     "TwoStepExecutor",
-    "POIRepresentationExecutor",
+    "PointExecutor",
     "ContrastiveMLMExecutor"
 ]
