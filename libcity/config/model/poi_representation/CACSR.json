@@ -1,8 +1,8 @@
 {
     "loc_emb_size" : 128,
     "tim_emb_size" : 128,
-    "user_emb_size" : 512,
-    "hidden_size" : 512,
+    "user_emb_size" : 128,
+    "hidden_size" : 256,
     "loc_noise_mean" : 0,
     "loc_noise_sigma" : 0.01,
     "tim_noise_mean" : 0,
@@ -17,7 +17,7 @@
     "adv" : 1,
     "self_weight" : 0.05,
     "rnn_type" : "BiLSTM",
-    "num_layers" : 3,
+    "num_layers" : 2,
     "downstream" : "TUL",
     "clip_grad_norm": true,
     "max_grad_norm": 5.0

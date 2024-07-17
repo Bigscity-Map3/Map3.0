@@ -25,6 +25,9 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self.dataset = config.get('dataset')
         self.exp_id = config.get('exp_id')
         self.embed_size = config.get('embed_size')
+        self.task_lr=config.get("task_lr",1e-3)
+        self.ft=config.get("ft",True)
+        self.is_static = config.get("is_static", True)
 
     def collect(self, batch):
         pass
@@ -42,6 +45,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
+        result_path=f"./res/{self.exp_id}_lp_{self.is_static}_{self.ft}_{self.dataset}.pickle"
 
         
         pre_model = TrajectoryPredictor(embed_layer, num_slots=st_num_slots, aux_embed_size=st_aux_embed_size,
@@ -54,7 +58,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         
         self.result['loc_pre_acc1'], self.result['loc_pre_acc5'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
         loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
-                       num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+                       num_epoch=task_epoch, batch_size=downstream_batch_size, task_lr=self.task_lr,result_file_path=result_path,device=self.device)
     
     def evaluate_traj_clf(self):
         embed_layer = self.data_feature.get('embed_layer')
@@ -65,6 +69,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         task_epoch = self.config.get('task_epoch', 5)
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
+        result_path=f"./res/{self.model}_tul_{self.is_static}_{self.ft}_{self.dataset}.pickle"
 
         downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
 
@@ -72,7 +77,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         
         self.result['traj_clf_acc'], self.result['traj_clf_pre'], self.result['traj_clf_recall'], self.result['traj_clf_f1_micro'], self.result['traj_clf_f1_macro'] =\
         traj_user_classification(train_set, test_set, num_user, num_loc, clf_model,
-                       num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+                       num_epoch=task_epoch, batch_size=downstream_batch_size, task_lr=self.task_lr,result_file_path=result_path,device=self.device)
         
     
     def evaluate_loc_clf(self):
@@ -112,7 +117,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         embed_layer=embed_layer.to(device)
         
         # optimizer & loss
-        optimizer = torch.optim.Adam(clf_model.parameters(), lr=1e-4)
+        optimizer = torch.optim.Adam(clf_model.parameters(), lr=1e-3)
         loss_func = nn.CrossEntropyLoss()
         # kflod test
         skf=StratifiedKFold(n_splits=5)
@@ -206,10 +211,10 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self._logger.info('Start evaluating ...')
         self.evaluate_loc_pre()
         self.evaluate_traj_clf()
-        poi_type_name = self.config.get('poi_type_name', None)
-        if poi_type_name is not None:
-            self.evaluate_loc_clf()
-            self.evaluate_loc_cluster()
+        # poi_type_name = self.config.get('poi_type_name', None)
+        # if poi_type_name is not None:
+        #     self.evaluate_loc_clf()
+        #     self.evaluate_loc_cluster()
         result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.embed_size))
         self._logger.info(self.result)

@@ -459,11 +459,11 @@ class CACSR(AbstractModel):
         super().__init__(config, data_feature)
         # initialize parameters
         # print(config['dataset_class'])
-        self.loc_size = data_feature.get("num_loc",0)
+        self.loc_size = data_feature.get("num_loc",0)+2
         self.loc_emb_size = config.get('loc_emb_size',128)
-        self.tim_size = config.get('tim_size',128)
+        self.tim_size = config.get('tim_size',128)+2
         self.tim_emb_size = config.get('tim_emb_size',128)
-        self.user_size = data_feature.get("num_user",0)
+        self.user_size = data_feature.get("num_user",0)+2
         self.user_emb_size = config.get('user_emb_size',128)
         self.hidden_size = config.get('hidden_size',128)
         # add by Tianyi (rnn_type & num_layers)
@@ -631,8 +631,8 @@ class CACSR(AbstractModel):
 
         loc_emb = self.emb_loc(loc)
         tim_emb = self.emb_tim(tim)
-        user_emb = self.emb_user(user)
-
+        user_emb = self.emb_user(user)  
+        
         if mode == 'train' and adv == 1:
             loc_noise = torch.normal(self.loc_noise_mean, self.loc_noise_sigma, loc_emb.shape).to(loc_emb.device)
             tim_noise = torch.normal(self.tim_noise_mean, self.tim_noise_sigma, tim_emb.shape).to(loc_emb.device)
@@ -733,62 +733,27 @@ class CACSR(AbstractModel):
         return self.emb_loc.weight[:self.loc_size].data.cpu().numpy()
 
     @torch.no_grad()
-    def encode(self, batch, downstream='tul'):
+    def encode(self, batch,**kwargs):
         # encode for downstream with no grad
         # user_embed is not train, so we remove the user embed
-        loc = batch[0]#.X_all_loc
-        tim = batch[1]#.X_all_tim
-        Y_location = batch[3]
-        cur_len = batch[4]#.target_lengths  
-        all_len = batch[5]#.X_lengths  
-        user = batch[6]#.X_users
-        batch_size = batch[0].shape[0]#.X_all_loc.shape[0]
+        loc = batch#.X_all_loc
+        tim = kwargs['hour']#.X_all_tim
+        week = kwargs['week']
+        all_len=kwargs['valid_len']
+        
+        batch_size = loc.shape[0]#.X_all_loc.shape[0]
+
+        tim=torch.where(week>4,tim+24,tim)
+        
         indice = torch.tensor(random.sample(range(loc.shape[0]), min(loc.shape[0], batch_size * 16)))
 
-        if downstream == 'POI_RECOMMENDATION':
-            loc_cpu = loc.cpu()
-            tim_cpu = tim.cpu()
-            user_cpu = user.cpu()
-            del loc, tim, user
-            loc = torch.repeat_interleave(loc_cpu, torch.tensor(cur_len), dim=0)
-            tim = torch.repeat_interleave(tim_cpu, torch.tensor(cur_len), dim=0)
-            user = torch.repeat_interleave(user_cpu, torch.tensor(cur_len), dim=0)
-            all_len_tsr = torch.repeat_interleave(torch.tensor(all_len), torch.tensor(cur_len), dim=0)
-            cur_len_tsr = torch.repeat_interleave(torch.tensor(cur_len), torch.tensor(cur_len), dim=0)
-
-            cnt = 0
-            for i in range(batch_size):
-                for j in range(cur_len[i]):
-                    loc[cnt, all_len[i] - cur_len[i] + j + 1:] = 0
-                    tim[cnt, all_len[i] - cur_len[i] + j + 1:] = 0
-                    all_len_tsr[cnt] = all_len[i] - cur_len[i] + j + 1
-                    cur_len_tsr[cnt] = 1
-                    cnt += 1
-            assert loc.shape[0] == tim.shape[0]
-
-            loc = torch.index_select(loc, dim=0, index=indice)
-            tim = torch.index_select(tim, dim=0, index=indice)
-            user = torch.index_select(user, dim=0, index=indice)
-            all_len_tsr = torch.index_select(all_len_tsr, dim=0, index=indice)
-            cur_len_tsr = torch.index_select(cur_len_tsr, dim=0, index=indice)
-
-            batch_size = loc.shape[0]
-
-            all_len = all_len_tsr.numpy().tolist()
-            cur_len = cur_len_tsr.numpy().tolist()
-            loc_emb = self.emb_loc(loc.to(self.device))
-            tim_emb = self.emb_tim(tim.to(self.device))
-            user_emb = self.emb_user(user.to(self.device))
-            indice = indice.to(self.device)
-        elif downstream == 'TUL':
-            loc_emb = self.emb_loc(loc)
-            tim_emb = self.emb_tim(tim)
-            user_emb = self.emb_user(user)
+        loc_emb = self.emb_loc(loc)
+        tim_emb = self.emb_tim(tim)
 
         # concatenate and permute
         x = torch.cat([loc_emb, tim_emb], dim=2).permute(1, 0, 2)  # batch_first=False
         # pack
-        pack_x = pack_padded_sequence(x, lengths=all_len, enforce_sorted=False)
+        pack_x = pack_padded_sequence(x, lengths=all_len-1, enforce_sorted=False)
 
         # modified by Tianyi
         if self.rnn_type == 'GRU':
@@ -801,13 +766,7 @@ class CACSR(AbstractModel):
         # unpack
         lstm_out, out_len = pad_packed_sequence(lstm_out, batch_first=True)
 
-        final_out = lstm_out[0, (all_len[0] - 1): all_len[0], :]
-        for i in range(1, batch_size):  
-            final_out = torch.cat([final_out, lstm_out[i, (all_len[i] - 1): all_len[i], :]], dim=0)
-        
-        dense = self.dense(final_out)  # Batch * loc_size
-        pred = nn.LogSoftmax(dim=1)(dense)  # result 
-        return pred
+        return lstm_out
 
 class CacsrData:
     def __init__(self,config,data_feature):
@@ -976,7 +935,7 @@ class CacsrData:
         X_users = loader[f'{set_name}X_users']
         X_locations = loader[f'{set_name}X_locations']
         Y_location = loader[f'{set_name}Y_locations']
-
+        
         X_all_loc = []
         X_all_tim = []
         X_lengths = []

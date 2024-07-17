@@ -57,7 +57,7 @@ class POIRepresentationExecutor(AbstractExecutor):
         self.lr_threshold = self.config.get('lr_threshold', 1e-4)
         self.clip_grad_norm = self.config.get('clip_grad_norm', False)
         self.max_grad_norm = self.config.get('max_grad_norm', 1.)
-        self.use_early_stop = self.config.get('use_early_stop', False)
+        self.use_early_stop = self.config.get('use_early_stop', True)
         self.patience = self.config.get('patience', 50)
         self.log_every = self.config.get('log_every', 1)
         self.batch_size = self.config.get('batch_size', 64)
@@ -144,7 +144,10 @@ class POIRepresentationExecutor(AbstractExecutor):
 
         for epoch in range(self.embed_epoch):
             losses = []
+            i=0
             for batch in train_dataloader.next_batch():
+                # print(f"step:{i}")
+                i+=1
                 loss = self.model.calculate_loss(batch)
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -163,10 +166,12 @@ class POIRepresentationExecutor(AbstractExecutor):
             self._writer.add_scalar('training loss', np.mean(losses), epoch)
             self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, np.mean(losses)))
 
-            if self.is_static:
-                embed_mat = self.model.static_embed()
-                embed_layer = StaticEmbed(embed_mat)
-                self.data_feature['embed_layer'] = embed_layer
+        if self.is_static:
+            embed_mat = self.model.static_embed()
+            embed_layer = StaticEmbed(embed_mat)
+            self.data_feature['embed_layer'] = embed_layer
+        else:
+            self.data_feature['embed_layer'] = self.model
 
     def evaluate(self, test_dataloader):
         """

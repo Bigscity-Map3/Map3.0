@@ -1,14 +1,15 @@
 {
   "embed_size": 128,
-  "task_epoch": 200,
+  "task_epoch": 100,
   "pre_len": 1,
-  "embed_epoch": 5,
+  "embed_epoch": 100,
   "init_param": false,
   "downstream_model": "stlstm",
   "batch_size": 64,
   "downstream_batch_size": 64,
-  "is_static":true,
+  "is_static":false,
   "downstream_hidden_dim" : 128,
   "cache": true,
-  "max_seq_len":128
+  "max_seq_len":128,
+  "min_frequency": 50
 }

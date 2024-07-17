@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from sklearn.utils import shuffle
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence 
 
 from libcity.model.poi_representation.utils import next_batch
 from libcity.model.abstract_model import AbstractModel
@@ -52,12 +52,14 @@ class Hier(AbstractModel):
         hier_week_embed_size = config.get('week_embed_size', 4)
         hier_hour_embed_size = config.get('hour_embed_size', 4)
         hier_duration_embed_size = config.get('duration_embed_size', 5)
+        self.device=config.get("device")
         share = config.get('share', False)
         dropout = config.get('dropout', 0.1)
         num_layers = config.get('num_layers', 4)
         embed_size = config.get('embed_size', 128)
-        hidden_size = embed_size * 4
-        num_loc = data_feature.get('num_loc')
+        self.ft=config.get("ft",True)
+        hidden_size = embed_size
+        num_loc = data_feature.get('num_loc')+2
         self.embed = HierEmbedding(embed_size, num_loc,
                                    hier_week_embed_size, hier_hour_embed_size, hier_duration_embed_size)
         self.add_module('embed', self.embed)
@@ -69,6 +71,7 @@ class Hier(AbstractModel):
                                             nn.LeakyReLU(),
                                             nn.Linear(self.embed.token_embed_size, self.embed.num_vocab))
         self.share = share
+        self.flag=False
 
     def forward(self, token, week, hour, duration, valid_len, **kwargs):
         """
@@ -91,9 +94,36 @@ class Hier(AbstractModel):
         return self.embed.token_embed.weight[:self.embed.num_vocab].detach().cpu().numpy()
     
     def encode(self, token, **kwargs):
-        # week, hour, duration= kwargs['week'], kwargs['hour'], kwargs['duration']
-        embed = self.embed.token_embed(token)  # (batch, seq_len, embed_size)
-        return embed
+
+        if self.ft:
+            valid_len = kwargs['valid_len']
+            week, hour, duration= kwargs['week'], kwargs['hour'], kwargs['duration']
+            embed = self.embed(token,week,hour,duration)  # (batch, seq_len, embed_size)
+            
+            if kwargs['task'] == "LP":
+                packed_embed = pack_padded_sequence(embed, valid_len-1, batch_first=True, enforce_sorted=False)
+            else:
+                packed_embed = pack_padded_sequence(embed, valid_len, batch_first=True, enforce_sorted=False)
+            encoder_out, hc = self.encoder(packed_embed)  # (batch, seq_len, hidden_size)
+            # max_len=max(valid_len)
+            out = pad_packed_sequence(encoder_out, batch_first=True)[0]  # (batch, seq_len, hidden_size)
+            return out
+        
+        else:
+            with torch.no_grad():
+                valid_len = kwargs['valid_len']
+                week, hour, duration= kwargs['week'], kwargs['hour'], kwargs['duration']
+                embed = self.embed(token,week,hour,duration)  # (batch, seq_len, embed_size)
+                
+                if kwargs['task'] == "LP":
+                    packed_embed = pack_padded_sequence(embed, valid_len-1, batch_first=True, enforce_sorted=False)
+                else:
+                    packed_embed = pack_padded_sequence(embed, valid_len, batch_first=True, enforce_sorted=False)
+                encoder_out, hc = self.encoder(packed_embed)  # (batch, seq_len, hidden_size)
+                # max_len=max(valid_len)
+                out = pad_packed_sequence(encoder_out, batch_first=True)[0]  # (batch, seq_len, hidden_size)
+                return out
+
 
     def calculate_loss(self, batch):
         src_token, src_weekday, src_hour, src_duration, src_len = batch
@@ -106,4 +136,5 @@ class Hier(AbstractModel):
 
     def add_unk(self):
         self.embed.add_unk()
+        self.embed=self.embed.to(self.device)
     

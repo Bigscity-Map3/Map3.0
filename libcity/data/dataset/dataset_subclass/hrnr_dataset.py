@@ -110,7 +110,7 @@ class HRNRDataset(AbstractDataset):
             lanes=int(geo.iloc[geo_id]["road_lanes"]) if not np.isnan(geo.iloc[geo_id]["road_lanes"]) else 0
             highway=int(geo.iloc[geo_id]["road_highway"]) if not np.isnan(geo.iloc[geo_id]["road_highway"]) else 0
             rlength=int(geo.iloc[geo_id]["road_length"]) if not np.isnan(geo.iloc[geo_id]["road_length"]) else 0
-            bridge=int(geo.iloc[geo_id]["road_bridge"]) if not np.isnan(geo.iloc[geo_id]["road_bridge"]) else 0
+            bridge=int(geo.iloc[geo_id]["road_maxspeed"]) if not np.isnan(geo.iloc[geo_id]["road_maxspeed"]) else 0
 
             feature_dict[geo_id] = [geo_id, "Point", None, lanes, highway, rlength, bridge]
 
@@ -134,7 +134,7 @@ class HRNRDataset(AbstractDataset):
         is_bridge_ids = []
         for geo_id in geo_ids:
             try:
-                if int(feature_dict[geo_id][6]) == 1:
+                if int(feature_dict[geo_id][6]) != 0:
                     is_bridge_ids.append(geo_id)
             except:
                 pass

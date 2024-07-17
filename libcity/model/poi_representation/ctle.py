@@ -8,7 +8,7 @@ from libcity.model.poi_representation.utils import weight_init
 from libcity.model.abstract_model import AbstractModel
 
 
-def gen_casual_mask(seq_len, include_self=True):
+def gen_casual_mask(seq_len, include_self=False):
     """
     Generate a casual mask which prevents i-th output element from
     depending on any input elements from "the future".
@@ -19,10 +19,10 @@ def gen_casual_mask(seq_len, include_self=True):
     :return: a casual mask, shape (seq_len, seq_len)
     """
     if include_self:
-        mask = 1 - torch.triu(torch.ones(seq_len, seq_len)).transpose(0, 1)
+        mask = 1 - torch.triu(torch.ones(seq_len, seq_len))
     else:
-        mask = 1 - torch.tril(torch.ones(seq_len, seq_len)).transpose(0, 1)
-    return mask.bool()
+        mask = 1 - torch.tril(torch.ones(seq_len, seq_len))
+    return mask
 
 
 class PositionalEncoding(nn.Module):
@@ -83,16 +83,15 @@ class CTLE(AbstractModel):
         encoding_type = config.get('encoding_type', 'positional')
         num_layers = config.get('num_layers', 4)
         num_heads = config.get('cnum_heads', 8)
-        detach = config.get('detach', False)
+        detach = config.get('detach', True)
         ctle_objective = config.get('objective', 'mh')
         embed_size = config.get('embed_size', 128)
         init_param = config.get('init_param', False)
         hidden_size = embed_size * 4
         max_seq_len = data_feature.get('max_seq_len')
         num_loc = data_feature.get('num_loc')
+        self.ft=config.get("ft",True)
         encoding_layer = PositionalEncoding(embed_size, max_seq_len)
-
-
 
         if encoding_type == 'temporal':
             encoding_layer = TemporalEncoding(embed_size)
@@ -127,11 +126,8 @@ class CTLE(AbstractModel):
         src_key_padding_mask = (x == self.num_vocab)
         token_embed = self.embed(x, **kwargs)  # (batch_size, seq_len, embed_size)
         if downstream:
-            pre_len = kwargs['pre_len']
-            src_mask = torch.ones(seq_len, seq_len).bool()
-            src_mask[:, :-pre_len] = False
-            src_mask[-pre_len:, -pre_len:] = gen_casual_mask(pre_len)
-            src_mask = torch.zeros(seq_len, seq_len).masked_fill(src_mask, float('-inf'))
+            mask = gen_casual_mask(seq_len)
+            src_mask = torch.where(mask==1, torch.full_like(mask, float('-inf')), mask)
             src_mask = src_mask.to(x.device)
         else:
             src_mask = None
@@ -145,10 +141,24 @@ class CTLE(AbstractModel):
     def static_embed(self):
         return self.embed.token_embed.weight[:self.num_vocab].detach().cpu().numpy()
     
+    
     def encode(self, origin_tokens, **kwargs):
-        src_t_batch=kwargs['timestamp']
-        ctle_out = self.forward(origin_tokens, timestamp=src_t_batch)
-        return ctle_out
+        if self.ft:
+            downstream=True
+            if kwargs["task"] == "tul":
+                downstream=False
+            src_t_batch=kwargs['timestamp']
+            ctle_out = self.forward(origin_tokens, timestamp=src_t_batch,downstream=downstream,pre_len=1)
+            return ctle_out
+        
+        else:
+            with torch.no_grad():
+                downstream=True
+                if kwargs["task"] == "tul":
+                    downstream=False
+                src_t_batch=kwargs['timestamp']
+                ctle_out = self.forward(origin_tokens, timestamp=src_t_batch,downstream=downstream,pre_len=1)
+                return ctle_out 
         
     def calculate_loss(self, batch):
         origin_tokens, origin_hour, masked_tokens, src_t_batch, mask_index = batch

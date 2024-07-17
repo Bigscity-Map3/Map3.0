@@ -280,26 +280,26 @@ class SimilaritySearchModel(AbstractModel):
                                         embedding=model, is_static=self.is_static,device=self.device)
 
         self.downstream_model.to(self.device)
-        optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
-        self._logger.info('Start training downstream model...')
-        best_loss=-1
-        for epoch in range(self.downstream_epoch):
-            total_loss = 0.0
-            for i in range(0, all_len , self.batch_size):
-                l=i
-                r=min(i+self.batch_size,all_len)
-                loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
-                                            detour_paths[l:r], detour_length[l:r],
-                                            negtive_paths[l:r], negtive_length[l:r],**kwargs)
-                optimizer.zero_grad()
-                total_loss += loss.item()
-                loss.backward()
-                optimizer.step()
+        # optimizer = Adam(lr=self.learning_rate, params=self.downstream_model.parameters(), weight_decay=self.weight_decay)
+        # self._logger.info('Start training downstream model...')
+        # best_loss=-1
+        # for epoch in range(self.downstream_epoch):
+        #     total_loss = 0.0
+        #     for i in range(0, all_len , self.batch_size):
+        #         l=i
+        #         r=min(i+self.batch_size,all_len)
+        #         loss = self.downstream_model(ori_paths[l:r], ori_length[l:r],
+        #                                     detour_paths[l:r], detour_length[l:r],
+        #                                     negtive_paths[l:r], negtive_length[l:r],**kwargs)
+        #         optimizer.zero_grad()
+        #         total_loss += loss.item()
+        #         loss.backward()
+        #         optimizer.step()
 
-            if best_loss==-1 or total_loss<best_loss:
-                self.best_model=copy.deepcopy(self.downstream_model)
-            self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
-        self.downstream_model=self.best_model
+        #     if best_loss==-1 or total_loss<best_loss:
+        #         self.best_model=copy.deepcopy(self.downstream_model)
+        #     self._logger.info("epoch {} complete! training loss is {:.2f}.".format(epoch, total_loss))
+        # self.downstream_model=self.best_model
        
 
         self.evaluation(**kwargs)

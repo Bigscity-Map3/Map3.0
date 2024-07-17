@@ -7,4 +7,4 @@
 #     done
 # done
 
-python run_model.py --task region_representation --model $1 --dataset $2 --config dim128_region_100 --train false --exp_id $1
+python run_model.py --task road_representation --model $1 --dataset $2 --config dim128_road_100 --train false --exp_id $1

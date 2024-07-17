@@ -281,7 +281,7 @@ class POIRepresentationDataset(AbstractDataset):
         self.dataset = self.config.get('dataset')
         self.test_scale = self.config.get('test_scale', 0.4)
         self.min_len = self.config.get('min_len', 3)  # 轨迹最短长度
-        self.min_frequency = self.config.get('min_frequency', 10)  # POI 最小出现次数
+        self.min_frequency = self.config.get('min_frequency', 50)  # POI 最小出现次数
         self.min_poi_cnt = self.config.get('min_poi_cnt', 50)  # 用户最少拥有 POI 数
         self.pre_len = self.config.get('pre_len', 3)  # 预测后 pre_len 个 POI
         self.min_sessions = self.config.get('min_sessions', 3)# 每个user最少的session数
@@ -331,7 +331,7 @@ class POIRepresentationDataset(AbstractDataset):
                 self.coor_mat = self.df[['loc_index', 'lat', 'lng']].drop_duplicates('loc_index').to_numpy()
                 self.id2coor_df = self.df[['loc_index', 'lat', 'lng']].drop_duplicates('loc_index'). \
                     set_index('loc_index').sort_index()
-                
+          
         else:
             self.res=self.cutter_filter()
             self._init_data_feature()

@@ -197,7 +197,7 @@ class HREP(AbstractReprLearningModel):
             negative[i] = neg_region
         return positive, negative
         
-    def run(self, data=None):
+    def run(self, data=None,eval_data=None):
         if not need_train(self.config):
             return
         start_time = time.time()

@@ -98,7 +98,7 @@ num_inner_nodes = 0
 
 
 class P2VData(W2VData):
-    def __init__(self, sentences, coor_df, theta=0.01, indi_context=False):
+    def __init__(self, sentences, coor_df, theta=0.0001, indi_context=False):
         super().__init__(sentences)
         self.sentences = sentences
         self.indi_context = indi_context
