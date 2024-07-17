@@ -5,12 +5,12 @@ import argparse
 import importlib
 import numpy as np
 import pandas as pd
-from libcity.evaluator.utils import generate_road_representaion_downstream_data
-from libcity.evaluator.road_representation_evaluator import RoadRepresentationEvaluator
-from libcity.evaluator.representation_evaluator import RepresentationEvaluator
-from libcity.evaluator.downstream_models.similarity_search_model import SimilaritySearchModel
-from libcity.evaluator.hhgcl_evaluator import HHGCLEvaluator
-from libcity.utils import get_executor, get_model, get_logger, ensure_dir, set_random_seed
+from veccity.evaluator.utils import generate_road_representaion_downstream_data
+from veccity.evaluator.road_representation_evaluator import RoadRepresentationEvaluator
+from veccity.evaluator.representation_evaluator import RepresentationEvaluator
+from veccity.evaluator.downstream_models.similarity_search_model import SimilaritySearchModel
+from veccity.evaluator.hhgcl_evaluator import HHGCLEvaluator
+from veccity.utils import get_executor, get_model, get_logger, ensure_dir, set_random_seed
 
   
 
@@ -56,7 +56,7 @@ if __name__ == '__main__':
             uukg_embedding = np.load(uukg_embedding_path)
             models = ['ZEMob', 'HDGE', 'MVURE', 'MGFN', 'ReMVC', 'HREP', 'Node2Vec', 'LINE']
             for model in models:
-                model_embedding_path = './libcity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy' \
+                model_embedding_path = './veccity/cache/{}/evaluate_cache/region_embedding_{}_{}_{}.npy' \
                             .format(16, model, dataset, 128)
                 model_embedding = np.load(model_embedding_path)
                 # pdb.set_trace()
@@ -77,7 +77,7 @@ if __name__ == '__main__':
                 result['clf_micro_f1'] = [micro_f1]
                 result['clf_macro_f1'] = [macro_f1]
                 df = pd.DataFrame(result, index=[0])
-                result_path = './libcity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
+                result_path = './veccity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.csv'. \
                     format(exp_id, exp_id, model, dataset, str(output_dim))
                 df.to_csv(result_path, index=False)
         elif representaition_object == 'road':
@@ -91,7 +91,7 @@ if __name__ == '__main__':
                     continue 
                 evaluator.model_name=model
                 print(evaluator.model_name)
-                model_embedding_path = './libcity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy' \
+                model_embedding_path = './veccity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy' \
                         .format(15, model, dataset, 128)
                 model_embedding = np.load(model_embedding_path)
                 if model == 'LINE':

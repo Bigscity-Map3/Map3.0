@@ -4,8 +4,8 @@
 
 import argparse
 
-from libcity.pipeline import hyper_parameter
-from libcity.utils import add_hyper_args
+from veccity.pipeline import hyper_parameter
+from veccity.utils import add_hyper_args
 
 
 if __name__ == '__main__':

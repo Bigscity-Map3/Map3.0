@@ -1,0 +1,4 @@
+{
+    "learner": "sgd",
+    "is_static": true
+}

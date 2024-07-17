@@ -1,8 +1,8 @@
 import random
 
-from libcity.config import ConfigParser
-from libcity.data import get_dataset
-from libcity.utils import get_model, get_executor, get_logger, set_random_seed
+from veccity.config import ConfigParser
+from veccity.data import get_dataset
+from veccity.utils import get_model, get_executor, get_logger, set_random_seed
 
 
 """

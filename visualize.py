@@ -1,5 +1,5 @@
 import argparse
-from libcity.utils.visualize import VisHelper
+from veccity.utils.visualize import VisHelper
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

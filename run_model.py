@@ -4,8 +4,8 @@
 
 import argparse
 
-from libcity.pipeline import run_model
-from libcity.utils import str2bool, add_general_args
+from veccity.pipeline import run_model
+from veccity.utils import str2bool, add_general_args
 
 
 if __name__ == '__main__':

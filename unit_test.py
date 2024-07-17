@@ -1,7 +1,7 @@
 import torch
-from libcity.config import ConfigParser
-from libcity.data import get_dataset
-from libcity.utils import get_model
+from veccity.config import ConfigParser
+from veccity.data import get_dataset
+from veccity.utils import get_model
 
 #############################################
 # The parameter to control the unit testing #
