@@ -60,7 +60,7 @@ class JCLRNT(AbstractReprLearningModel):
                                self.graph_encoder1, self.graph_encoder2, self.seq_encoder,self.device).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
-    def run(self, data=None):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not self.config.get('train') and os.path.exists(self.road_embedding_path):
             return
         start_time = time.time()

@@ -50,7 +50,7 @@ class Toast(AbstractReprLearningModel):
         
         # self.model.to(self.device)
 
-    def run(self):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         """
         Args:
             data : input of tradition model

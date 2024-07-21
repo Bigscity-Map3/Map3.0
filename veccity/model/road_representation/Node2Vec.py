@@ -197,7 +197,7 @@ class Node2Vec(AbstractReprLearningModel):
         self.npy_cache_file = './veccity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'.\
             format(self.exp_id, self.model, self.dataset, self.output_dim)
 
-    def run(self, data=None):
+    def run(self, train_dataloader=None, eval_dataloader=None):
         if not self.config.get('train') and os.path.exists(self.npy_cache_file):
             return
         nx_g = nx.from_numpy_matrix(self.adj_mx, create_using=nx.DiGraph())
