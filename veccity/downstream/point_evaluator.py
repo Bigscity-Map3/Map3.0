@@ -9,6 +9,7 @@ from sklearn import metrics
 from sklearn.metrics import adjusted_rand_score
 from veccity.upstream.point.static import StaticEmbed, DownstreamEmbed
 from sklearn.metrics import normalized_mutual_info_score
+from veccity.downstream.downstream_models.Trajectory_based_predict import TbSExecutor
 
 
 
@@ -29,7 +30,7 @@ class PointEvaluator(AbstractEvaluator):
     def collect(self, batch):
         pass
 
-    def evaluate_loc_pre(self):
+    def evaluate_loc_pre(self,model):
         pre_model_seq2seq = self.config.get('pre_model_seq2seq', True)
         st_aux_embed_size = self.config.get('st_aux_embed_size', 16)
         st_num_slots = self.config.get('st_num_slots', 10)
@@ -49,6 +50,7 @@ class PointEvaluator(AbstractEvaluator):
                                            input_size=embed_size, lstm_hidden_size=hidden_size,
                                            fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
                                            seq2seq=pre_model_seq2seq)
+        # executor = TbSExecutor(self.model,)
         
             
         
