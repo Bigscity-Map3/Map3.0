@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 from veccity.utils import ensure_dir
 
 
-
 class Toast(AbstractReprLearningModel):
     def __init__(self, config, data_feature):
         super().__init__(config, data_feature)
@@ -49,7 +48,45 @@ class Toast(AbstractReprLearningModel):
         self.criterion2 = nn.CrossEntropyLoss()
         
         # self.model.to(self.device)
+        self.get_w2v_embed()
+        self.model.init_token_embed(self.w2v_model.get_list_vector())
+        self.model.to(self.device)
 
+
+    def calculate_loss(self,data,seen_batch):
+        mask_lm_output, next_sent_output  = self.model.forward(data["seq"].to(self.device), data["padding_masks"].to(self.device), data['target_masks'].to(self.device), data['length'].to(self.device))
+        next_loss = self.criterion2(next_sent_output, data["is_traj"].long().to(self.device))
+        targets=data["targets"].squeeze(-1)[data['target_masks'].squeeze()]
+        mask_lm_output = mask_lm_output[data['target_masks'].squeeze()] 
+        mask_loss = self.criterion1(mask_lm_output, targets.to(self.device))
+
+        mask_loss = mask_loss.mean()
+        loss = next_loss + mask_loss
+        return loss
+    
+    def encode_sequence(self,seq,padding_masks,**kwargs):
+        return self.model.encode_sequence(seq,padding_masks)     
+
+    def get_w2v_embed(self):
+        if self.load_init:
+            if not os.path.exists(self.vocab_embed_path):
+                for i in range(4):
+                    self.w2v_model.train(i, mode='pretrain')
+                    
+                    self.w2v_model.save_model(i, self.vocab_embed_path)
+            else:
+                print("Load from pretrained traffic context aware skip-gram model")
+                self.w2v_model.load_model(self.vocab_embed_path)
+        else:
+            for i in range(4):
+                self.w2v_model.train(i, mode='pretrain')
+                
+                self.w2v_model.save_model(i, self.vocab_embed_path)
+
+    def get_static_embedding(self):
+        node_embedding=self.model.transformer.embed.tok_embed.weight.data.cpu().detach().numpy()
+        return node_embedding
+    
     def run(self):
         """
         Args:
@@ -88,7 +125,7 @@ class Toast(AbstractReprLearningModel):
             for i, data in enumerate(self.dataloader):
                 data = {key: value.to(self.device) for key, value in data.items()}
                 # print(data)
-                mask_lm_output, next_sent_output  = self.model.forward(data["traj_input"], data["input_mask"], data['masked_pos'], data['length'])
+                mask_lm_output, next_sent_output  = self.model.forward(data["traj_input"].to(self.device), data["input_mask"].to(self.device), data['masked_pos'].to(self.device), data['length'].to(self.device))
 
                 next_loss = self.criterion2(next_sent_output, data["is_traj"].long())
                 mask_loss = self.criterion1(mask_lm_output.transpose(1, 2), data["masked_tokens"])
@@ -139,16 +176,6 @@ class Toast(AbstractReprLearningModel):
                    self.model_cache_file)
 
         print("EP: Model Saved on:{}".format(self.model_cache_file))
-    
-    def encode_sequence(self,sequences,lens):
-        
-        batch_size, max_seq_len = sequences.size()
-        device=sequences.device
-        self.model.to(device)
-        padding_masks = torch.ones([batch_size,max_seq_len],dtype=torch.int64).to(device)
-        for i in range(batch_size):
-            padding_masks[i,int(lens[i]):]= 0
-        return self.model.encode_sequence(sequences,padding_masks)
 
 def gelu(x):
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
@@ -261,6 +288,7 @@ class Transformer(nn.Module):
         self.blocks = nn.ModuleList([Block(dim,p_dropout,n_heads,dim_ff) for _ in range(layers)])
 
     def forward(self, x, mask):
+        
         h = self.fc(self.embed(x))
         for block in self.blocks:
             h = block(h, mask)
@@ -331,7 +359,7 @@ class Word2Vec_SG:
     def __init__(self, config, data_feature):
 
         self.walker = RandomWalker(config,data_feature)
-        
+        self.vocab = data_feature.get('vocab')
         self.word2index = data_feature.get('node2id') 
         self.index2word = data_feature.get('id2node')
         self.road_lengths = data_feature.get('road_lengths')
@@ -343,8 +371,9 @@ class Word2Vec_SG:
         self.lr = config.get('w2v_lr',0.1)
         self.num_walks = config.get('num_walks', 20)
 
-        self.model = SkipGramNeg(len(self.word2index)+2, self.embedding_size,self.type_num)
+        self.model = SkipGramNeg(self.vocab.vocab_size, self.embedding_size,self.type_num)
         self.optim = torch.optim.SGD(self.model.parameters(), lr=self.lr)
+        
 
 
     def train(self, epoch, mode, embed_bert=None):
@@ -453,7 +482,13 @@ class Word2Vec_SG:
         return self.model.input_emb.weight.data
 
     def load_model(self, model_path):
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        checkpoint=torch.load(model_path, map_location=self.device)
+        ind_to_loc=self.vocab.index2loc
+        for i in range(self.vocab.specials_num):
+            ind_to_loc[i]=checkpoint['input_emb.weight'].shape[0]-1
+        checkpoint['input_emb.weight']=checkpoint['input_emb.weight'][ind_to_loc,:]
+        checkpoint['output_emb.weight']=checkpoint['output_emb.weight'][ind_to_loc,:]
+        self.model.load_state_dict(checkpoint)
 
     def vector(self, index):
         self.model.predict(index)
@@ -476,7 +511,7 @@ class BertModel4Pretrain(nn.Module):
         super(BertModel4Pretrain, self).__init__()
         dim=config.get('hidden_dim',64)
         layers=config.get('layers',4)
-        n_vocab=data_feature.get('num_node')
+        n_vocab=data_feature.get('num_nodes')
         max_len=config.get('max_len')
         p_dropout=config.get('p_dropout',0.5)
         n_heads=config.get('n_heads')
@@ -508,11 +543,12 @@ class BertModel4Pretrain(nn.Module):
     def forward(self, input_ids, input_mask, masked_pos, traj_len):
         h = self.transformer(input_ids, input_mask) # B x S x D
         # pooled_h = self.activ1(self.fc(h[:, 0]))
-        traj_h = torch.sum(h * input_mask.unsqueeze(-1).float(), dim = 1)/ traj_len.float()
-        pooled_h = self.activ1(self.fc(traj_h))  # TODO: !!!模仿一下这个，这个就是轨迹的表征
 
-        masked_pos = masked_pos[:, :, None].expand(-1, -1, h.size(-1)) # B x S x D
-        h_masked = torch.gather(h, 1, masked_pos)
+        traj_h = torch.sum(h * input_mask.unsqueeze(-1).float(), dim = 1)/ traj_len.unsqueeze(-1).float()
+        pooled_h = self.activ1(self.fc(traj_h))
+
+        masked_pos = masked_pos.expand(-1, -1, h.size(-1)).long() # B x S x D
+        h_masked = h*masked_pos
         h_masked = self.norm(self.activ2(self.linear(h_masked)))
         # logits_lm = self.decoder(h_masked) + self.decoder_bias
         logits_lm = self.decoder(h_masked)

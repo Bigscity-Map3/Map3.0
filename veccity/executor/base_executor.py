@@ -32,7 +32,7 @@ class BaseExecutor(object):
         self.lr_epsilon = self.config.get('lr_epsilon', 1e-8)
         self.lr_momentum = self.config.get('lr_momentum', 0)
         self.grad_accmu_steps = self.config.get('grad_accmu_steps', 1)
-        self.test_every = self.config.get('test_every', 10)
+        self.test_every = 100#self.config.get('test_every', 100)
 
         self.lr_decay = self.config.get('lr_decay', True)
         self.lr_scheduler_type = self.config.get('lr_scheduler', 'cosinelr')

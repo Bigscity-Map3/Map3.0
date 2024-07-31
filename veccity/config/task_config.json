@@ -43,12 +43,12 @@
         },
         "JCLRNT": {
             "dataset_class": "JCLRNTDataset",
-            "executor": "TwoStepExecutor",
-            "evaluator": "HHGCLEvaluator"
+            "executor": "LineSeqExecutor",
+            "evaluator": "LineSeqEvaluator"
         },
         "Toast": {
             "dataset_class": "ToastDataset",
-            "executor": "TwoStepExecutor",
+            "executor": "LineSeqExecutor",
             "evaluator": "HHGCLEvaluator"
         },
         "HyperRoad": {
@@ -62,7 +62,7 @@
             "evaluator": "HHGCLEvaluator"
         },
         "START":{
-            "dataset_class": "ContrastiveLMDataset",
+            "dataset_class": "STARTDataset",
             "executor": "ContrastiveMLMExecutor",
             "evaluator": "HHGCLEvaluator"
         },

@@ -1,5 +1,5 @@
 import random
-from veccity.data.dataset import ODRegionRepresentationDataset
+from veccity.data.dataset.od_region_representation_dataset import ODRegionRepresentationDataset
 import numpy as np
 from veccity.data.utils import split_list
 

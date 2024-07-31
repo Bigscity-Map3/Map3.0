@@ -8,5 +8,7 @@
   "lr_decay": false,
   "learner": "SGD",
   "learning_rate": 1e-3,
-  "is_static": true
+  "is_static": true,
+  "embed_epoch":200,
+  "embed_size":128
 }

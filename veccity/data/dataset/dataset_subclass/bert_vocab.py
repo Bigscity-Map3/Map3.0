@@ -27,7 +27,7 @@ def _calculate_random_walk_laplacian(adj_mx):
 
 
 class WordVocab:
-    def __init__(self, roadmap_path, traj_path, min_freq=0, use_mask=True, seq_len=128, eos=False):
+    def __init__(self, traj_path, min_freq=0, use_mask=True, seq_len=128, eos=False):
         self.pad_index = 0
         self.unk_index = 1
         self.sos_index = 2  # CLS
@@ -40,7 +40,9 @@ class WordVocab:
         else:
             specials = ["<pad>", "<unk>", "<sos>"]
 
+        self.specials_num=len(specials)
         train = pd.read_csv(traj_path)
+
 
         counter = Counter()
         paths = train['path'].values

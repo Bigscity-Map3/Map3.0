@@ -122,32 +122,23 @@ class CTLE(AbstractModel):
         @param x: sequence of tokens, shape (batch, seq_len).
         """
         seq_len = x.size(1)
-        downstream = kwargs.get('downstream', False)
 
         src_key_padding_mask = (x == self.num_vocab)
         token_embed = self.embed(x, **kwargs)  # (batch_size, seq_len, embed_size)
-        if downstream:
-            pre_len = kwargs['pre_len']
-            src_mask = torch.ones(seq_len, seq_len).bool()
-            src_mask[:, :-pre_len] = False
-            src_mask[-pre_len:, -pre_len:] = gen_casual_mask(pre_len)
-            src_mask = torch.zeros(seq_len, seq_len).masked_fill(src_mask, float('-inf'))
-            src_mask = src_mask.to(x.device)
-        else:
-            src_mask = None
+        src_mask=None
 
         encoder_out = self.encoder(token_embed.transpose(0, 1), mask=src_mask,
                                    src_key_padding_mask=src_key_padding_mask).transpose(0,1)  # (batch_size, src_len, embed_size)
-        if self.detach and downstream:
-            encoder_out = encoder_out.detach()
+        
         return encoder_out
 
     def static_embed(self):
         return self.embed.token_embed.weight[:self.num_vocab].detach().cpu().numpy()
     
-    def encode(self, origin_tokens, **kwargs):
-        src_t_batch=kwargs['timestamp']
-        ctle_out = self.forward(origin_tokens, timestamp=src_t_batch)
+    def encode(self, inputs):
+        seq=inputs['seq']
+
+        ctle_out = self.forward(seq,timestamp=inputs['timestamp'])
         return ctle_out
         
     def calculate_loss(self, batch):

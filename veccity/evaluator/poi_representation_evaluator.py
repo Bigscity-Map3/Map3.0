@@ -9,6 +9,8 @@ from sklearn import metrics
 from sklearn.metrics import adjusted_rand_score
 from veccity.model.poi_representation.static import StaticEmbed, DownstreamEmbed
 from sklearn.metrics import normalized_mutual_info_score
+from veccity.model.poi_representation.utils import next_batch
+import copy
 
 
 
@@ -25,66 +27,50 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         self.dataset = config.get('dataset')
         self.exp_id = config.get('exp_id')
         self.embed_size = config.get('embed_size')
+        self.hidden_size = config.get("downstream_hidden_size",512)
+        self.num_loc = self.data_feature.get('num_loc')
+        self.embed_layer = self.data_feature.get('embed_layer')
+        self.task_epoch = self.config.get('task_epoch', 5)
+        self.batch_size = self.config.get('downstream_batch_size', 32)
 
     def collect(self, batch):
         pass
 
     def evaluate_loc_pre(self):
-        pre_model_seq2seq = self.config.get('pre_model_seq2seq', True)
-        st_aux_embed_size = self.config.get('st_aux_embed_size', 16)
-        st_num_slots = self.config.get('st_num_slots', 10)
-        embed_layer = self.data_feature.get('embed_layer')
-        num_loc = self.data_feature.get('num_loc')
-        embed_size = self.config.get('embed_size', 128)
-        hidden_size = embed_size * 4
-        pre_len = self.config.get('pre_len', 3)
-        task_epoch = self.config.get('task_epoch', 5)
+        st_aux_embed_size = self.config.get('st_aux_embed_size', 32)
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
-        downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
-
-        
-        pre_model = TrajectoryPredictor(embed_layer, num_slots=st_num_slots, aux_embed_size=st_aux_embed_size,
-                                           time_thres=10800, dist_thres=0.1,
-                                           input_size=embed_size, lstm_hidden_size=hidden_size,
-                                           fc_hidden_size=hidden_size, output_size=num_loc, num_layers=2,
-                                           seq2seq=pre_model_seq2seq)
-        
+        embed_layer=copy.deepcopy(self.embed_layer)       
             
-        
-        self.result['loc_pre_acc1'], self.result['loc_pre_acc5'], self.result['loc_pre_f1_micro'], self.result['loc_pre_f1_macro'] =\
-        loc_prediction(train_set, test_set, num_loc, pre_model, pre_len=pre_len,
-                       num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+        self.result['loc_pre_acc1'], self.result['loc_pre_acc5'], self.result['loc_pre_f1_macro'] =\
+        trajectory_based_classification(train_set, test_set, self.num_loc,embed_layer=embed_layer,embed_size=self.embed_size,hidden_size=self.hidden_size,
+                       num_epoch=self.task_epoch, num_loc=self.num_loc,batch_size=self.batch_size,aux_embed_size=st_aux_embed_size, task="LP",device=self.device)
     
     def evaluate_traj_clf(self):
-        embed_layer = self.data_feature.get('embed_layer')
-        num_loc = self.data_feature.get('num_loc')
         num_user = self.data_feature.get('num_user')
-        embed_size = self.config.get('embed_size', 128)
-        hidden_size = embed_size * 4
-        task_epoch = self.config.get('task_epoch', 5)
+        st_aux_embed_size = self.config.get('st_aux_embed_size', 32)
         train_set = self.data_feature.get('train_set')
         test_set = self.data_feature.get('test_set')
+        embed_layer = copy.deepcopy(self.embed_layer)
 
-        downstream_batch_size = self.data_feature.get('downstream_batch_size', 32)
-
-        clf_model=LstmUserPredictor(embed_layer,embed_size,hidden_size,hidden_size,num_user,num_layers=2,device=self.device)
-        
-        self.result['traj_clf_acc'], self.result['traj_clf_pre'], self.result['traj_clf_recall'], self.result['traj_clf_f1_micro'], self.result['traj_clf_f1_macro'] =\
-        traj_user_classification(train_set, test_set, num_user, num_loc, clf_model,
-                       num_epoch=task_epoch, batch_size=downstream_batch_size, device=self.device)
+        self.result['traj_clf_acc1'],self.result['traj_clf_acc5'], self.result['traj_clf_f1_macro'] =\
+        trajectory_based_classification(train_set, test_set, num_class=num_user,embed_layer=embed_layer,embed_size=self.embed_size,hidden_size=self.hidden_size,
+                       num_epoch=self.task_epoch, num_loc=self.num_loc,batch_size=self.batch_size,aux_embed_size=st_aux_embed_size, task="TUL",device=self.device)
         
     
     def evaluate_loc_clf(self):
         logger=getLogger()
         logger.info('Start training downstream model [loc_clf]...')
-        embed_layer = self.data_feature.get('embed_layer')
-
+        
         if not self.config.get('is_static', True):
-            embed_layer=embed_layer.static_embed()
+            embed_layer=self.embed_layer.static_embed()
             embed_layer=StaticEmbed(embed_layer)
+        else:
+            embed_layer=self.embed_layer
 
+        # build model
         num_loc = self.data_feature.get('num_loc')
+        seed = self.config.get('seed',31)
         embed_size = self.config.get('embed_size', 128)
         task_epoch = self.config.get('task_epoch', 5)
         category = self.data_feature.get('coor_df')
@@ -94,50 +80,39 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         assert num_loc == len(category)
         inputs=category.geo_id.to_numpy()
         labels=category.category.to_numpy()
-        indices = list(range(num_loc))
         
-        np.random.shuffle(indices)
-        inputs=inputs[indices]
-        labels=labels[indices]
-        # 记录num category
         num_class = labels.max()+1
-        # 写mlp
-        hidden_size = 1024
-        clf_model = nn.Sequential(
-            nn.Linear(embed_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, num_class)
-        ).to(device)
-
-        embed_layer=embed_layer.to(device)
         
-        # optimizer & loss
-        optimizer = torch.optim.Adam(clf_model.parameters(), lr=1e-4)
-        loss_func = nn.CrossEntropyLoss()
-        # kflod test
-        skf=StratifiedKFold(n_splits=5)
+        skf=StratifiedKFold(n_splits=5,shuffle=True,random_state=seed)
         score_log = []
-
         for i,(train_ind,valid_ind) in enumerate(skf.split(inputs,labels)):
-            
+            clf_model = FCClassifier(copy.deepcopy(embed_layer),embed_size,num_class,hidden_size=128).to(device)
+            optimizer = torch.optim.Adam(clf_model.parameters(), lr=1e-4)
+            loss_func = nn.CrossEntropyLoss()
+            best_loss=100
+            best_model=None
             for epoch in range(task_epoch):
+                losses=[]
                 for _, batch in enumerate(next_batch(train_ind, downstream_batch_size)):
                     bacth_input = torch.tensor(inputs[batch],dtype=torch.long,device=device)
                     batch_label = torch.tensor(labels[batch],dtype=torch.long,device=device)
-                    bacth_input=embed_layer(bacth_input)
                     out=clf_model(bacth_input)
                     loss=loss_func(out,batch_label)
 
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-                
+                    losses.append(loss.item())
+                if np.mean(losses) < best_loss:
+                    best_model=copy.deepcopy(clf_model)
+            
+            clf_model=best_model
+
             pres_raw=[]
             test_labels=[]
             for _, batch in enumerate(next_batch(valid_ind, downstream_batch_size)):
                 bacth_input = torch.tensor(inputs[batch],dtype=torch.long,device=device)
                 batch_label = torch.tensor(labels[batch],dtype=torch.long,device=device)
-                bacth_input=embed_layer(bacth_input)
                 out=clf_model(bacth_input)
 
                 pres_raw.append(out.detach().cpu().numpy())
@@ -146,18 +121,15 @@ class POIRepresentationEvaluator(AbstractEvaluator):
             pres_raw, test_labels = np.concatenate(pres_raw), np.concatenate(test_labels)
             pres = pres_raw.argmax(-1)
 
-            pre = precision_score(test_labels, pres, average='macro', zero_division=0.0)
-            acc, recall = accuracy_score(test_labels, pres), recall_score(test_labels, pres, average='macro', zero_division=0.0)
-            f1_micro, f1_macro = f1_score(test_labels, pres, average='micro'), f1_score(test_labels, pres, average='macro')
-            score_log.append([acc, pre, recall, f1_micro, f1_macro])
-        
-        best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro = np.mean(score_log, axis=0)
-        logger.info('Acc %.6f, Pre %.6f, Recall %.6f, F1-micro %.6f, F1-macro %.6f' % (
-            best_acc, best_pre, best_recall, best_f1_micro, best_f1_macro))
+            
+            acc = accuracy_score(test_labels, pres)
+            f1_macro = f1_score(test_labels, pres, average='macro')
+            score_log.append([acc, f1_macro])
+            
+        best_acc,best_f1_macro = np.mean(score_log, axis=0)
+        logger.info('Acc %.6f, F1-macro %.6f' % (
+            best_acc, best_f1_macro))
         self.result['loc_clf_acc'] = best_acc
-        self.result['loc_clf_pre'] = best_pre
-        self.result['loc_clf_recall'] = best_recall
-        self.result['loc_clf_f1_micro'] = best_f1_micro
         self.result['loc_clf_f1_macro'] = best_f1_macro
         # 记录结果
 
@@ -209,7 +181,7 @@ class POIRepresentationEvaluator(AbstractEvaluator):
         poi_type_name = self.config.get('poi_type_name', None)
         if poi_type_name is not None:
             self.evaluate_loc_clf()
-            self.evaluate_loc_cluster()
+            # self.evaluate_loc_cluster()
         result_path = './veccity/cache/{}/evaluate_cache/{}_evaluate_{}_{}_{}.json'. \
             format(self.exp_id, self.exp_id, self.model, self.dataset, str(self.embed_size))
         self._logger.info(self.result)
@@ -229,3 +201,28 @@ class POIRepresentationEvaluator(AbstractEvaluator):
 
     def clear(self):
         pass
+
+
+class FCClassifier(nn.Module):
+    def __init__(self, embed_layer, input_size, output_size, hidden_size):
+        super().__init__()
+
+        self.embed_layer = embed_layer
+        self.add_module('embed_layer', self.embed_layer)
+
+        self.input_linear = nn.Linear(input_size, hidden_size)
+        self.hidden_linear = nn.Linear(hidden_size, hidden_size)
+        self.output_linear = nn.Linear(hidden_size, output_size)
+        self.act = nn.LeakyReLU()
+        self.dropout = nn.Dropout(0.1)
+
+    def forward(self, x):
+        """
+        :param x: input batch of location tokens, shape (batch_size)
+        :return: prediction of the corresponding location categories, shape (batch_size, output_size)
+        """
+        h = self.dropout(self.embed_layer(x))  # (batch_size, input_size)
+        h = self.dropout(self.act(self.input_linear(h)))
+        h = self.dropout(self.act(self.hidden_linear(h)))
+        out = self.output_linear(h)
+        return out

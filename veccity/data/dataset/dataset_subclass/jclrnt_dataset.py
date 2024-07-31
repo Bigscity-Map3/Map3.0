@@ -56,29 +56,29 @@ class JCLRNTDataset(AbstractDataset):
         self.cache_file_name = os.path.join(self.cache_file_folder,
                                             f'{self.model}_{self.dataset}_{int(self.edge_threshold*10)}_{self.max_len}_{self.min_len}.pickle')
         self.construct_road_adj()
-        if os.path.exists(self.cache_file_name):
-            self._logger.info('cache_file_name='+self.cache_file_name)
-            with open(self.cache_file_name, 'rb') as file:
-                self.edge_index=pickle.load(file)
-                self.od_matrix=pickle.load(file)
-                self.edge_index_aug=pickle.load(file)
-                self.traj_arr_train=pickle.load(file)
-                self.traj_arr_test=pickle.load(file)
-                self._logger.info('load cache file success')
-        else: 
-            self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
-            self.traj_arr = self.prepare_traj_data()
-            train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
-            test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
-            self.traj_arr_train = self.prepare_traj_test_data(train_path)
-            self.traj_arr_test = self.prepare_traj_test_data(test_path)
-            with open(self.cache_file_name, 'wb') as file:
-                pickle.dump(self.edge_index,file)
-                pickle.dump(self.od_matrix,file)
-                pickle.dump(self.edge_index_aug,file)
-                pickle.dump(self.traj_arr_train,file)
-                pickle.dump(self.traj_arr_test,file)
-                self._logger.info('save cache file success')
+        # if os.path.exists(self.cache_file_name):
+        #     self._logger.info('cache_file_name='+self.cache_file_name)
+        #     with open(self.cache_file_name, 'rb') as file:
+        #         self.edge_index=pickle.load(file)
+        #         self.od_matrix=pickle.load(file)
+        #         self.edge_index_aug=pickle.load(file)
+        #         self.traj_arr_train=pickle.load(file)
+        #         self.traj_arr_test=pickle.load(file)
+        #         self._logger.info('load cache file success')
+        # else: 
+        self.train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
+        self.traj_arr = self.prepare_traj_data()
+        train_path = os.path.join(data_cache_dir, 'traj_road_train.csv')
+        test_path = os.path.join(data_cache_dir, 'traj_road_test.csv')
+        self.traj_arr_train = self.prepare_traj_test_data(train_path)
+        self.traj_arr_test = self.prepare_traj_test_data(test_path)
+        #     with open(self.cache_file_name, 'wb') as file:
+        #         pickle.dump(self.edge_index,file)
+        #         pickle.dump(self.od_matrix,file)
+        #         pickle.dump(self.edge_index_aug,file)
+        #         pickle.dump(self.traj_arr_train,file)
+        #         pickle.dump(self.traj_arr_test,file)
+        #         self._logger.info('save cache file success')
         
         self.generate_train_data()
 

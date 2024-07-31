@@ -1,4 +1,5 @@
 {
     "learner": "sgd",
-    "is_static": true
+    "is_static": true,
+    "embed_size":128
 }

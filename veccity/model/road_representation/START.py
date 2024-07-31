@@ -24,6 +24,7 @@ class START(nn.Module):
         self._logger = getLogger()
         self._logger.info("Building BERTContrastiveLM model")
 
+
         self.bert = BERT(config, data_feature)
 
         self.mask_l = MaskedLanguageModel(self.d_model, self.vocab_size)
@@ -865,7 +866,6 @@ class BERT(nn.Module):
 
         # paper noted they used 4*hidden_size for ff_network_hidden_size
         self.feed_forward_hidden = self.d_model * self.mlp_ratio
-
         # embedding for BERT, sum of ... embeddings
         self.embedding = BERTEmbedding(d_model=self.d_model, dropout=self.dropout,
                                        add_time_in_day=self.add_time_in_day, add_day_in_week=self.add_day_in_week,

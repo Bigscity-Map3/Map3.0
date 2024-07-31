@@ -17,7 +17,7 @@ from veccity.model.poi_representation.poi2vec import P2VData
 from veccity.model.poi_representation.teaser import TeaserData
 from veccity.model.poi_representation.w2v import SkipGramData
 from datetime import datetime
-from veccity.model.poi_representation.cacsr import CacsrData
+# from veccity.model.poi_representation.cacsr import CacsrData
 from veccity.utils import parse_time, cal_timeoff, ensure_dir
 import pickle
 
@@ -216,33 +216,22 @@ class SkipGramDataLoader(POIRepresentationDataLoader):
             yield batch_count, pos_u, pos_v, neg_v
             
 class CacsrDataLoader(POIRepresentationDataLoader):
-    def __init__(self, config, data_feature, data):
-        super().__init__(config, data_feature, data)
-        self.dataset = CacsrData(config,data_feature)
+
     def next_batch(self):
-        for batch in next_batch(sklearn.utils.shuffle(self.dataset.data_train), self.batch_size):
-            batch = sorted(batch, key=lambda x: len(x[0]), reverse=True)  
+        num_vocab = self.data_feature.get('num_loc')
+        user_ids, src_tokens, src_weekdays, src_ts, src_lens, _, _, _, _ = zip(*self.data)
+        for batch in next_batch(sklearn.utils.shuffle(list(zip(user_ids,src_tokens, src_ts, src_lens))),
+                                batch_size=self.batch_size):
+            batch = sorted(batch, key=lambda x: len(x[1]), reverse=True)  
+            src_user,src_batch, src_t_batch, src_len_batch = zip(*batch)
+            src_batch = torch.from_numpy(np.transpose(np.array(list(zip_longest(*src_batch, fillvalue=num_vocab))))).long().to(self.device)
+            src_t_batch = np.transpose(np.array(list(zip_longest(*src_t_batch, fillvalue=0))))
+            hour_batch = (src_t_batch % (24 * 60 * 60) / 60 / 60)
+            hour_batch=torch.from_numpy(hour_batch).long().to(self.device)
+            src_len_batch = torch.tensor(src_len_batch).long().to(self.device)
+            src_user = torch.tensor(src_user).long().to(self.device)
 
-            X_all_loc = [item[0] for item in batch]
-            X_all_tim = [item[1] for item in batch]
-            X_all_text = [item[2] for item in batch]
-            Y_location = [lid for item in batch for lid in item[3]] 
-            target_lengths = [item[4] for item in batch]
-            X_lengths = [item[5] for item in batch]
-            X_users = [item[6] for item in batch]
-
-            padded_X_all_loc = pad_session_data_one(X_all_loc)
-            padded_X_all_tim = pad_session_data_one(X_all_tim)
-            # padded_X_all_loc = torch.tensor(padded_X_all_loc).long().to(self.device)
-            # padded_X_all_tim = torch.tensor(padded_X_all_tim).long().to(self.device)
-            
-            
-            X_all_loc = torch.LongTensor(padded_X_all_loc).to(self.device)  # (batch, max_all_length)
-            X_all_tim = torch.LongTensor(padded_X_all_tim).to(self.device)  # (batch, max_all_length)
-            Y_location = torch.Tensor(Y_location).long().to(self.device)  # (Batch,)  
-            X_users = torch.Tensor(X_users).long().to(self.device)
-            yield X_all_loc, X_all_tim, X_all_text, Y_location, target_lengths, X_lengths, X_users
-        
+            yield src_batch, hour_batch, src_len_batch,src_user       
         
     
 
@@ -280,15 +269,15 @@ class POIRepresentationDataset(AbstractDataset):
         self.cache=self.config.get('cache',False)
         self.dataset = self.config.get('dataset')
         self.test_scale = self.config.get('test_scale', 0.4)
-        self.min_len = self.config.get('min_len', 3)  # 轨迹最短长度
-        self.min_frequency = self.config.get('min_frequency', 10)  # POI 最小出现次数
-        self.min_poi_cnt = self.config.get('min_poi_cnt', 50)  # 用户最少拥有 POI 数
+        self.min_len = self.config.get('poi_min_len', 5)  # 轨迹最短长度
+        self.min_frequency = self.config.get('poi_min_frequency', 10)  # POI 最小出现次数
+        self.min_poi_cnt = self.config.get('poi_min_poi_cnt', 50)  # 用户最少拥有 POI 数
         self.pre_len = self.config.get('pre_len', 3)  # 预测后 pre_len 个 POI
         self.min_sessions = self.config.get('min_sessions', 3)# 每个user最少的session数
         self.time_threshold = self.config.get('time_threshold', 24)# 超过24小时就切分,暂时
         self.cut_method = self.config.get('cut_method','time_interval') # time_interval, same_day, fix_len
         self.w2v_window_size = self.config.get('w2v_window_size', 1)
-        self.max_seq_len=self.config.get('max_seq_len',128)
+        self.max_seq_len=self.config.get('poi_max_seq_len',32)
         self.data_path = './raw_data/' + self.dataset + '/'
         self.offset = 0
         self.cache_file_name = os.path.join(self.cache_file_folder,

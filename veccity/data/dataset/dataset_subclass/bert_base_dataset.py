@@ -305,6 +305,7 @@ class TrajectoryProcessingDataset(Dataset):
         self.add_cls = add_cls
         self.max_train_size = max_train_size
         self._logger = getLogger()
+        self.data_type=data_type
 
         self.data_path = cache_dir+'/{}/traj_road_{}.csv'.format(data_name, data_type)
         self.cache_path = cache_dir+'/{}/cache_{}_{}_{}_{}_{}.pkl'.format(
@@ -334,10 +335,8 @@ class TrajectoryProcessingDataset(Dataset):
                 mat[i][j] = off
         return mat  # (seq_len, seq_len)
 
-
-
     def data_processing(self, origin_data, desc=None, cache_path=None, tmat_path=None):
-        self._logger.info('Processing dataset in TrajectoryProcessingDataset!')
+        self._logger.info(f'Processing {self.data_type} dataset in TrajectoryProcessingDataset!')
         sub_data = origin_data[['path', 'tlist', 'usr_id', 'traj_id']]
         traj_list = []
         temporal_mat_list = []
@@ -359,8 +358,8 @@ class TrajectoryProcessingDataset(Dataset):
                 tim_list = [tim_list[0]] + tim_list
             temporal_mat = self._cal_mat(tim_list)
             temporal_mat_list.append(temporal_mat)
-            traj_fea = np.array([new_loc_list, tim_list, minutes, weeks, usr_list]).transpose((1, 0))
-            traj_list.append(traj_fea)
+            traj_feat = np.array([new_loc_list, tim_list, minutes, weeks, usr_list]).transpose((1, 0))
+            traj_list.append(traj_feat)
         if cache_path is None:
             cache_path = self.cache_path
         if tmat_path is None:
@@ -517,7 +516,6 @@ def cal_matmul(mat1, mat2):
         for j in tqdm(range(n), desc='inner'):
             res[i, j] = np.dot(mat1[i, :], mat2[:, j])
     return res
-
 
 
 def select_geo_rel(selected_geo_ids, selected_path,new_data_name,road_path, geo_path,rel_path, use_mask, min_freq):

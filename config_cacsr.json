@@ -11,6 +11,4 @@
     "poi_type_name" : "venue_category_id",
     "is_static":true,
     "downstream_hidden_dim" : 128
-    
-    
   }

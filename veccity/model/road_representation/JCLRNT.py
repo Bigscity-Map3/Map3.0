@@ -23,12 +23,14 @@ class JCLRNT(AbstractReprLearningModel):
         self.model = config.get('model', '')
         self.exp_id = config.get('exp_id', None)
         self.dataset = config.get('dataset', '')
-        e1 = data_feature.get('edge_index')
-        e2 = data_feature.get('edge_index_aug')
+        e1 = data_feature.get('struct_edge_index')
+        e2 = data_feature.get('trans_edge_index')
+
         self.edge_index1 = dgl.graph((e1[0], e1[1]))
         self.edge_index2 = dgl.graph((e2[0], e2[1]))
         self.edge_index1 = dgl.add_self_loop(self.edge_index1)
         self.edge_index2 = dgl.add_self_loop(self.edge_index2)
+
         self.model_cache_file = './veccity/cache/{}/model_cache/embedding_{}_{}_{}.m'. \
             format(self.exp_id, self.model, self.dataset, self.output_dim)
         self.traj_train_embedding_file = './veccity/cache/{}/evaluate_cache/traj_train_embedding_{}_{}_{}.npy'. \
@@ -47,11 +49,12 @@ class JCLRNT(AbstractReprLearningModel):
         self.is_weighted = config.get('weighted_loss', False)
         self.mode = config.get('mode', 's')
         self.l_st = config.get('lambda_st', 0.8)
-        self.traj_train = torch.from_numpy(data_feature.get('traj_arr_train'))
-        self.traj_test = torch.from_numpy(data_feature.get('traj_arr_test'))
+        # self.traj_train = torch.from_numpy(data_feature.get('traj_arr_train'))
+        # self.traj_test = torch.from_numpy(data_feature.get('traj_arr_test'))
         self.l_ss = self.l_tt = 0.5 * (1 - self.l_st)
         self.activation = {'relu': nn.ReLU(), 'prelu': nn.PReLU()}[config.get("activation", "relu")]
         self.num_epochs = config.get('num_epochs', 5)
+        self.vocab=data_feature.get("vocab")
 
         self.graph_encoder1 = GraphEncoder(self.output_dim, self.hidden_size, GATConv, 2, self.activation)
         self.graph_encoder2 = GraphEncoder(self.output_dim, self.hidden_size, GATConv, 2, self.activation)
@@ -60,44 +63,34 @@ class JCLRNT(AbstractReprLearningModel):
                                self.graph_encoder1, self.graph_encoder2, self.seq_encoder,self.device).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
-    def run(self, data=None):
-        if not self.config.get('train') and os.path.exists(self.road_embedding_path):
-            return
-        start_time = time.time()
-        for epoch in tqdm(range(self.iter)):
-            total_loss = 0
-            self.model.train()
-            for n, data_batch in enumerate(self.dataloader):
-                data_batch = data_batch.to(self.device)
-                w_batch = 0
-                self.optimizer.zero_grad()
-                node_rep1, node_rep2, seq_rep1, seq_rep2 = self.model(data_batch)
-                # loss_ss = node_node_loss(node_rep1, node_rep2, self.measure,self.device)
-                loss_ss = 0
-                loss_tt = seq_seq_loss(seq_rep1, seq_rep2, self.measure,self.device)# 负数
-                if self.is_weighted:
-                    loss_st1 = weighted_ns_loss(node_rep1, seq_rep2, w_batch, self.measure)
-                    loss_st2 = weighted_ns_loss(node_rep2, seq_rep1, w_batch, self.measure)
-                else:
-                    loss_st1 = node_seq_loss(node_rep1, seq_rep2, data_batch, self.measure,self.device)# 负数
-                    loss_st2 = node_seq_loss(node_rep2, seq_rep1, data_batch, self.measure,self.device)
-                loss_st = (loss_st1 + loss_st2) / 2
-                loss = self.l_ss * loss_ss + self.l_tt * loss_tt + self.l_st * loss_st
-                total_loss += loss
-                loss.backward()
-                self.optimizer.step()
-            self._logger.info("Epoch {}, Loss {}".format(epoch, total_loss))
-        t1 = time.time()-start_time
-        self._logger.info('cost time is '+str(t1/self.iter))
+    def calculate_loss(self,batch,w_batch):
+        seq,padding_mask=batch
+        seq = seq.to(self.device)
+        padding_mask=padding_mask.to(self.device)
+        node_rep1, node_rep2, seq_rep1, seq_rep2 = self.model(seq,padding_mask)
+        # loss_ss = node_node_loss(node_rep1, node_rep2, self.measure,self.device)
+        loss_ss = 0
+        loss_tt = seq_seq_loss(seq_rep1, seq_rep2, self.measure,self.device)# 负数
+        if self.is_weighted:
+            loss_st1 = weighted_ns_loss(node_rep1, seq_rep2, w_batch, self.measure)
+            loss_st2 = weighted_ns_loss(node_rep2, seq_rep1, w_batch, self.measure)
+        else:
+            loss_st1 = node_seq_loss(node_rep1, seq_rep2, batch[0], self.measure,self.device)# 负数
+            loss_st2 = node_seq_loss(node_rep2, seq_rep1, batch[0], self.measure,self.device)
+        loss_st = (loss_st1 + loss_st2) / 2
+        loss = self.l_ss * loss_ss + self.l_tt * loss_tt + self.l_st * loss_st
 
+        return loss
+
+
+    def get_static_embedding(self):
         node_embedding = self.model.encode_graph()[0].cpu().detach().numpy().squeeze(1)
-        np.save(self.road_embedding_path,node_embedding)
-        torch.save((self.model.state_dict(), self.optimizer.state_dict()), self.model_cache_file)
-        self.save_traj_embedding(self.traj_train,self.traj_train_embedding_file)
-        # self.save_traj_embedding(self.traj_test,self.traj_test_embedding_file)
+        return node_embedding
     
-    def encode_sequence(self,sequences,lengths):
-        out,_,_=self.model.encode_sequence(sequences,lengths)
+    def encode_sequence(self,batch):
+        seq=batch['seq'].to(self.device)
+        padding_masks=batch['padding_masks'].to(self.device)
+        out,_,_=self.model.encode_sequence(seq,padding_masks)
         return out
         
     def save_traj_embedding(self,traj_test,traj_embedding_file):
@@ -165,8 +158,10 @@ def seq_seq_loss(seq_rep1, seq_rep2, measure,device):
 def node_seq_loss(node_rep, seq_rep, sequences, measure,device):
     batch_size = seq_rep.shape[0]
     num_nodes = node_rep.shape[0]
+    sequences=sequences[:,:,0]
 
     pos_mask = torch.zeros((batch_size, num_nodes + 1)).to(device)
+
     for row_idx, row in enumerate(sequences):
         row = row.type(torch.long)
         pos_mask[row_idx][row] = 1.
@@ -255,42 +250,43 @@ class MultiViewModel(nn.Module):
 
     def encode_graph(self):
         node_emb = self.node_embedding.weight.detach()
+
         node_enc1 = self.graph_encoder1(self.edge_index1,node_emb)
         node_enc2 = self.graph_encoder2(self.edge_index2,node_emb)
         return node_enc1 + node_enc2, node_enc1.view(self.vocab_size, -1), node_enc2.view(self.vocab_size, -1)
 
-    def encode_sequence(self, sequences,lens=None):
+    def encode_sequence(self, sequences,padding_mask=None):
 
         _, node_enc1, node_enc2 = self.encode_graph()
 
+        # feat:loc_list, tim_list, minutes, weeks, usr
+        if len(sequences.shape)==3:
+            sequences=sequences[:,:,0]
         batch_size, max_seq_len = sequences.size()
-        if lens != None :
-            pool_mask = torch.ones([batch_size,max_seq_len],dtype=torch.int64).cuda()
-            for i in range(batch_size):
-                pool_mask[i,int(lens[i]):]= 0
-            src_key_padding_mask = pool_mask==0
-
-            pool_mask = pool_mask.transpose(0, 1).unsqueeze(-1)
+        
+        if padding_mask != None :
+            padding_mask=~padding_mask
+            pool_mask=(1 - padding_mask.int()).transpose(0, 1).unsqueeze(-1)
         else:
-            src_key_padding_mask = (sequences == self.vocab_size)
-            pool_mask = (1 - src_key_padding_mask.int()).transpose(0, 1).unsqueeze(-1)
+            padding_mask = (sequences == self.vocab_size)
+            pool_mask = (1 - padding_mask.int()).transpose(0, 1).unsqueeze(-1)
 
         lookup_table1 = torch.cat([node_enc1, self.padding], 0)
         
         seq_emb1 = torch.index_select(
             lookup_table1, 0, sequences.view(-1)).view(batch_size, max_seq_len, -1).transpose(0, 1)
-        seq_enc1 = self.seq_encoder(seq_emb1, None, src_key_padding_mask)
+        seq_enc1 = self.seq_encoder(seq_emb1, None, padding_mask)
 
         seq_pooled1 = (seq_enc1 * pool_mask).sum(0) / pool_mask.sum(0)
 
         lookup_table2 = torch.cat([node_enc2, self.padding], 0)
         seq_emb2 = torch.index_select(
             lookup_table2, 0, sequences.view(-1)).view(batch_size, max_seq_len, -1).transpose(0, 1)
-        seq_enc2 = self.seq_encoder(seq_emb2, None, src_key_padding_mask)
+        seq_enc2 = self.seq_encoder(seq_emb2, None, padding_mask)
         seq_pooled2 = (seq_enc2 * pool_mask).sum(0) / pool_mask.sum(0)
         return seq_pooled1 + seq_pooled2, seq_pooled1, seq_pooled2
 
     def forward(self, sequences,padding_mask=None):
         _, node_enc1, node_enc2 = self.encode_graph()
-        _, seq_pooled1, seq_pooled2 = self.encode_sequence(sequences)
+        _, seq_pooled1, seq_pooled2 = self.encode_sequence(sequences,padding_mask)
         return node_enc1, node_enc2, seq_pooled1, seq_pooled2

@@ -7,8 +7,8 @@ from veccity.utils.argument_list import general_arguments, str2bool, \
     str2float, hyper_arguments, add_general_args, add_hyper_args
 from veccity.utils.normalization import Scaler, NoneScaler, NormalScaler, \
     StandardScaler, MinMax01Scaler, MinMax11Scaler, LogScaler
-from veccity.utils.osm_loader import OSMLoader
 from veccity.utils import tool_funcs
+from veccity.utils.osm_loader import OSMLoader
 from veccity.utils.edge_index import EdgeIndex
 from veccity.utils.Config import Config
 

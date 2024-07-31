@@ -6,5 +6,7 @@
   "share": false,
   "learner": "adam",
   "learning_rate": 0.001,
-  "is_static": true
+  "is_static": false,
+  "embed_epoch": 100,
+  "embed_size":128
 }

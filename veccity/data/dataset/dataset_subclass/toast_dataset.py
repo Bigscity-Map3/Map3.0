@@ -223,7 +223,7 @@ class ToastDataLoader(Dataset):
 
 
 class RandomWalker():
-    def __init__(self, adj_matrix,node2id,node2type):
+    def __init__(self, adj_matrix, node2id, node2type):
         self.G = adj_matrix
         self.neighbors = [[]] * self.G.shape[0]
         for v in range(self.G.shape[0]):

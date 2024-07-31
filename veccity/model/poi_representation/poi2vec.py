@@ -98,12 +98,19 @@ num_inner_nodes = 0
 
 
 class P2VData(W2VData):
-    def __init__(self, sentences, coor_df, theta=0.01, indi_context=False):
+    def __init__(self, sentences, coor_df, theta=0.1, indi_context=False):
         super().__init__(sentences)
         self.sentences = sentences
         self.indi_context = indi_context
 
         # Root node of the tree.
+        # 限制他的inner node 过大或过小
+        dis1=coor_df['lng'].max()-coor_df['lng'].min()
+        dis2=coor_df['lat'].max()-coor_df['lat'].min()
+        dis=(dis1+dis2)/2
+        theta=dis/100
+    
+
         self.tree = AreaNode(left=coor_df['lng'].min(), right=coor_df['lng'].max(),
                              top=coor_df['lat'].max(), bottom=coor_df['lat'].min(),
                              level=0, theta=theta)

@@ -10,7 +10,6 @@ from tqdm import tqdm
 import copy
 from veccity.data.preprocess import preprocess_all, cache_dir
 
-
 class TrafficRepresentationDataset(AbstractDataset):
     def __init__(self, config):
         self.config = config

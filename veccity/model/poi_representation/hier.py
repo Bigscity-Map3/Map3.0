@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from sklearn.utils import shuffle
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence,pad_packed_sequence
 
 from veccity.model.poi_representation.utils import next_batch
 from veccity.model.abstract_model import AbstractModel
@@ -41,6 +41,7 @@ class HierEmbedding(nn.Module):
         hour = self.hour_embed(hour)
         duration = self.duration_embed(duration)
 
+
         return self.dropout(torch.cat([token, week, hour, duration], dim=-1))
     
 
@@ -56,8 +57,8 @@ class Hier(AbstractModel):
         dropout = config.get('dropout', 0.1)
         num_layers = config.get('num_layers', 4)
         embed_size = config.get('embed_size', 128)
-        hidden_size = embed_size * 4
-        num_loc = data_feature.get('num_loc')
+        hidden_size = embed_size
+        num_loc = data_feature.get('num_loc')+1
         self.embed = HierEmbedding(embed_size, num_loc,
                                    hier_week_embed_size, hier_hour_embed_size, hier_duration_embed_size)
         self.add_module('embed', self.embed)
@@ -79,7 +80,7 @@ class Hier(AbstractModel):
         :return: the output prediction of next vocab, shape (batch, seq_len, num_vocab)
         """
         embed = self.embed(token, week, hour, duration)  # (batch, seq_len, embed_size)
-        packed_embed = pack_padded_sequence(embed, valid_len, batch_first=True, enforce_sorted=False)
+        packed_embed = pack_padded_sequence(embed, valid_len.cpu(), batch_first=True, enforce_sorted=False)
         encoder_out, hc = self.encoder(packed_embed)  # (batch, seq_len, hidden_size)
         out = self.out_linear(encoder_out.data)  # (batch, seq_len, token_embed_size)
 
@@ -90,16 +91,21 @@ class Hier(AbstractModel):
     def static_embed(self):
         return self.embed.token_embed.weight[:self.embed.num_vocab].detach().cpu().numpy()
     
-    def encode(self, token, **kwargs):
-        # week, hour, duration= kwargs['week'], kwargs['hour'], kwargs['duration']
-        embed = self.embed.token_embed(token)  # (batch, seq_len, embed_size)
-        return embed
+    def encode(self, inputs):
+        token=inputs['seq']
+        week, hour, duration= inputs['weekday'], inputs['hour'], inputs['duration']
+        valid_len=inputs['length']
+        embed = self.embed(token, week, hour, duration)  # (batch, seq_len, embed_size)
+        packed_embed = pack_padded_sequence(embed, valid_len, batch_first=True, enforce_sorted=False)
+        encoder_out, hc = self.encoder(packed_embed)  # (batch, seq_len, hidden_size)
+        encoder_out = pad_packed_sequence(encoder_out, batch_first=True)
+        return encoder_out[0]
 
     def calculate_loss(self, batch):
         src_token, src_weekday, src_hour, src_duration, src_len = batch
         hier_out = self.forward(token=src_token[:, :-1], week=src_weekday[:, :-1], hour=src_hour[:, :-1],
                                 duration=src_duration, valid_len=src_len - 1)  # (batch, seq_len, num_vocab)
-        trg_token = pack_padded_sequence(src_token[:, 1:], src_len - 1, batch_first=True,
+        trg_token = pack_padded_sequence(src_token[:, 1:], (src_len - 1).cpu(), batch_first=True,
                                          enforce_sorted=False).data
         loss_func = nn.CrossEntropyLoss()
         return loss_func(hier_out, trg_token)

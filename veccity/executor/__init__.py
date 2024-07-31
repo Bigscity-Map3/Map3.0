@@ -7,6 +7,7 @@ from veccity.executor.general_executor import GeneralExecutor
 from veccity.executor.twostep_executor import TwoStepExecutor
 from veccity.executor.poi_representation_executor import POIRepresentationExecutor
 from veccity.executor.contra_mlm_executor import ContrastiveMLMExecutor
+from veccity.executor.lineseq_executor import LineSeqExecutor
 
 __all__ = [
     "HyperTuning",
@@ -17,5 +18,6 @@ __all__ = [
     "LINEExecutor",
     "TwoStepExecutor",
     "POIRepresentationExecutor",
-    "ContrastiveMLMExecutor"
+    "ContrastiveMLMExecutor",
+    "LineSeqExecutor"
 ]

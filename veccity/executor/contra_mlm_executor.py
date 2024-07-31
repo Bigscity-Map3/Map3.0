@@ -18,40 +18,13 @@ class ContrastiveMLMExecutor(ContrastiveExecutor):
         self.dataset=config.get('dataset')
         self.road_embedding_path = './veccity/cache/{}/evaluate_cache/road_embedding_{}_{}_{}.npy'. \
             format(self.exp_id, self.model_name, self.dataset, self.d_model1)
+
     
     def save_token_embedding(self):
         self._logger.info('saving token embedding in {}'.format(self.road_embedding_path))
         emb=self.model.save_token_embedding(self.graph_dict)
         emb=emb.cpu().detach().numpy()
-        self.use_mask=True
-        self.min_freq=1
-
-        new_data_name = '{}_{}_{}_withdegree'.format(self.dataset, self.use_mask, self.min_freq)
-        base_path = "veccity/cache/dataset_cache/{}/".format(self.model_name)
-        geo_path=base_path+new_data_name+'.geo'
-        self.geo_file=pd.read_csv(geo_path)
-        node_list=self.geo_file['id'].to_list()
-        node2id={}
-        for i in range(len(node_list)):
-            node2id[node_list[i]]=i
-
-        specials = ["<pad>", "<unk>", "<sos>", "<mask>"]
-        road_path="veccity/cache/dataset_cache/{}/road.csv".format(self.dataset)
-        road_list=pd.read_csv(road_path)
-        if 'id' not in road_list.keys():
-            road_list['id'] = list(range(len(road_list)))
-        road_list=road_list['id'].to_list()
-        unk=emb[1]
-        emb=emb[4:]
-        
-        new_embed=np.zeros([len(road_list),emb.shape[1]],dtype=np.float32)
-        for i in road_list:
-            if i in node_list:
-                new_embed[i]=emb[node2id[i]]
-            else:
-                new_embed[i]=unk
-        print(new_embed.shape)
-        np.save(self.road_embedding_path, new_embed)
+        np.save(self.road_embedding_path, emb)
 
 
 

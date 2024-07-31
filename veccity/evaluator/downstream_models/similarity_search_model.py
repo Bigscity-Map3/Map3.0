@@ -233,6 +233,8 @@ class SimilaritySearchModel(AbstractModel):
 
         index = faiss.IndexFlatL2(x.shape[1])
         index.add(x)
+        import pdb
+        pdb.set_trace()
         D, I = index.search(q, 10000)
         self.result = {}
         top = [1, 3, 5, 10, 20]

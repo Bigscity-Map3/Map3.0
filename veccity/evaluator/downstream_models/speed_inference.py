@@ -17,17 +17,31 @@ class SpeedInferenceModel(AbstractModel):
         self.result_path = './veccity/cache/{}/evaluate_cache/regression_{}_{}.npy'. \
             format(self.exp_id, self.alpha, self.n_split)
 
-    def run(self, x, label):
-        self._logger.info("--- Speed Inference ---")
-        x_ = []
-        index = label['speed']['index']
-        for i in index:
-            x_.append(x[int(i)])
-        x = np.array(x_)
-        y = np.array(label['speed']['speed'])
+    def run(self, model, label):
+        self._logger.info("-------- Speed Inference --------")
+        x=model.get_static_embedding()
+
+        vocab=model.vocab
+
+        # change the y same to the x
+        y = np.array(label['speed']['speed']) #shape=5269
+        index=np.array(label['speed']['index'])
+        index_x=[]
+        index_y=[]
+        for i in range(index.shape[0]):
+            geo_id=index[i]
+            if geo_id in vocab.loc2index:
+                index_y.append(i)
+                index_x.append(vocab.loc2index[geo_id])
+        
+                
+        x=x[index_x]
+        y=y[index_y]
+        
         kf = KFold(n_splits=self.n_split)
         y_preds = []
         y_truths = []
+
         for train_index, test_index in kf.split(x):
             train_index = list(train_index)
             test_index = list(test_index)

@@ -2,5 +2,5 @@
     "representation_object": "road",
     "max_epoch": 100,
     "output_dim": 128,
-    "is_static": true
+    "is_static": false
 }

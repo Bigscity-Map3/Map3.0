@@ -167,6 +167,8 @@ class POIRepresentationExecutor(AbstractExecutor):
                 embed_mat = self.model.static_embed()
                 embed_layer = StaticEmbed(embed_mat)
                 self.data_feature['embed_layer'] = embed_layer
+            else:
+                self.data_feature['embed_layer'] = self.model
 
     def evaluate(self, test_dataloader):
         """
@@ -177,7 +179,7 @@ class POIRepresentationExecutor(AbstractExecutor):
 
     def load_model(self, cache_name):
         self._logger.info("Loaded model at " + cache_name)
-        model_state, optimizer_state = torch.load(cache_name)
+        model_state, optimizer_state = torch.load(cache_name,map_location=torch.device("cpu"))
         self.model.load_state_dict(model_state)
         self.optimizer.load_state_dict(optimizer_state)
         if self.is_static:
@@ -195,3 +197,13 @@ class POIRepresentationExecutor(AbstractExecutor):
         model_path = self.cache_dir + '/' + self.config['model'] + '_' + self.config['dataset'] + '.m'
         torch.save((self.model.state_dict(), self.optimizer.state_dict()), model_path)
         self._logger.info("Saved model at {}".format(model_path))
+
+        if self.is_static:
+            if self.config.get('model') == 'DownstreamEmbed':
+                embed_layer = DownstreamEmbed(self.config, self.data_feature)
+            else:
+                embed_mat = self.model.static_embed()
+                embed_layer = StaticEmbed(embed_mat)
+            self.data_feature['embed_layer'] = embed_layer
+        else:
+            self.data_feature['embed_layer'] = self.model

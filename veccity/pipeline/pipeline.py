@@ -40,7 +40,7 @@ def run_model(task=None, model_name=None, dataset_name=None, config_file=None,
                 format(str(task), str(model_name), str(dataset_name), str(exp_id)))
     logger.info(config.config)
     # seed
-    seed = config.get('seed', 0)
+    seed = config.get('seed', 31)
     set_random_seed(seed)
     # 加载数据集
     dataset = get_dataset(config)

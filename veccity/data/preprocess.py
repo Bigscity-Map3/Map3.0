@@ -2,6 +2,8 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import sys 
+sys.path.append("/home/panda/remote/zwt/Map3.0")
 from logging import getLogger
 from datetime import datetime
 from tqdm import tqdm,trange
@@ -9,6 +11,7 @@ import networkx as nx
 from itertools import cycle, islice
 from random import randint
 from veccity.utils import ensure_dir
+from random import shuffle
 
 
 cache_dir = os.path.join('veccity', 'cache', 'dataset_cache')
@@ -58,6 +61,7 @@ class preprocess_traj(PreProcess):
             return
         file_name = 'traj_road.csv'
         self.data_file = os.path.join(self.data_dir, file_name)
+        self.min_seq_len=config.get('min_seq_len',10)
         
         if not os.path.exists(self.data_file):
             dyna_df = pd.read_csv(self.dyna_file)
@@ -434,6 +438,62 @@ def build_graph(rel_file, geo_file):
 
     return graph,node_size
 
+
+def avg_speed(train_file, road_name):
+    path_file = train_file
+    rel_file = os.path.join('raw_data', '{0}/{0}.rel'.format(road_name))
+    geo_file = os.path.join('raw_data', '{0}/{0}.geo'.format(road_name))
+    
+    print(geo_file, rel_file, 'raw_data')
+
+    rel = pd.read_csv(rel_file)
+    geo = pd.read_csv(geo_file)
+    #调整成只有road的版本
+    geo=geo[geo.traffic_type=='road']
+    rel=rel[rel.rel_type=='road2road']
+
+    path = pd.read_csv(path_file)
+
+    max_id = max(geo.geo_id)
+    link_array = np.zeros([max_id + 1, max_id + 1, 2])
+    node_array = np.zeros([max_id + 1, 2])
+    
+    max_length = 128
+    for i, row in tqdm(path.iterrows(), total=path.shape[0]):
+        plist = eval(row.path)[:max_length]
+        tlist = eval(row.tlist)[:max_length]
+        for i in range(len(plist) - 1):
+            prev_id = plist[i]
+            next_id = plist[i + 1]
+            prev_time = tlist[i]
+            next_time = tlist[i + 1]
+            diff_time = next_time - prev_time
+            link_array[prev_id][next_id][0] += diff_time
+            link_array[prev_id][next_id][1] += 1
+            node_array[prev_id][0] += diff_time
+            node_array[prev_id][1] += 1
+
+    err_geo_count = 0
+    road_id=[]
+    avg_speeds=[]
+    for i, row in tqdm(geo.iterrows(), total=geo.shape[0]):
+        # pdb.set_trace()
+        curr_id = int(row.road_id)
+        all_duration, all_time = node_array[curr_id]
+        if all_time == 0:
+            err_geo_count += 1
+        else:
+            # pdb.set_trace()
+            lens=row.road_length
+            road_id.append(curr_id)
+            avg_speeds.append(lens/(all_duration / all_time))
+
+    print("err_geo_count", err_geo_count, '/', geo.shape[0])
+    data={'index':road_id,'speed':avg_speeds}
+    df=pd.DataFrame(data)
+    df.to_csv(cache_dir+f'/{road_name}/label_data/avg_speeds.csv',index=None)
+
+
 def detour(graph, path,node_size, max_len=120):
     ind=np.random.randint(len(path)-2)
     new_len=2
@@ -467,6 +527,88 @@ def detour(graph, path,node_size, max_len=120):
         new_path = new_path[:max_len]
     
     return new_path
+
+
+def do_detour_by_topk(graph,row, duration_thres_range=(0, 0.1), max_len=128, percent=0.1):
+    new_path = None
+    new_time = None
+    ori_path = eval(row.path)
+    ori_time = eval(row.tlist)
+    max_length = min(max_len, len(ori_path))
+    ori_duration = ori_time[-1] - ori_time[0]
+
+    masked_hop = int(percent * max_length)
+    index_list = list(range(2, int(max_length * (1 - percent))))  # exclude 0 and -num(masked_hop)
+    shuffle(index_list)
+    # Random select a link
+    for select_index in range(len(index_list) // 2):
+        try:
+            dropped_slice = index_list[select_index]
+            dropped_end = dropped_slice + masked_hop
+            dropped_link = ori_path[dropped_slice:dropped_end]
+            # dropped_time = ori_time[dropped_slice:dropped_end]
+
+            begin_link = ori_path[dropped_slice - 1]
+            begin_time = ori_time[dropped_slice - 1]
+            end_link = ori_path[dropped_end]
+            end_time = ori_time[dropped_end]
+
+            added_paths = k_shortest_paths_nx(graph, begin_link, end_link, 10)
+            works_flag = False
+            for added in added_paths:
+                add = added[1:-1]
+                if add == dropped_link:
+                    continue
+                else:
+                    added_path = add
+                    if not added_path:
+                        continue
+                    added_time = []
+                    new_time = graph[begin_link][added_path[0]]['weight']
+                    if new_time == float('inf'):
+                        continue
+                    added_time.append(begin_time + int(new_time))
+
+                    flag = True
+                    for i in range(1, len(added_path)):
+                        new_time = graph[added_path[i - 1]][added_path[i]]['weight']
+                        if new_time == float('inf'):
+                            flag = False
+                            break
+                        added_time.append(added_time[i - 1] + int(new_time))
+                    if flag == False:
+                        continue
+                    new_time = graph[added_path[-1]][end_link]['weight']
+                    if new_time == float('inf'):
+                        continue
+                    added_end_time = added_time[-1] + int(new_time)
+                    eps_time = added_end_time - end_time
+
+                    for t in ori_time[dropped_slice + masked_hop:]:
+                        added_time.append(t + eps_time)
+
+                    new_time = ori_time[:dropped_slice] + added_time
+                    # Make New Path
+                    new_path = ori_path[:dropped_slice] + added_path + ori_path[dropped_slice + masked_hop:]
+                    new_duration = new_time[-1] - new_time[0]
+                    dura_diff = (new_duration - ori_duration) / ori_duration
+
+                    if len(new_path) != len(new_time):
+                        print('ERROR')
+                        exit()
+                    if dura_diff > duration_thres_range[1]:
+                        new_path = None
+                        continue
+                    if new_path == ori_path:
+                        new_path = None
+                        continue
+                    works_flag = True
+                if works_flag is True:
+                    break
+        except Exception as e:
+            print(e)
+            pass
+    return new_path, new_time
 
 
 def preprocess_detour(config):
@@ -571,5 +713,6 @@ def preprocess_all(config):
     preprocess_od(config)
     preprocess_detour(config)
 
-# config={'dataset': "new_xa"}
+# config={'dataset': "bj"}
+# avg_speed('/home/panda/remote/zwt/Map3.0/veccity/cache/dataset_cache/cd/traj_road_train.csv','cd')
 # preprocess_detour(config)

@@ -271,14 +271,33 @@ def accuracy(output, target, topk=(1,)):
     with torch.no_grad():
         maxk = max(topk)
 
-        batch_size = target.size(0)
+        batch_size = target.shape[0]
 
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
-        correct = pred.eq(target)
+        correct = pred.eq(target.T)
 
         res = []
         for k in topk:
             correct_k = correct[:k].float().sum()
             res.append(correct_k.mul_(100.0 / batch_size))
         return res[0],res[-1]
+
+
+class StandardScaler:
+    """
+    Standard the input
+    """
+
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def transform(self, data):
+        return (data - self.mean) / self.std
+
+    def inverse_transform(self, data):
+        if type(data) == torch.Tensor and type(self.mean) == np.ndarray:
+            self.std = torch.from_numpy(self.std).to(data.device).type(data.dtype)
+            self.mean = torch.from_numpy(self.mean).to(data.device).type(data.dtype)
+        return (data * self.std) + self.mean

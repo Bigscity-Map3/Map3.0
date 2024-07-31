@@ -2,9 +2,12 @@ from veccity.evaluator.road_representation_evaluator import RoadRepresentationEv
 from veccity.evaluator.representation_evaluator import RepresentationEvaluator
 from veccity.evaluator.poi_representation_evaluator import POIRepresentationEvaluator
 from veccity.evaluator.hhgcl_evaluator import HHGCLEvaluator
+from veccity.evaluator.lineseq_evaluator import LineSeqEvaluator
+
 __all__ = [
     "RoadRepresentationEvaluator",
     "RepresentationEvaluator",
     "POIRepresentationEvaluator",
-    "HHGCLEvaluator"
+    "HHGCLEvaluator",
+    "LineSeqEvaluator"
 ]

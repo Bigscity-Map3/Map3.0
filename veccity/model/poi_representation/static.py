@@ -33,9 +33,10 @@ class StaticEmbed(nn.Module):
         """
         @param token: input token index.
         """
-        return self.embed[token].detach()
+        return self.embed[token]
     
-    def encode(self,token,**kwargs):
+    def encode(self,inputs):
+        token=inputs['seq']
         return self.embed[token]
     
 
