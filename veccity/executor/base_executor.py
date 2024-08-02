@@ -102,7 +102,7 @@ class BaseExecutor(object):
         """
         ensure_dir(self.cache_dir)
         config = dict()
-        config['model'] = self.model.cpu()
+        config['model_state'] = self.model.cpu().state_dict()
         config['optimizer_state_dict'] = self.optimizer.state_dict()
         torch.save(config, cache_name)
         self.model.to(self.device)
@@ -116,8 +116,8 @@ class BaseExecutor(object):
             cache_name(str): 保存的文件名
         """
         assert os.path.exists(cache_name), 'Weights at {} not found' % cache_name
-        checkpoint = torch.load(cache_name, map_location='cpu')
-        self.model.load_state_dict(checkpoint['model'].state_dict())
+        checkpoint = torch.load(cache_name, map_location='cpu')        
+        self.model.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self._logger.info("Loaded model at " + cache_name)
 
@@ -128,6 +128,8 @@ class BaseExecutor(object):
         Args:
             cache_name(str): 保存的文件名
         """
+        import pdb
+        pdb.set_trace()
         assert os.path.exists(cache_name), 'Weights at {} not found' % cache_name
         checkpoint = torch.load(cache_name, map_location='cpu')
         self.model = checkpoint['model'].to(self.device)

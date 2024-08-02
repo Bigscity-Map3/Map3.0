@@ -1,2 +1,2 @@
 #nohup sh run_road_test.sh JCLRNT xa 0 >run_road_JCLRNT_xa.log 2>&1 &
-python run_model.py --task road_representation --model $1 --dataset $2  --gpu_id $3 --config road_config_128_Test --exp_id $1 --train false
+python run_model.py --task road_representation --model $1 --dataset $2  --gpu_id $3 --config road_config_128_Test --exp_id 15 --train false

@@ -49,7 +49,7 @@
         "Toast": {
             "dataset_class": "ToastDataset",
             "executor": "LineSeqExecutor",
-            "evaluator": "HHGCLEvaluator"
+            "evaluator": "LineSeqEvaluator"
         },
         "HyperRoad": {
             "dataset_class": "HyperRoadDataset",
@@ -64,7 +64,7 @@
         "START":{
             "dataset_class": "STARTDataset",
             "executor": "ContrastiveMLMExecutor",
-            "evaluator": "HHGCLEvaluator"
+            "evaluator": "LineSeqEvaluator"
         },
         "HRNR":{
             "dataset_class": "HRNRDataset",

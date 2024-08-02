@@ -64,6 +64,7 @@ class JCLRNT(AbstractReprLearningModel):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
     def calculate_loss(self,batch,w_batch):
+        
         seq,padding_mask=batch
         seq = seq.to(self.device)
         padding_mask=padding_mask.to(self.device)

@@ -73,6 +73,7 @@ class STSExecutor(AbstractModel):
         for epoch in range(self.epochs):
             total_loss = 0.0
             for step,batch in enumerate(self.train_dataloader):
+                batch.update(kwargs)
                 loss=self.model.calculate_loss(batch)
                 optimizer.zero_grad()
                 loss.backward()
@@ -84,6 +85,7 @@ class STSExecutor(AbstractModel):
             valid_loss=0.0
             with torch.no_grad():
                 for batch in self.eval_dataloader:
+                    batch.update(kwargs)
                     loss=self.model.calculate_loss(batch)
                     valid_loss += loss.item()
             valid_loss=valid_loss/len(self.eval_dataloader)
@@ -96,10 +98,10 @@ class STSExecutor(AbstractModel):
         if best_model:
             self.model=best_model
 
-        self.evaluation()
+        self.evaluation(**kwargs)
         return self.result
 
-    def evaluation(self):
+    def evaluation(self,**kwargs):
         ori_dataloader=self.dataset.ori_dataloader
         qry_dataloader=self.dataset.qry_dataloader
         num_queries=len(qry_dataloader)
@@ -108,6 +110,7 @@ class STSExecutor(AbstractModel):
         x = []
 
         for batch in ori_dataloader:
+            batch.update(kwargs)
             seq_rep = self.model.traj_encoder.encode_sequence(batch)
             if isinstance(seq_rep, tuple):
                 seq_rep = seq_rep[0]
@@ -116,6 +119,7 @@ class STSExecutor(AbstractModel):
 
         q = []
         for batch in qry_dataloader:
+            batch.update(kwargs)
             seq_rep = self.model.traj_encoder.encode_sequence(batch)
             if isinstance(seq_rep, tuple):
                 seq_rep = seq_rep[0]

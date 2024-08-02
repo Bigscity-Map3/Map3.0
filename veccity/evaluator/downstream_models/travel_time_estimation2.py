@@ -96,7 +96,7 @@ class TravelTimeEstimationModel(AbstractModel):
         self._writer = SummaryWriter(self.summary_writer_dir)
 
 
-    def run(self, embed_model):
+    def run(self, embed_model,**kwargs):
         input_dim=self.config.get('embed_size',128)
         hidden_dim=self.config.get('downstream_hidden_size',512)
         is_static=self.config.get('is_static',False)
@@ -118,6 +118,7 @@ class TravelTimeEstimationModel(AbstractModel):
             losses=[]
             for batch in self.train_dataloader:
                 opt.zero_grad()
+                batch=batch.update(kwargs)
                 preds=model(batch)
                 loss = loss_fn(preds, batch['targets'].squeeze().to(self.device))
                 loss.backward()

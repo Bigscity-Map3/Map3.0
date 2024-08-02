@@ -36,7 +36,7 @@
     "gat_heads_per_layer": [8, 16, 1],
     "gat_features_per_layer": [16,16, 128],
     "gat_dropout": 0.6,
-    "gat_K": 3,
+    "gat_K": 1,
     "gat_avg_last": true,
     "load_trans_prob": true,
     "append_degree2gcn": true,

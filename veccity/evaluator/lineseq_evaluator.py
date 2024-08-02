@@ -366,7 +366,7 @@ class LineSeqEvaluator(AbstractEvaluator):
                 result = dw_model.run(model=model,**kwargs)
             if task in ["tte"]:
                 dw_model=TravelTimeEstimationModel(self.config)
-                result = dw_model.run(model)
+                result = dw_model.run(model,**kwargs)
             self.result.update(add_prefix_to_keys(result, task + '_'))
         if 'tte_best epoch' in self.result.keys():
             del self.result['tte_best epoch']

@@ -439,8 +439,12 @@ def build_graph(rel_file, geo_file):
     return graph,node_size
 
 
-def avg_speed(train_file, road_name):
+def avg_speed(config):
+    road_name = config.get('dataset')
+    train_file = cache_dir+f'/{road_name}/traj_road_train.csv'
     path_file = train_file
+    if os.path.exists(cache_dir+f'/{road_name}/label_data/avg_speeds.csv'):
+        return 
     rel_file = os.path.join('raw_data', '{0}/{0}.rel'.format(road_name))
     geo_file = os.path.join('raw_data', '{0}/{0}.geo'.format(road_name))
     
@@ -478,6 +482,7 @@ def avg_speed(train_file, road_name):
     avg_speeds=[]
     for i, row in tqdm(geo.iterrows(), total=geo.shape[0]):
         # pdb.set_trace()
+
         curr_id = int(row.road_id)
         all_duration, all_time = node_array[curr_id]
         if all_time == 0:
@@ -710,8 +715,9 @@ def preprocess_all(config):
     preprocess_feature(config)
     preprocess_neighbor(config)
     preprocess_traj(config)
-    preprocess_od(config)
+    # preprocess_od(config)
     preprocess_detour(config)
+    avg_speed(config)
 
 # config={'dataset': "bj"}
 # avg_speed('/home/panda/remote/zwt/Map3.0/veccity/cache/dataset_cache/cd/traj_road_train.csv','cd')

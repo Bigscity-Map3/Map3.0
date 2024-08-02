@@ -64,7 +64,9 @@ class Toast(AbstractReprLearningModel):
         loss = next_loss + mask_loss
         return loss
     
-    def encode_sequence(self,seq,padding_masks,**kwargs):
+    def encode_sequence(self, batch):
+        seq=batch['seq'].to(self.device)
+        padding_masks=batch['padding_masks'].to(self.device)
         return self.model.encode_sequence(seq,padding_masks)     
 
     def get_w2v_embed(self):

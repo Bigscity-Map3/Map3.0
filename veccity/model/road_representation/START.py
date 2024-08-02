@@ -83,21 +83,18 @@ class START(nn.Module):
         emb=self.bert.get_token_embedding(graph_dict)
         return emb
     
-    def encode_sequence(self,sequences,lens,**kwargs):
+    def get_static_embedding(self,graph_dict):
+        emb=self.bert.get_token_embedding(graph_dict)
+        return emb
+    
+    def encode_sequence(self,batch):
         device=sequences.device
 
-        graph_dict=kwargs['graph_dict']
-        if 'tlist' in kwargs:
-            tlist=kwargs['tlist']
-            batch_temporal_mat = self._cal_mat(tlist).to(device)
-        else:
-            batch_temporal_mat=torch.zeros([sequences.size(0),sequences.size(1),self.d_model]).to(device)
+        graph_dict=batch['graph_dict']
+        batch_temporal_mat=batch['batch_temporal_mat']
+        padding_masks=batch['padding_masks']
+
         
-        batch_size, max_seq_len = sequences.size()
-        
-        padding_masks = torch.ones([batch_size,max_seq_len],dtype=torch.int64).to(device)
-        for i in range(batch_size):
-            padding_masks[i,int(lens[i]):]= 0
         sequences = sequences.unsqueeze(-1)
         token_emb, _, _ = self.bert(x=sequences, padding_masks=padding_masks,
                                                 batch_temporal_mat=batch_temporal_mat, graph_dict=graph_dict) 

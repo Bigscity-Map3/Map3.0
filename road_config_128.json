@@ -11,5 +11,4 @@
     "downstream_hidden_dim" : 512,
     "cache": true,
     "num_workers":3
-
   }

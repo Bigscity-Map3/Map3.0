@@ -5,6 +5,7 @@ import numpy as np
 import os
 import json
 import pandas as pd
+from tqdm import tqdm
 
 
 class JCLRNTDataset(LineSeqDataset):
@@ -38,16 +39,32 @@ class JCLRNTDataset(LineSeqDataset):
         self.edge_index=[]
         od_path=os.path.join(self.data_path,f"{self.dataset}.od")
         self.od_matrix=np.zeros((self.num_nodes,self.num_nodes),dtype=np.float32)
-        od_data=pd.read_csv(od_path)
         
-        for i in range(od_data.shape[0]):
-            origin_road=od_data['origin_id'][i]
-            destination_road=od_data['destination_id'][i]
-            if origin_road in self.geo_to_ind and destination_road in self.geo_to_ind:
-                o_id=self.geo_to_ind[origin_road]
-                d_id=self.geo_to_ind[destination_road]
-                self.od_matrix[o_id][d_id]=od_data['flow'][i]
-                self.edge_index.append((o_id,d_id))
+        if not os.path.exists(od_path):
+            traj_df = pd.read_csv(self.traj_path)
+            traj_list = []
+            for i in tqdm(range(len(traj_df))):
+                path = traj_df.loc[i, 'path']
+                path = path[1:len(path) - 1].split(',')
+                path = [int(s) for s in path]
+                origin_road=path[0]
+                destination_road=path[-1]
+                if origin_road in self.geo_to_ind and destination_road in self.geo_to_ind:
+                    o_id=self.geo_to_ind[origin_road]
+                    d_id=self.geo_to_ind[destination_road]
+                    self.od_matrix[o_id][d_id]+=1
+                    self.edge_index.append((o_id,d_id))
+        else:
+            od_data=pd.read_csv(od_path)
+        
+            for i in range(od_data.shape[0]):
+                origin_road=od_data['origin_id'][i]
+                destination_road=od_data['destination_id'][i]
+                if origin_road in self.geo_to_ind and destination_road in self.geo_to_ind:
+                    o_id=self.geo_to_ind[origin_road]
+                    d_id=self.geo_to_ind[destination_road]
+                    self.od_matrix[o_id][d_id]=od_data['flow'][i]
+                    self.edge_index.append((o_id,d_id))
 
         self.edge_index = torch.Tensor(list(self.edge_index)).transpose(1,0).to(self.device)
 
